@@ -1,3 +1,9 @@
+### Project Guide ###
+PROGRESS.md
+UPDATE_GUIDE.md
+REQUIREMENTS.md
+CHECKLIST.md
+
 ### example code ###
 apps/commerce-api/src/main/java/com/loopers/example
 apps/commerce-api/src/test/java/com/loopers/example
