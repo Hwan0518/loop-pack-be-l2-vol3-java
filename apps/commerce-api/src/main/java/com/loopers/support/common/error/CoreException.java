@@ -1,4 +1,4 @@
-package com.loopers.user.support.common.error;
+package com.loopers.support.common.error;
 
 
 import lombok.Getter;
