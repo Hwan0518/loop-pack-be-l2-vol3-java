@@ -2,8 +2,9 @@ package com.loopers.user.application.facade;
 
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
-import com.loopers.user.application.dto.command.UserChangePasswordCommand;
-import com.loopers.user.application.dto.command.UserSignUpCommand;
+import com.loopers.user.application.dto.in.UserChangePasswordInDto;
+import com.loopers.user.application.dto.in.UserSignUpInDto;
+import com.loopers.user.application.dto.out.UserSignUpOutDto;
 import com.loopers.user.application.service.UserCommandService;
 import com.loopers.user.application.service.UserQueryService;
 import com.loopers.user.domain.model.User;
@@ -52,11 +53,11 @@ class UserCommandFacadeTest {
 	class SignUpTest {
 
 		@Test
-		@DisplayName("[UserCommandFacade.signUp()] 유효한 회원가입 정보 -> User 반환. "
+		@DisplayName("[UserCommandFacade.signUp()] 유효한 회원가입 정보 -> UserSignUpOutDto 반환. "
 			+ "QueryService로 중복 체크 후 CommandService로 저장")
 		void signUpSuccess() {
 			// Arrange
-			UserSignUpCommand command = new UserSignUpCommand(
+			UserSignUpInDto inDto = new UserSignUpInDto(
 				"testuser01",
 				"Test1234!",
 				"홍길동",
@@ -78,15 +79,15 @@ class UserCommandFacadeTest {
 			});
 
 			// Act
-			User result = userCommandFacade.signUp(command);
+			UserSignUpOutDto result = userCommandFacade.signUp(inDto);
 
 			// Assert
 			assertAll(
 				() -> assertThat(result).isNotNull(),
-				() -> assertThat(result.getId()).isEqualTo(1L),
-				() -> assertThat(result.getLoginId()).isEqualTo("testuser01"),
-				() -> assertThat(result.getName()).isEqualTo("홍길동"),
-				() -> assertThat(result.getEmail()).isEqualTo("test@example.com")
+				() -> assertThat(result.id()).isEqualTo(1L),
+				() -> assertThat(result.loginId()).isEqualTo("testuser01"),
+				() -> assertThat(result.name()).isEqualTo("홍길동"),
+				() -> assertThat(result.email()).isEqualTo("test@example.com")
 			);
 			verify(userQueryService).existsByLoginId("testuser01");
 			verify(userCommandService).createUser(any(User.class));
@@ -97,7 +98,7 @@ class UserCommandFacadeTest {
 			+ "'  TestUser01  ' -> 'testuser01'로 정규화 후 existsByLoginId 호출")
 		void signUpNormalizesLoginIdBeforeDuplicateCheck() {
 			// Arrange
-			UserSignUpCommand command = new UserSignUpCommand(
+			UserSignUpInDto inDto = new UserSignUpInDto(
 				"  TestUser01  ",
 				"Test1234!",
 				"홍길동",
@@ -119,12 +120,12 @@ class UserCommandFacadeTest {
 			});
 
 			// Act
-			User result = userCommandFacade.signUp(command);
+			UserSignUpOutDto result = userCommandFacade.signUp(inDto);
 
 			// Assert
 			assertAll(
 				() -> assertThat(result).isNotNull(),
-				() -> assertThat(result.getLoginId()).isEqualTo("testuser01")
+				() -> assertThat(result.loginId()).isEqualTo("testuser01")
 			);
 			verify(userQueryService).existsByLoginId("testuser01");
 		}
@@ -134,7 +135,7 @@ class UserCommandFacadeTest {
 			+ "에러 메시지: '이미 가입된 로그인 ID입니다.'")
 		void signUpFailWhenLoginIdAlreadyExists() {
 			// Arrange
-			UserSignUpCommand command = new UserSignUpCommand(
+			UserSignUpInDto inDto = new UserSignUpInDto(
 				"existinguser",
 				"Test1234!",
 				"홍길동",
@@ -146,7 +147,7 @@ class UserCommandFacadeTest {
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> userCommandFacade.signUp(command));
+				() -> userCommandFacade.signUp(inDto));
 
 			// Assert
 			assertAll(
@@ -170,14 +171,14 @@ class UserCommandFacadeTest {
 			User user = User.create("testuser01", "Test1234!", "홍길동",
 				LocalDate.of(1990, 1, 15), "test@example.com");
 
-			UserChangePasswordCommand command = new UserChangePasswordCommand("Test1234!", "NewPass1234!");
+			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "NewPass1234!");
 
 			given(userQueryService.findByLoginId("testuser01")).willReturn(Optional.of(user));
 			given(userCommandService.updateUser(any(User.class))).willReturn(user);
 
 			// Act & Assert
 			assertDoesNotThrow(() ->
-				userCommandFacade.changePassword("testuser01", "Test1234!", command));
+				userCommandFacade.changePassword("testuser01", "Test1234!", inDto));
 
 			verify(userQueryService).findByLoginId("testuser01");
 			verify(userCommandService).updateUser(any(User.class));
@@ -190,11 +191,11 @@ class UserCommandFacadeTest {
 			+ "인증 실패: 로그인 ID 미제공")
 		void failWhenLoginIdHeaderIsNullOrBlank(String loginId) {
 			// Arrange
-			UserChangePasswordCommand command = new UserChangePasswordCommand("Test1234!", "NewPass1234!");
+			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "NewPass1234!");
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> userCommandFacade.changePassword(loginId, "Test1234!", command));
+				() -> userCommandFacade.changePassword(loginId, "Test1234!", inDto));
 
 			// Assert
 			assertAll(
@@ -210,11 +211,11 @@ class UserCommandFacadeTest {
 			+ "인증 실패: 비밀번호 미제공")
 		void failWhenPasswordHeaderIsNullOrBlank(String password) {
 			// Arrange
-			UserChangePasswordCommand command = new UserChangePasswordCommand("Test1234!", "NewPass1234!");
+			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "NewPass1234!");
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> userCommandFacade.changePassword("testuser01", password, command));
+				() -> userCommandFacade.changePassword("testuser01", password, inDto));
 
 			// Assert
 			assertAll(
@@ -228,13 +229,13 @@ class UserCommandFacadeTest {
 			+ "인증 실패: 사용자 미존재")
 		void failWhenUserNotFound() {
 			// Arrange
-			UserChangePasswordCommand command = new UserChangePasswordCommand("Test1234!", "NewPass1234!");
+			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "NewPass1234!");
 
 			given(userQueryService.findByLoginId("nonexistent")).willReturn(Optional.empty());
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> userCommandFacade.changePassword("nonexistent", "Test1234!", command));
+				() -> userCommandFacade.changePassword("nonexistent", "Test1234!", inDto));
 
 			// Assert
 			assertAll(
@@ -251,13 +252,13 @@ class UserCommandFacadeTest {
 			User user = User.create("testuser01", "Test1234!", "홍길동",
 				LocalDate.of(1990, 1, 15), "test@example.com");
 
-			UserChangePasswordCommand command = new UserChangePasswordCommand("Test1234!", "NewPass1234!");
+			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "NewPass1234!");
 
 			given(userQueryService.findByLoginId("testuser01")).willReturn(Optional.of(user));
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> userCommandFacade.changePassword("testuser01", "WrongPass1!", command));
+				() -> userCommandFacade.changePassword("testuser01", "WrongPass1!", inDto));
 
 			// Assert
 			assertAll(

@@ -1,6 +1,6 @@
 package com.loopers.user.interfaces.controller.response;
 
-import com.loopers.user.domain.model.User;
+import com.loopers.user.application.dto.out.UserSignUpOutDto;
 
 import java.time.LocalDate;
 
@@ -11,13 +11,13 @@ public record UserSignUpResponse(
 	LocalDate birthday,
 	String email
 ) {
-	public static UserSignUpResponse from(User user) {
+	public static UserSignUpResponse from(UserSignUpOutDto outDto) {
 		return new UserSignUpResponse(
-			user.getId(),
-			user.getLoginId(),
-			user.getName(),
-			user.getBirthday(),
-			user.getEmail()
+			outDto.id(),
+			outDto.loginId(),
+			outDto.name(),
+			outDto.birthday(),
+			outDto.email()
 		);
 	}
 }

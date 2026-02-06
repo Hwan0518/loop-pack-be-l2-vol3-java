@@ -1,6 +1,6 @@
 package com.loopers.user.interfaces.controller.response;
 
-import com.loopers.user.domain.model.User;
+import com.loopers.user.application.dto.out.UserMeOutDto;
 
 import java.time.LocalDate;
 
@@ -10,12 +10,12 @@ public record UserMeResponse(
 	LocalDate birthday,
 	String email
 ) {
-	public static UserMeResponse from(User user) {
+	public static UserMeResponse from(UserMeOutDto outDto) {
 		return new UserMeResponse(
-			user.getLoginId(),
-			maskName(user.getName()),
-			user.getBirthday(),
-			user.getEmail()
+			outDto.loginId(),
+			maskName(outDto.name()),
+			outDto.birthday(),
+			outDto.email()
 		);
 	}
 

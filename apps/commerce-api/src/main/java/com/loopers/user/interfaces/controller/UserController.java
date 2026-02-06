@@ -1,8 +1,9 @@
 package com.loopers.user.interfaces.controller;
 
+import com.loopers.user.application.dto.out.UserMeOutDto;
+import com.loopers.user.application.dto.out.UserSignUpOutDto;
 import com.loopers.user.application.facade.UserCommandFacade;
 import com.loopers.user.application.facade.UserQueryFacade;
-import com.loopers.user.domain.model.User;
 import com.loopers.user.interfaces.controller.request.UserChangePasswordRequest;
 import com.loopers.user.interfaces.controller.request.UserSignUpRequest;
 import com.loopers.user.interfaces.controller.response.UserMeResponse;
@@ -32,8 +33,8 @@ public class UserController {
 
 	@PostMapping
 	public ResponseEntity<UserSignUpResponse> signUp(@Valid @RequestBody UserSignUpRequest request) {
-		User user = userCommandFacade.signUp(request.toCommand());
-		UserSignUpResponse response = UserSignUpResponse.from(user);
+		UserSignUpOutDto outDto = userCommandFacade.signUp(request.toInDto());
+		UserSignUpResponse response = UserSignUpResponse.from(outDto);
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
 	}
 
@@ -41,8 +42,8 @@ public class UserController {
 	public ResponseEntity<UserMeResponse> getMe(
 			@RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
 			@RequestHeader(value = "X-Loopers-LoginPw", required = false) String password) {
-		User user = userQueryFacade.getMe(loginId, password);
-		UserMeResponse response = UserMeResponse.from(user);
+		UserMeOutDto outDto = userQueryFacade.getMe(loginId, password);
+		UserMeResponse response = UserMeResponse.from(outDto);
 		return ResponseEntity.ok(response);
 	}
 
@@ -51,7 +52,7 @@ public class UserController {
 			@RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
 			@RequestHeader(value = "X-Loopers-LoginPw", required = false) String password,
 			@Valid @RequestBody UserChangePasswordRequest request) {
-		userCommandFacade.changePassword(loginId, password, request.toCommand());
+		userCommandFacade.changePassword(loginId, password, request.toInDto());
 		return ResponseEntity.ok().build();
 	}
 }

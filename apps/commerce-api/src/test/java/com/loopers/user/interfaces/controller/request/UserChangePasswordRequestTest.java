@@ -1,6 +1,6 @@
 package com.loopers.user.interfaces.controller.request;
 
-import com.loopers.user.application.dto.command.UserChangePasswordCommand;
+import com.loopers.user.application.dto.in.UserChangePasswordInDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -11,9 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class UserChangePasswordRequestTest {
 
 	@Test
-	@DisplayName("[UserChangePasswordRequest.toCommand()] 유효한 Request -> UserChangePasswordCommand 변환. "
+	@DisplayName("[UserChangePasswordRequest.toInDto()] 유효한 Request -> UserChangePasswordInDto 변환. "
 		+ "currentPassword, newPassword 필드가 정확히 매핑됨")
-	void toCommand() {
+	void toInDto() {
 		// Arrange
 		String currentPassword = "Test1234!";
 		String newPassword = "NewPass1234!";
@@ -21,13 +21,13 @@ class UserChangePasswordRequestTest {
 		UserChangePasswordRequest request = new UserChangePasswordRequest(currentPassword, newPassword);
 
 		// Act
-		UserChangePasswordCommand command = request.toCommand();
+		UserChangePasswordInDto inDto = request.toInDto();
 
 		// Assert
 		assertAll(
-			() -> assertThat(command).isNotNull(),
-			() -> assertThat(command.currentPassword()).isEqualTo(currentPassword),
-			() -> assertThat(command.newPassword()).isEqualTo(newPassword)
+			() -> assertThat(inDto).isNotNull(),
+			() -> assertThat(inDto.currentPassword()).isEqualTo(currentPassword),
+			() -> assertThat(inDto.newPassword()).isEqualTo(newPassword)
 		);
 	}
 }

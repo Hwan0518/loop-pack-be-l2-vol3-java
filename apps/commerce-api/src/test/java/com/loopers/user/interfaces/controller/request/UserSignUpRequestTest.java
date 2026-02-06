@@ -1,6 +1,6 @@
 package com.loopers.user.interfaces.controller.request;
 
-import com.loopers.user.application.dto.command.UserSignUpCommand;
+import com.loopers.user.application.dto.in.UserSignUpInDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,9 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class UserSignUpRequestTest {
 
 	@Test
-	@DisplayName("[UserSignUpRequest.toCommand()] 유효한 Request -> UserSignUpCommand 변환. "
+	@DisplayName("[UserSignUpRequest.toInDto()] 유효한 Request -> UserSignUpInDto 변환. "
 		+ "모든 필드(loginId, password, name, birthday, email)가 정확히 매핑됨")
-	void toCommand() {
+	void toInDto() {
 		// Arrange
 		String loginId = "testuser01";
 		String password = "Test1234!";
@@ -26,16 +26,16 @@ class UserSignUpRequestTest {
 		UserSignUpRequest request = new UserSignUpRequest(loginId, password, name, birthday, email);
 
 		// Act
-		UserSignUpCommand command = request.toCommand();
+		UserSignUpInDto inDto = request.toInDto();
 
 		// Assert
 		assertAll(
-			() -> assertThat(command).isNotNull(),
-			() -> assertThat(command.loginId()).isEqualTo(loginId),
-			() -> assertThat(command.password()).isEqualTo(password),
-			() -> assertThat(command.name()).isEqualTo(name),
-			() -> assertThat(command.birthday()).isEqualTo(birthday),
-			() -> assertThat(command.email()).isEqualTo(email)
+			() -> assertThat(inDto).isNotNull(),
+			() -> assertThat(inDto.loginId()).isEqualTo(loginId),
+			() -> assertThat(inDto.password()).isEqualTo(password),
+			() -> assertThat(inDto.name()).isEqualTo(name),
+			() -> assertThat(inDto.birthday()).isEqualTo(birthday),
+			() -> assertThat(inDto.email()).isEqualTo(email)
 		);
 	}
 }
