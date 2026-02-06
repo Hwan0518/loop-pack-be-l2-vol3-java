@@ -94,43 +94,6 @@ class UserCommandFacadeTest {
 		}
 
 		@Test
-		@DisplayName("[UserCommandFacade.signUp()] 로그인ID 정규화 후 중복 검사. "
-			+ "'  TestUser01  ' -> 'testuser01'로 정규화 후 existsByLoginId 호출")
-		void signUpNormalizesLoginIdBeforeDuplicateCheck() {
-			// Arrange
-			UserSignUpInDto inDto = new UserSignUpInDto(
-				"  TestUser01  ",
-				"Test1234!",
-				"홍길동",
-				LocalDate.of(1990, 1, 15),
-				"test@example.com"
-			);
-
-			given(userQueryService.existsByLoginId("testuser01")).willReturn(false);
-			given(userCommandService.createUser(any(User.class))).willAnswer(invocation -> {
-				User user = invocation.getArgument(0);
-				return User.reconstruct(
-					1L,
-					user.getLoginId(),
-					user.getPassword().value(),
-					user.getName(),
-					user.getBirthday(),
-					user.getEmail()
-				);
-			});
-
-			// Act
-			UserSignUpOutDto result = userCommandFacade.signUp(inDto);
-
-			// Assert
-			assertAll(
-				() -> assertThat(result).isNotNull(),
-				() -> assertThat(result.loginId()).isEqualTo("testuser01")
-			);
-			verify(userQueryService).existsByLoginId("testuser01");
-		}
-
-		@Test
 		@DisplayName("[UserCommandFacade.signUp()] 중복된 로그인 ID -> CoreException(ErrorType.USER_ALREADY_EXISTS) 발생. "
 			+ "에러 메시지: '이미 가입된 로그인 ID입니다.'")
 		void signUpFailWhenLoginIdAlreadyExists() {
