@@ -9,13 +9,14 @@ import java.util.regex.Pattern;
 
 public class User {
 
+	private static final int LOGIN_ID_MIN_LENGTH = 4;
 	private static final int LOGIN_ID_MAX_LENGTH = 20;
-	private static final int NAME_MAX_LENGTH = 100;
+	private static final int NAME_MAX_LENGTH = 50;
 	private static final int EMAIL_MAX_LENGTH = 254;
 	private static final LocalDate MIN_BIRTHDAY = LocalDate.of(1900, 1, 1);
 
 	private static final Pattern LOGIN_ID_PATTERN = Pattern.compile("^[a-zA-Z0-9]+$");
-	private static final Pattern NAME_PATTERN = Pattern.compile("^[가-힣a-zA-Z]+$");
+	private static final Pattern NAME_PATTERN = Pattern.compile("^[가-힣a-zA-Z ]+$");
 	private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
 	private static final Pattern EMAIL_DOMAIN_INVALID_PATTERN = Pattern.compile("(\\.\\.|^\\.|\\.$)");
 
@@ -36,13 +37,17 @@ public class User {
 	}
 
 	public static User create(String loginId, String rawPassword, String name, LocalDate birthday, String email) {
-		validateLoginId(loginId);
-		validateName(name);
-		validateEmail(email);
+		String normalizedLoginId = loginId != null ? loginId.trim().toLowerCase() : null;
+		String trimmedName = name != null ? name.trim() : null;
+		String trimmedEmail = email != null ? email.trim() : null;
+
+		validateLoginId(normalizedLoginId);
+		validateName(trimmedName);
+		validateEmail(trimmedEmail);
 		validateBirthday(birthday);
 
 		Password password = Password.create(rawPassword, birthday);
-		return new User(null, loginId, password, name, birthday, email);
+		return new User(null, normalizedLoginId, password, trimmedName, birthday, trimmedEmail);
 	}
 
 	public static User reconstruct(Long id, String loginId, String encodedPassword, String name, LocalDate birthday, String email) {
@@ -97,6 +102,7 @@ public class User {
 	private static void validateLoginId(String loginId) {
 		if (loginId == null ||
 			loginId.isBlank() ||
+			loginId.length() < LOGIN_ID_MIN_LENGTH ||
 			loginId.length() > LOGIN_ID_MAX_LENGTH ||
 			!LOGIN_ID_PATTERN.matcher(loginId).matches()) {
 			throw new CoreException(ErrorType.INVALID_LOGIN_ID_FORMAT);
@@ -128,8 +134,8 @@ public class User {
 
 	private static void validateBirthday(LocalDate birthday) {
 		if (birthday == null ||
-			birthday.isAfter(LocalDate.now()) ||
-			birthday.isBefore(MIN_BIRTHDAY)) {
+			!birthday.isAfter(MIN_BIRTHDAY) ||
+			!birthday.isBefore(LocalDate.now())) {
 			throw new CoreException(ErrorType.INVALID_BIRTHDAY);
 		}
 	}
