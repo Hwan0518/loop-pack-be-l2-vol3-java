@@ -22,11 +22,7 @@ public class UserCommandFacade {
 
 	@Transactional
 	public UserSignUpOutDto signUp(UserSignUpInDto inDto) {
-		String normalizedLoginId = inDto.loginId() != null
-			? inDto.loginId().trim().toLowerCase()
-			: inDto.loginId();
-
-		if (userQueryService.existsByLoginId(normalizedLoginId)) {
+		if (userQueryService.existsByLoginId(inDto.loginId())) {
 			throw new CoreException(ErrorType.USER_ALREADY_EXISTS);
 		}
 
