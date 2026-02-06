@@ -32,6 +32,30 @@ class UserCommandServiceTest {
 	}
 
 	@Test
+	@DisplayName("[UserCommandService.updateUser()] 변경된 User 저장 -> 저장된 User 반환. "
+		+ "repository.save() 위임")
+	void updateUserSuccess() {
+		// Arrange
+		User user = User.reconstruct(
+			1L, "testuser01", "encodedPassword", "홍길동",
+			LocalDate.of(1990, 1, 15), "test@example.com"
+		);
+
+		given(userCommandRepository.save(any(User.class))).willReturn(user);
+
+		// Act
+		User result = userCommandService.updateUser(user);
+
+		// Assert
+		assertAll(
+			() -> assertThat(result).isNotNull(),
+			() -> assertThat(result.getId()).isEqualTo(1L),
+			() -> assertThat(result.getLoginId()).isEqualTo("testuser01")
+		);
+		verify(userCommandRepository).save(user);
+	}
+
+	@Test
 	@DisplayName("[UserCommandService.createUser()] 유효한 User 저장 -> 저장된 User 반환. "
 		+ "ID가 할당되어 반환됨")
 	void createUserSuccess() {
