@@ -19,6 +19,7 @@ public record Password(String value) {
 	private static final Pattern LOWERCASE_PATTERN = Pattern.compile("[a-z]");
 	private static final Pattern DIGIT_PATTERN = Pattern.compile("[0-9]");
 	private static final Pattern SPECIAL_CHAR_PATTERN = Pattern.compile("[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]");
+	private static final Pattern ALLOWED_CHARS_PATTERN = Pattern.compile("^[a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]+$");
 
 	public static Password create(String rawPassword, LocalDate birthday) {
 		validateFormat(rawPassword);
@@ -41,6 +42,7 @@ public record Password(String value) {
 		if (rawPassword == null ||
 			rawPassword.length() < MIN_LENGTH ||
 			rawPassword.length() > MAX_LENGTH ||
+			!ALLOWED_CHARS_PATTERN.matcher(rawPassword).matches() ||
 			!UPPERCASE_PATTERN.matcher(rawPassword).find() ||
 			!LOWERCASE_PATTERN.matcher(rawPassword).find() ||
 			!DIGIT_PATTERN.matcher(rawPassword).find() ||
@@ -52,8 +54,9 @@ public record Password(String value) {
 	private static void validateNotContainsBirthday(String rawPassword, LocalDate birthday) {
 		String yyyymmdd = birthday.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
 		String yymmdd = birthday.format(DateTimeFormatter.ofPattern("yyMMdd"));
+		String yyyyDashMmDashDd = birthday.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
-		if (rawPassword.contains(yyyymmdd) || rawPassword.contains(yymmdd)) {
+		if (rawPassword.contains(yyyymmdd) || rawPassword.contains(yymmdd) || rawPassword.contains(yyyyDashMmDashDd)) {
 			throw new CoreException(ErrorType.PASSWORD_CONTAINS_BIRTHDAY);
 		}
 	}

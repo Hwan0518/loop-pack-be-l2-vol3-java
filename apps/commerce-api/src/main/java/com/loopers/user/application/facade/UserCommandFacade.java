@@ -24,7 +24,11 @@ public class UserCommandFacade {
 
 	@Transactional
 	public User signUp(UserSignUpCommand command) {
-		if (userQueryService.existsByLoginId(command.loginId())) {
+		String normalizedLoginId = command.loginId() != null
+			? command.loginId().trim().toLowerCase()
+			: command.loginId();
+
+		if (userQueryService.existsByLoginId(normalizedLoginId)) {
 			throw new CoreException(ErrorType.USER_ALREADY_EXISTS);
 		}
 

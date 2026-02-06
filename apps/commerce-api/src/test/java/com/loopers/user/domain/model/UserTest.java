@@ -44,6 +44,37 @@ class UserTest {
 				() -> assertThat(user.getEmail()).isEqualTo(VALID_EMAIL)
 			);
 		}
+
+		@Test
+		@DisplayName("[User.create()] 로그인ID 앞뒤 공백 및 대문자 -> trim 후 소문자 정규화. "
+			+ "'  TestUser01  ' -> 'testuser01'")
+		void createNormalizesLoginId() {
+			// Act
+			User user = User.create("  TestUser01  ", VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL);
+
+			// Assert
+			assertThat(user.getLoginId()).isEqualTo("testuser01");
+		}
+
+		@Test
+		@DisplayName("[User.create()] 이름 앞뒤 공백 -> trim 정규화. '  홍길동  ' -> '홍길동'")
+		void createTrimsName() {
+			// Act
+			User user = User.create(VALID_LOGIN_ID, VALID_PASSWORD, "  홍길동  ", VALID_BIRTHDAY, VALID_EMAIL);
+
+			// Assert
+			assertThat(user.getName()).isEqualTo("홍길동");
+		}
+
+		@Test
+		@DisplayName("[User.create()] 이메일 앞뒤 공백 -> trim 정규화. '  test@example.com  ' -> 'test@example.com'")
+		void createTrimsEmail() {
+			// Act
+			User user = User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, "  test@example.com  ");
+
+			// Assert
+			assertThat(user.getEmail()).isEqualTo("test@example.com");
+		}
 	}
 
 	@Nested
@@ -53,7 +84,7 @@ class UserTest {
 		@ParameterizedTest
 		@NullAndEmptySource
 		@DisplayName("[User.create()] 로그인ID가 null 또는 빈 문자열 -> CoreException(ErrorType.INVALID_LOGIN_ID_FORMAT) 발생. "
-			+ "에러 메시지: '로그인 ID는 영문과 숫자만 사용 가능하며, 1~20자여야 합니다.'")
+			+ "에러 메시지: '로그인 ID는 영문과 숫자만 사용 가능하며, 4~20자여야 합니다.'")
 		void failWhenLoginIdIsNullOrEmpty(String loginId) {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
@@ -68,7 +99,7 @@ class UserTest {
 
 		@Test
 		@DisplayName("[User.create()] 로그인ID가 20자 초과 -> CoreException(ErrorType.INVALID_LOGIN_ID_FORMAT) 발생. "
-			+ "에러 메시지: '로그인 ID는 영문과 숫자만 사용 가능하며, 1~20자여야 합니다.'")
+			+ "에러 메시지: '로그인 ID는 영문과 숫자만 사용 가능하며, 4~20자여야 합니다.'")
 		void failWhenLoginIdExceeds20Characters() {
 			// Arrange
 			String loginId = "a".repeat(21);
@@ -87,8 +118,42 @@ class UserTest {
 		@ParameterizedTest
 		@ValueSource(strings = {"test_user", "test-user", "test user", "test@user", "테스트유저"})
 		@DisplayName("[User.create()] 로그인ID에 영문/숫자 외 문자 포함 -> CoreException(ErrorType.INVALID_LOGIN_ID_FORMAT) 발생. "
-			+ "에러 메시지: '로그인 ID는 영문과 숫자만 사용 가능하며, 1~20자여야 합니다.'")
+			+ "에러 메시지: '로그인 ID는 영문과 숫자만 사용 가능하며, 4~20자여야 합니다.'")
 		void failWhenLoginIdContainsInvalidCharacters(String loginId) {
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> User.create(loginId, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT.getMessage())
+			);
+		}
+
+		@Test
+		@DisplayName("[User.create()] 로그인ID가 4자 미만 -> CoreException(ErrorType.INVALID_LOGIN_ID_FORMAT) 발생. "
+			+ "최소 길이 4자 미충족")
+		void failWhenLoginIdLessThan4Characters() {
+			// Arrange
+			String loginId = "abc";
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> User.create(loginId, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT.getMessage())
+			);
+		}
+
+		@ParameterizedTest
+		@ValueSource(strings = {"   ", "\t"})
+		@DisplayName("[User.create()] 로그인ID가 공백/탭 문자열만 -> CoreException(ErrorType.INVALID_LOGIN_ID_FORMAT) 발생. "
+			+ "trim 후 빈 문자열이므로 거부")
+		void failWhenLoginIdIsOnlyWhitespace(String loginId) {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
 				() -> User.create(loginId, VALID_PASSWORD, VALID_NAME, VALID_BIRTHDAY, VALID_EMAIL));
@@ -108,7 +173,7 @@ class UserTest {
 		@ParameterizedTest
 		@NullAndEmptySource
 		@DisplayName("[User.create()] 이름이 null 또는 빈 문자열 -> CoreException(ErrorType.INVALID_NAME_FORMAT) 발생. "
-			+ "에러 메시지: '이름은 한글 또는 영문만 사용 가능하며, 최대 100자입니다.'")
+			+ "에러 메시지: '이름은 한글, 영문, 공백만 사용 가능하며, 최대 50자입니다.'")
 		void failWhenNameIsNullOrEmpty(String name) {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
@@ -122,11 +187,11 @@ class UserTest {
 		}
 
 		@Test
-		@DisplayName("[User.create()] 이름이 100자 초과 -> CoreException(ErrorType.INVALID_NAME_FORMAT) 발생. "
-			+ "에러 메시지: '이름은 한글 또는 영문만 사용 가능하며, 최대 100자입니다.'")
-		void failWhenNameExceeds100Characters() {
+		@DisplayName("[User.create()] 이름이 50자 초과 -> CoreException(ErrorType.INVALID_NAME_FORMAT) 발생. "
+			+ "에러 메시지: '이름은 한글, 영문, 공백만 사용 가능하며, 최대 50자입니다.'")
+		void failWhenNameExceeds50Characters() {
 			// Arrange
-			String name = "가".repeat(101);
+			String name = "가".repeat(51);
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
@@ -140,9 +205,9 @@ class UserTest {
 		}
 
 		@ParameterizedTest
-		@ValueSource(strings = {"홍길동123", "Hong123", "홍길동!", "Hong Gildong"})
-		@DisplayName("[User.create()] 이름에 숫자/특수문자/공백 포함 -> CoreException(ErrorType.INVALID_NAME_FORMAT) 발생. "
-			+ "에러 메시지: '이름은 한글 또는 영문만 사용 가능하며, 최대 100자입니다.'")
+		@ValueSource(strings = {"홍길동123", "Hong123", "홍길동!"})
+		@DisplayName("[User.create()] 이름에 숫자/특수문자 포함 -> CoreException(ErrorType.INVALID_NAME_FORMAT) 발생. "
+			+ "에러 메시지: '이름은 한글, 영문, 공백만 사용 가능하며, 최대 50자입니다.'")
 		void failWhenNameContainsInvalidCharacters(String name) {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
@@ -163,6 +228,16 @@ class UserTest {
 
 			// Assert
 			assertThat(user.getName()).isEqualTo("홍길동");
+		}
+
+		@Test
+		@DisplayName("[User.create()] 공백 포함 영문 이름 -> User 객체 반환. 'Hong Gildong' 허용")
+		void createWithSpaceInName() {
+			// Act
+			User user = User.create(VALID_LOGIN_ID, VALID_PASSWORD, "Hong Gildong", VALID_BIRTHDAY, VALID_EMAIL);
+
+			// Assert
+			assertThat(user.getName()).isEqualTo("Hong Gildong");
 		}
 
 		@Test
@@ -294,6 +369,42 @@ class UserTest {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
 				() -> User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, oldBirthday, VALID_EMAIL));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_BIRTHDAY),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_BIRTHDAY.getMessage())
+			);
+		}
+
+		@Test
+		@DisplayName("[User.create()] 생년월일이 정확히 1900-01-01 -> CoreException(ErrorType.INVALID_BIRTHDAY) 발생. "
+			+ "1900-01-01 경계값 미허용 (초과만 허용)")
+		void failWhenBirthdayIsExactly19000101() {
+			// Arrange
+			LocalDate boundary = LocalDate.of(1900, 1, 1);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, boundary, VALID_EMAIL));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_BIRTHDAY),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_BIRTHDAY.getMessage())
+			);
+		}
+
+		@Test
+		@DisplayName("[User.create()] 생년월일이 오늘 당일 -> CoreException(ErrorType.INVALID_BIRTHDAY) 발생. "
+			+ "오늘 날짜 경계값 미허용 (미만만 허용)")
+		void failWhenBirthdayIsToday() {
+			// Arrange
+			LocalDate today = LocalDate.now();
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, today, VALID_EMAIL));
 
 			// Assert
 			assertAll(

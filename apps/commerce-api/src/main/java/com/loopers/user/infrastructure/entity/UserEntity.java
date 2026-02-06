@@ -23,7 +23,7 @@ public class UserEntity extends BaseEntity {
 	@Column(name = "password", nullable = false)
 	private String password;
 
-	@Column(name = "name", nullable = false, length = 100)
+	@Column(name = "name", nullable = false, length = 50)
 	private String name;
 
 	@Column(name = "birthday", nullable = false)

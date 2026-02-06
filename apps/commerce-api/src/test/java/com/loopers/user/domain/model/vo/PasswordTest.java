@@ -126,6 +126,56 @@ class PasswordTest {
 			);
 		}
 
+		@ParameterizedTest
+		@ValueSource(strings = {"Test 1234!", "Test\t1234!", "Test\n1234!"})
+		@DisplayName("[Password.create()] 비밀번호에 공백/탭/개행 포함 -> CoreException(ErrorType.INVALID_PASSWORD_FORMAT) 발생. "
+			+ "허용 문자 외 공백 문자 차단")
+		void failWhenPasswordContainsWhitespace(String rawPassword) {
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> Password.create(rawPassword, DEFAULT_BIRTHDAY));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT.getMessage())
+			);
+		}
+
+		@ParameterizedTest
+		@ValueSource(strings = {"Test1234!한글", "Tëst1234!"})
+		@DisplayName("[Password.create()] 비밀번호에 비ASCII 문자 포함 -> CoreException(ErrorType.INVALID_PASSWORD_FORMAT) 발생. "
+			+ "허용 문자 외 한글/특수 유니코드 차단")
+		void failWhenPasswordContainsNonAscii(String rawPassword) {
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> Password.create(rawPassword, DEFAULT_BIRTHDAY));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_PASSWORD_FORMAT.getMessage())
+			);
+		}
+
+		@Test
+		@DisplayName("[Password.create()] 생년월일(YYYY-MM-DD) 포함 -> CoreException(ErrorType.PASSWORD_CONTAINS_BIRTHDAY) 발생. "
+			+ "에러 메시지: '비밀번호에 생년월일을 포함할 수 없습니다.'")
+		void failWhenContainsBirthdayWithDashes() {
+			// Arrange
+			String rawPassword = "Aa1990-01-15!";
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> Password.create(rawPassword, DEFAULT_BIRTHDAY));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.PASSWORD_CONTAINS_BIRTHDAY),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.PASSWORD_CONTAINS_BIRTHDAY.getMessage())
+			);
+		}
+
 		@Test
 		@DisplayName("[Password.create()] 비밀번호가 null -> CoreException(ErrorType.INVALID_PASSWORD_FORMAT) 발생. "
 			+ "에러 메시지: '비밀번호는 8~16자이며, 영문 대소문자, 숫자, 특수문자를 모두 포함해야 합니다.'")

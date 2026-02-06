@@ -233,6 +233,136 @@ class UserControllerE2ETest {
 		}
 
 		@Test
+		@DisplayName("[POST /api/v1/users] 로그인ID 앞뒤 공백 및 대문자 정규화 -> 201 Created. "
+			+ "loginId '  TestUser01  ' -> 'testuser01'로 저장")
+		void signUpNormalizesLoginId() throws Exception {
+			// Arrange
+			UserSignUpRequest request = new UserSignUpRequest(
+				"  TestUser01  ",
+				"Test1234!",
+				"홍길동",
+				LocalDate.of(1990, 1, 15),
+				"test@example.com"
+			);
+
+			// Act & Assert
+			mockMvc.perform(post("/api/v1/users")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.loginId").value("testuser01"));
+		}
+
+		@Test
+		@DisplayName("[POST /api/v1/users] 정규화 후 중복 loginId -> 409 Conflict. "
+			+ "기존 'testuser01' 존재 시 'TestUser01' 가입 시도 -> 중복")
+		void signUpFailDuplicateNormalizedLoginId() throws Exception {
+			// Arrange - 먼저 testuser01 가입
+			signUpUser("testuser01", "Test1234!", "홍길동",
+				LocalDate.of(1990, 1, 15), "test@example.com");
+
+			// 대문자 변형으로 가입 시도
+			UserSignUpRequest request = new UserSignUpRequest(
+				"TestUser01",
+				"Test1234!",
+				"김철수",
+				LocalDate.of(1991, 2, 20),
+				"test2@example.com"
+			);
+
+			// Act & Assert
+			mockMvc.perform(post("/api/v1/users")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value(ErrorType.USER_ALREADY_EXISTS.getCode()));
+		}
+
+		@Test
+		@DisplayName("[POST /api/v1/users] 비밀번호에 공백 포함 -> 400 Bad Request. "
+			+ "에러 코드: INVALID_PASSWORD_FORMAT")
+		void signUpFailPasswordContainsWhitespace() throws Exception {
+			// Arrange
+			UserSignUpRequest request = new UserSignUpRequest(
+				"testuser01",
+				"Test 1234!",
+				"홍길동",
+				LocalDate.of(1990, 1, 15),
+				"test@example.com"
+			);
+
+			// Act & Assert
+			mockMvc.perform(post("/api/v1/users")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_PASSWORD_FORMAT.getCode()));
+		}
+
+		@Test
+		@DisplayName("[POST /api/v1/users] 생년월일 오늘 당일 -> 400 Bad Request. "
+			+ "에러 코드: INVALID_BIRTHDAY")
+		void signUpFailBirthdayIsToday() throws Exception {
+			// Arrange
+			UserSignUpRequest request = new UserSignUpRequest(
+				"testuser01",
+				"Test1234!",
+				"홍길동",
+				LocalDate.now(),
+				"test@example.com"
+			);
+
+			// Act & Assert
+			mockMvc.perform(post("/api/v1/users")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_BIRTHDAY.getCode()));
+		}
+
+		@Test
+		@DisplayName("[POST /api/v1/users] 공백 포함 영문 이름 -> 201 Created. "
+			+ "'Hong Gildong' 허용")
+		void signUpSuccessNameWithSpace() throws Exception {
+			// Arrange
+			UserSignUpRequest request = new UserSignUpRequest(
+				"testuser01",
+				"Test1234!",
+				"Hong Gildong",
+				LocalDate.of(1990, 1, 15),
+				"test@example.com"
+			);
+
+			// Act & Assert
+			mockMvc.perform(post("/api/v1/users")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.name").value("Hong Gildong"));
+		}
+
+		@Test
+		@DisplayName("[POST /api/v1/users] 비밀번호에 생년월일(YYYY-MM-DD) 포함 -> 400 Bad Request. "
+			+ "에러 코드: PASSWORD_CONTAINS_BIRTHDAY")
+		void signUpFailPasswordContainsBirthdayDash() throws Exception {
+			// Arrange
+			UserSignUpRequest request = new UserSignUpRequest(
+				"testuser01",
+				"Aa1990-01-15!",
+				"홍길동",
+				LocalDate.of(1990, 1, 15),
+				"test@example.com"
+			);
+
+			// Act & Assert
+			mockMvc.perform(post("/api/v1/users")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value(ErrorType.PASSWORD_CONTAINS_BIRTHDAY.getCode()));
+		}
+
+		@Test
 		@DisplayName("[POST /api/v1/users] 생년월일 미래 날짜 -> 400 Bad Request. "
 			+ "에러 코드: INVALID_BIRTHDAY")
 		void signUpFailFutureBirthday() throws Exception {
