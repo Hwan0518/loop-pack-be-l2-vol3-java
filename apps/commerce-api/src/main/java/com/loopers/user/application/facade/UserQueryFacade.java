@@ -2,39 +2,31 @@ package com.loopers.user.application.facade;
 
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
-import com.loopers.user.application.repository.UserQueryRepository;
+import com.loopers.user.application.service.UserQueryService;
 import com.loopers.user.domain.model.User;
+import com.loopers.user.support.common.HeaderValidator;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class UserQueryFacade {
 
-	private final UserQueryRepository userQueryRepository;
+	private final UserQueryService userQueryService;
 
-	public UserQueryFacade(UserQueryRepository userQueryRepository) {
-		this.userQueryRepository = userQueryRepository;
+	public UserQueryFacade(UserQueryService userQueryService) {
+		this.userQueryService = userQueryService;
 	}
 
 	@Transactional(readOnly = true)
 	public User getMe(String loginId, String password) {
-		validateHeaders(loginId, password);
+		HeaderValidator.validate(loginId, password);
 
 		String trimmedLoginId = loginId.trim();
-		User user = userQueryRepository.findByLoginId(trimmedLoginId)
+		User user = userQueryService.findByLoginId(trimmedLoginId)
 			.orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED));
 
 		user.authenticate(password);
 
 		return user;
-	}
-
-	private void validateHeaders(String loginId, String password) {
-		if (loginId == null || loginId.isBlank()) {
-			throw new CoreException(ErrorType.UNAUTHORIZED);
-		}
-		if (password == null || password.isBlank()) {
-			throw new CoreException(ErrorType.UNAUTHORIZED);
-		}
 	}
 }

@@ -31,6 +31,9 @@ public record Password(String value) {
 	}
 
 	public boolean matches(String rawPassword) {
+		if (rawPassword == null) {
+			return false;
+		}
 		return this.value.equals(encode(rawPassword));
 	}
 

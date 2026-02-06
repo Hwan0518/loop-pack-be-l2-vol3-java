@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class UserSignUpResponseTest {
 
 	@Test
-	@DisplayName("[from()] User 도메인 객체 -> UserSignUpResponse 변환. "
+	@DisplayName("[UserSignUpResponse.from()] User 도메인 객체 -> UserSignUpResponse 변환. "
 		+ "id, loginId, name, birthday, email이 정확히 매핑됨")
 	void from() {
 		// Arrange
