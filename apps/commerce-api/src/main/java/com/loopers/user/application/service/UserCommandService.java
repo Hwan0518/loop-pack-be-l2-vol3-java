@@ -18,4 +18,9 @@ public class UserCommandService {
 	public User createUser(User user) {
 		return userCommandRepository.save(user);
 	}
+
+	@Transactional
+	public User updateUser(User user) {
+		return userCommandRepository.save(user);
+	}
 }
