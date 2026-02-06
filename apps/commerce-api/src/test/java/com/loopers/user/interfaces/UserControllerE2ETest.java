@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.hasKey;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -373,6 +374,234 @@ class UserControllerE2ETest {
 					.header("X-Loopers-LoginPw", "Test1234!"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.name").value("*"));
+		}
+	}
+
+	@Nested
+	@DisplayName("PATCH /api/v1/users/me/password - 비밀번호 변경")
+	class ChangePasswordTest {
+
+		private void signUpUser(String loginId, String password, String name,
+								LocalDate birthday, String email) throws Exception {
+			UserSignUpRequest request = new UserSignUpRequest(loginId, password, name, birthday, email);
+			mockMvc.perform(post("/api/v1/users")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isCreated());
+		}
+
+		@Test
+		@DisplayName("[PATCH /api/v1/users/me/password] 유효한 비밀번호 변경 요청 -> 200 OK. "
+			+ "변경 후 새 비밀번호로 인증 성공")
+		void changePasswordSuccess() throws Exception {
+			// Arrange
+			signUpUser("testuser01", "Test1234!", "홍길동",
+				LocalDate.of(1990, 1, 15), "test@example.com");
+
+			String requestJson = """
+				{
+					"currentPassword": "Test1234!",
+					"newPassword": "NewPass1234!"
+				}
+				""";
+
+			// Act
+			mockMvc.perform(patch("/api/v1/users/me/password")
+					.header("X-Loopers-LoginId", "testuser01")
+					.header("X-Loopers-LoginPw", "Test1234!")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(requestJson))
+				.andExpect(status().isOk());
+
+			// Assert - 새 비밀번호로 인증 성공
+			mockMvc.perform(get("/api/v1/users/me")
+					.header("X-Loopers-LoginId", "testuser01")
+					.header("X-Loopers-LoginPw", "NewPass1234!"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.loginId").value("testuser01"));
+		}
+
+		@Test
+		@DisplayName("[PATCH /api/v1/users/me/password] X-Loopers-LoginId 헤더 누락 -> 401 Unauthorized")
+		void failWhenLoginIdHeaderMissing() throws Exception {
+			// Arrange
+			String requestJson = """
+				{
+					"currentPassword": "Test1234!",
+					"newPassword": "NewPass1234!"
+				}
+				""";
+
+			// Act & Assert
+			mockMvc.perform(patch("/api/v1/users/me/password")
+					.header("X-Loopers-LoginPw", "Test1234!")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(requestJson))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+		}
+
+		@Test
+		@DisplayName("[PATCH /api/v1/users/me/password] X-Loopers-LoginPw 헤더 누락 -> 401 Unauthorized")
+		void failWhenPasswordHeaderMissing() throws Exception {
+			// Arrange
+			String requestJson = """
+				{
+					"currentPassword": "Test1234!",
+					"newPassword": "NewPass1234!"
+				}
+				""";
+
+			// Act & Assert
+			mockMvc.perform(patch("/api/v1/users/me/password")
+					.header("X-Loopers-LoginId", "testuser01")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(requestJson))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+		}
+
+		@Test
+		@DisplayName("[PATCH /api/v1/users/me/password] 헤더 비밀번호 불일치 -> 401 Unauthorized")
+		void failWhenHeaderPasswordNotMatch() throws Exception {
+			// Arrange
+			signUpUser("testuser01", "Test1234!", "홍길동",
+				LocalDate.of(1990, 1, 15), "test@example.com");
+
+			String requestJson = """
+				{
+					"currentPassword": "Test1234!",
+					"newPassword": "NewPass1234!"
+				}
+				""";
+
+			// Act & Assert
+			mockMvc.perform(patch("/api/v1/users/me/password")
+					.header("X-Loopers-LoginId", "testuser01")
+					.header("X-Loopers-LoginPw", "WrongPass1!")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(requestJson))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+		}
+
+		@Test
+		@DisplayName("[PATCH /api/v1/users/me/password] currentPassword 불일치 -> 401 Unauthorized")
+		void failWhenCurrentPasswordNotMatch() throws Exception {
+			// Arrange
+			signUpUser("testuser01", "Test1234!", "홍길동",
+				LocalDate.of(1990, 1, 15), "test@example.com");
+
+			String requestJson = """
+				{
+					"currentPassword": "WrongCurrent1!",
+					"newPassword": "NewPass1234!"
+				}
+				""";
+
+			// Act & Assert
+			mockMvc.perform(patch("/api/v1/users/me/password")
+					.header("X-Loopers-LoginId", "testuser01")
+					.header("X-Loopers-LoginPw", "Test1234!")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(requestJson))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+		}
+
+		@Test
+		@DisplayName("[PATCH /api/v1/users/me/password] newPassword == currentPassword -> 400 Bad Request. "
+			+ "에러 코드: PASSWORD_SAME_AS_CURRENT")
+		void failWhenNewPasswordSameAsCurrent() throws Exception {
+			// Arrange
+			signUpUser("testuser01", "Test1234!", "홍길동",
+				LocalDate.of(1990, 1, 15), "test@example.com");
+
+			String requestJson = """
+				{
+					"currentPassword": "Test1234!",
+					"newPassword": "Test1234!"
+				}
+				""";
+
+			// Act & Assert
+			mockMvc.perform(patch("/api/v1/users/me/password")
+					.header("X-Loopers-LoginId", "testuser01")
+					.header("X-Loopers-LoginPw", "Test1234!")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(requestJson))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value(ErrorType.PASSWORD_SAME_AS_CURRENT.getCode()));
+		}
+
+		@Test
+		@DisplayName("[PATCH /api/v1/users/me/password] newPassword 형식 오류 -> 400 Bad Request. "
+			+ "에러 코드: INVALID_PASSWORD_FORMAT")
+		void failWhenNewPasswordFormatInvalid() throws Exception {
+			// Arrange
+			signUpUser("testuser01", "Test1234!", "홍길동",
+				LocalDate.of(1990, 1, 15), "test@example.com");
+
+			String requestJson = """
+				{
+					"currentPassword": "Test1234!",
+					"newPassword": "short"
+				}
+				""";
+
+			// Act & Assert
+			mockMvc.perform(patch("/api/v1/users/me/password")
+					.header("X-Loopers-LoginId", "testuser01")
+					.header("X-Loopers-LoginPw", "Test1234!")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(requestJson))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_PASSWORD_FORMAT.getCode()));
+		}
+
+		@Test
+		@DisplayName("[PATCH /api/v1/users/me/password] newPassword에 생년월일 포함 -> 400 Bad Request. "
+			+ "에러 코드: PASSWORD_CONTAINS_BIRTHDAY")
+		void failWhenNewPasswordContainsBirthday() throws Exception {
+			// Arrange
+			signUpUser("testuser01", "Test1234!", "홍길동",
+				LocalDate.of(1990, 1, 15), "test@example.com");
+
+			String requestJson = """
+				{
+					"currentPassword": "Test1234!",
+					"newPassword": "Aa19900115!"
+				}
+				""";
+
+			// Act & Assert
+			mockMvc.perform(patch("/api/v1/users/me/password")
+					.header("X-Loopers-LoginId", "testuser01")
+					.header("X-Loopers-LoginPw", "Test1234!")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(requestJson))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value(ErrorType.PASSWORD_CONTAINS_BIRTHDAY.getCode()));
+		}
+
+		@Test
+		@DisplayName("[PATCH /api/v1/users/me/password] 필수 필드 누락 (newPassword) -> 400 Bad Request")
+		void failWhenRequiredFieldMissing() throws Exception {
+			// Arrange
+			String requestJson = """
+				{
+					"currentPassword": "Test1234!"
+				}
+				""";
+
+			// Act & Assert
+			mockMvc.perform(patch("/api/v1/users/me/password")
+					.header("X-Loopers-LoginId", "testuser01")
+					.header("X-Loopers-LoginPw", "Test1234!")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(requestJson))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value(ErrorType.BAD_REQUEST.getCode()));
 		}
 	}
 }
