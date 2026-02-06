@@ -8,6 +8,7 @@ import com.loopers.user.application.dto.out.UserSignUpOutDto;
 import com.loopers.user.application.service.UserCommandService;
 import com.loopers.user.application.service.UserQueryService;
 import com.loopers.user.domain.model.User;
+import com.loopers.user.domain.service.LoginIdDuplicateValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -28,6 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -41,11 +44,14 @@ class UserCommandFacadeTest {
 	@Mock
 	private UserQueryService userQueryService;
 
+	@Mock
+	private LoginIdDuplicateValidator loginIdDuplicateValidator;
+
 	private UserCommandFacade userCommandFacade;
 
 	@BeforeEach
 	void setUp() {
-		userCommandFacade = new UserCommandFacade(userCommandService, userQueryService);
+		userCommandFacade = new UserCommandFacade(userCommandService, userQueryService, loginIdDuplicateValidator);
 	}
 
 	@Nested
@@ -54,7 +60,7 @@ class UserCommandFacadeTest {
 
 		@Test
 		@DisplayName("[UserCommandFacade.signUp()] 유효한 회원가입 정보 -> UserSignUpOutDto 반환. "
-			+ "QueryService로 중복 체크 후 CommandService로 저장")
+			+ "LoginIdDuplicateValidator로 중복 체크 후 CommandService로 저장")
 		void signUpSuccess() {
 			// Arrange
 			UserSignUpInDto inDto = new UserSignUpInDto(
@@ -65,7 +71,7 @@ class UserCommandFacadeTest {
 				"test@example.com"
 			);
 
-			given(userQueryService.existsByLoginId("testuser01")).willReturn(false);
+			willDoNothing().given(loginIdDuplicateValidator).validate("testuser01");
 			given(userCommandService.createUser(any(User.class))).willAnswer(invocation -> {
 				User user = invocation.getArgument(0);
 				return User.reconstruct(
@@ -89,7 +95,7 @@ class UserCommandFacadeTest {
 				() -> assertThat(result.name()).isEqualTo("홍길동"),
 				() -> assertThat(result.email()).isEqualTo("test@example.com")
 			);
-			verify(userQueryService).existsByLoginId("testuser01");
+			verify(loginIdDuplicateValidator).validate("testuser01");
 			verify(userCommandService).createUser(any(User.class));
 		}
 
@@ -106,7 +112,8 @@ class UserCommandFacadeTest {
 				"test@example.com"
 			);
 
-			given(userQueryService.existsByLoginId("existinguser")).willReturn(true);
+			willThrow(new CoreException(ErrorType.USER_ALREADY_EXISTS))
+				.given(loginIdDuplicateValidator).validate("existinguser");
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
@@ -117,7 +124,7 @@ class UserCommandFacadeTest {
 				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.USER_ALREADY_EXISTS),
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.USER_ALREADY_EXISTS.getMessage())
 			);
-			verify(userQueryService).existsByLoginId("existinguser");
+			verify(loginIdDuplicateValidator).validate("existinguser");
 			verify(userCommandService, never()).createUser(any(User.class));
 		}
 	}
