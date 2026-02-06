@@ -1,5 +1,7 @@
 package com.loopers.user.infrastructure.repository;
 
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
 import com.loopers.user.application.repository.UserCommandRepository;
 import com.loopers.user.domain.model.User;
 import com.loopers.user.infrastructure.entity.UserEntity;
@@ -17,7 +19,7 @@ public class UserCommandRepositoryImpl implements UserCommandRepository {
 	public User save(User user) {
 		if (user.getId() != null) {
 			UserEntity existingEntity = userJpaRepository.findById(user.getId())
-				.orElseThrow();
+				.orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND));
 			existingEntity.updatePassword(user.getPassword().value());
 			return existingEntity.toDomain();
 		}
