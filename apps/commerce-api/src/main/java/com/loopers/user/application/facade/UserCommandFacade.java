@@ -8,6 +8,7 @@ import com.loopers.user.application.dto.out.UserSignUpOutDto;
 import com.loopers.user.application.service.UserCommandService;
 import com.loopers.user.application.service.UserQueryService;
 import com.loopers.user.domain.model.User;
+import com.loopers.user.domain.service.LoginIdDuplicateValidator;
 import com.loopers.user.support.common.HeaderValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,12 +20,11 @@ public class UserCommandFacade {
 
 	private final UserCommandService userCommandService;
 	private final UserQueryService userQueryService;
+	private final LoginIdDuplicateValidator loginIdDuplicateValidator;
 
 	@Transactional
 	public UserSignUpOutDto signUp(UserSignUpInDto inDto) {
-		if (userQueryService.existsByLoginId(inDto.loginId())) {
-			throw new CoreException(ErrorType.USER_ALREADY_EXISTS);
-		}
+		loginIdDuplicateValidator.validate(inDto.loginId());
 
 		User user = User.create(
 			inDto.loginId(),
