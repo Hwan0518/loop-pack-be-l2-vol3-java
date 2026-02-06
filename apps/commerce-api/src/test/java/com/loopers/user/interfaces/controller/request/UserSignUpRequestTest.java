@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class UserSignUpRequestTest {
 
 	@Test
-	@DisplayName("[toCommand()] 유효한 Request -> UserSignUpCommand 변환. "
+	@DisplayName("[UserSignUpRequest.toCommand()] 유효한 Request -> UserSignUpCommand 변환. "
 		+ "모든 필드(loginId, password, name, birthday, email)가 정확히 매핑됨")
 	void toCommand() {
 		// Arrange

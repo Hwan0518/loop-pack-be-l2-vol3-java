@@ -4,8 +4,8 @@ import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.user.application.dto.command.UserChangePasswordCommand;
 import com.loopers.user.application.dto.command.UserSignUpCommand;
-import com.loopers.user.application.repository.UserQueryRepository;
 import com.loopers.user.application.service.UserCommandService;
+import com.loopers.user.application.service.UserQueryService;
 import com.loopers.user.domain.model.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -38,13 +38,13 @@ class UserCommandFacadeTest {
 	private UserCommandService userCommandService;
 
 	@Mock
-	private UserQueryRepository userQueryRepository;
+	private UserQueryService userQueryService;
 
 	private UserCommandFacade userCommandFacade;
 
 	@BeforeEach
 	void setUp() {
-		userCommandFacade = new UserCommandFacade(userCommandService, userQueryRepository);
+		userCommandFacade = new UserCommandFacade(userCommandService, userQueryService);
 	}
 
 	@Nested
@@ -53,7 +53,7 @@ class UserCommandFacadeTest {
 
 		@Test
 		@DisplayName("[UserCommandFacade.signUp()] 유효한 회원가입 정보 -> User 반환. "
-			+ "QueryRepository로 중복 체크 후 CommandService로 저장")
+			+ "QueryService로 중복 체크 후 CommandService로 저장")
 		void signUpSuccess() {
 			// Arrange
 			UserSignUpCommand command = new UserSignUpCommand(
@@ -64,7 +64,7 @@ class UserCommandFacadeTest {
 				"test@example.com"
 			);
 
-			given(userQueryRepository.existsByLoginId("testuser01")).willReturn(false);
+			given(userQueryService.existsByLoginId("testuser01")).willReturn(false);
 			given(userCommandService.createUser(any(User.class))).willAnswer(invocation -> {
 				User user = invocation.getArgument(0);
 				return User.reconstruct(
@@ -88,7 +88,7 @@ class UserCommandFacadeTest {
 				() -> assertThat(result.getName()).isEqualTo("홍길동"),
 				() -> assertThat(result.getEmail()).isEqualTo("test@example.com")
 			);
-			verify(userQueryRepository).existsByLoginId("testuser01");
+			verify(userQueryService).existsByLoginId("testuser01");
 			verify(userCommandService).createUser(any(User.class));
 		}
 
@@ -105,7 +105,7 @@ class UserCommandFacadeTest {
 				"test@example.com"
 			);
 
-			given(userQueryRepository.existsByLoginId("existinguser")).willReturn(true);
+			given(userQueryService.existsByLoginId("existinguser")).willReturn(true);
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
@@ -116,7 +116,7 @@ class UserCommandFacadeTest {
 				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.USER_ALREADY_EXISTS),
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.USER_ALREADY_EXISTS.getMessage())
 			);
-			verify(userQueryRepository).existsByLoginId("existinguser");
+			verify(userQueryService).existsByLoginId("existinguser");
 			verify(userCommandService, never()).createUser(any(User.class));
 		}
 	}
@@ -135,14 +135,14 @@ class UserCommandFacadeTest {
 
 			UserChangePasswordCommand command = new UserChangePasswordCommand("Test1234!", "NewPass1234!");
 
-			given(userQueryRepository.findByLoginId("testuser01")).willReturn(Optional.of(user));
+			given(userQueryService.findByLoginId("testuser01")).willReturn(Optional.of(user));
 			given(userCommandService.updateUser(any(User.class))).willReturn(user);
 
 			// Act & Assert
 			assertDoesNotThrow(() ->
 				userCommandFacade.changePassword("testuser01", "Test1234!", command));
 
-			verify(userQueryRepository).findByLoginId("testuser01");
+			verify(userQueryService).findByLoginId("testuser01");
 			verify(userCommandService).updateUser(any(User.class));
 		}
 
@@ -193,7 +193,7 @@ class UserCommandFacadeTest {
 			// Arrange
 			UserChangePasswordCommand command = new UserChangePasswordCommand("Test1234!", "NewPass1234!");
 
-			given(userQueryRepository.findByLoginId("nonexistent")).willReturn(Optional.empty());
+			given(userQueryService.findByLoginId("nonexistent")).willReturn(Optional.empty());
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
@@ -216,7 +216,7 @@ class UserCommandFacadeTest {
 
 			UserChangePasswordCommand command = new UserChangePasswordCommand("Test1234!", "NewPass1234!");
 
-			given(userQueryRepository.findByLoginId("testuser01")).willReturn(Optional.of(user));
+			given(userQueryService.findByLoginId("testuser01")).willReturn(Optional.of(user));
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,

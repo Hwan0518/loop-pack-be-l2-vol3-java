@@ -2,12 +2,16 @@ package com.loopers.user.application.facade;
 
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
-import com.loopers.user.application.repository.UserQueryRepository;
+import com.loopers.user.application.service.UserQueryService;
 import com.loopers.user.domain.model.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -30,13 +34,13 @@ class UserQueryFacadeTest {
 	private static final String VALID_EMAIL = "test@example.com";
 
 	@Mock
-	private UserQueryRepository userQueryRepository;
+	private UserQueryService userQueryService;
 
 	private UserQueryFacade userQueryFacade;
 
 	@BeforeEach
 	void setUp() {
-		userQueryFacade = new UserQueryFacade(userQueryRepository);
+		userQueryFacade = new UserQueryFacade(userQueryService);
 	}
 
 	private User createValidUser() {
@@ -44,140 +48,110 @@ class UserQueryFacadeTest {
 		return User.reconstruct(1L, user.getLoginId(), user.getPassword().value(), user.getName(), user.getBirthday(), user.getEmail());
 	}
 
-	@Test
-	@DisplayName("[getMe()] 유효한 loginId, password -> User 반환. 비밀번호 매칭 성공")
-	void getMeSuccess() {
-		// Arrange
-		User user = createValidUser();
-		given(userQueryRepository.findByLoginId(VALID_LOGIN_ID)).willReturn(Optional.of(user));
+	@Nested
+	@DisplayName("내 정보 조회 테스트")
+	class GetMeTest {
 
-		// Act
-		User result = userQueryFacade.getMe(VALID_LOGIN_ID, VALID_PASSWORD);
+		@Test
+		@DisplayName("[UserQueryFacade.getMe()] 유효한 loginId, password -> User 반환. 비밀번호 매칭 성공")
+		void getMeSuccess() {
+			// Arrange
+			User user = createValidUser();
+			given(userQueryService.findByLoginId(VALID_LOGIN_ID)).willReturn(Optional.of(user));
 
-		// Assert
-		assertAll(
-			() -> assertThat(result).isNotNull(),
-			() -> assertThat(result.getLoginId()).isEqualTo(VALID_LOGIN_ID),
-			() -> assertThat(result.getName()).isEqualTo(VALID_NAME)
-		);
-	}
+			// Act
+			User result = userQueryFacade.getMe(VALID_LOGIN_ID, VALID_PASSWORD);
 
-	@Test
-	@DisplayName("[getMe()] loginId 앞뒤 공백 -> trim 적용 후 정상 조회")
-	void getMeTrimsLoginId() {
-		// Arrange
-		User user = createValidUser();
-		given(userQueryRepository.findByLoginId(VALID_LOGIN_ID)).willReturn(Optional.of(user));
+			// Assert
+			assertAll(
+				() -> assertThat(result).isNotNull(),
+				() -> assertThat(result.getLoginId()).isEqualTo(VALID_LOGIN_ID),
+				() -> assertThat(result.getName()).isEqualTo(VALID_NAME)
+			);
+		}
 
-		// Act
-		User result = userQueryFacade.getMe("  " + VALID_LOGIN_ID + "  ", VALID_PASSWORD);
+		@Test
+		@DisplayName("[UserQueryFacade.getMe()] loginId 앞뒤 공백 -> trim 적용 후 정상 조회")
+		void getMeTrimsLoginId() {
+			// Arrange
+			User user = createValidUser();
+			given(userQueryService.findByLoginId(VALID_LOGIN_ID)).willReturn(Optional.of(user));
 
-		// Assert
-		assertThat(result.getLoginId()).isEqualTo(VALID_LOGIN_ID);
-	}
+			// Act
+			User result = userQueryFacade.getMe("  " + VALID_LOGIN_ID + "  ", VALID_PASSWORD);
 
-	@Test
-	@DisplayName("[getMe()] loginId가 null -> UNAUTHORIZED 예외")
-	void getMeFailWhenLoginIdNull() {
-		// Act
-		CoreException exception = assertThrows(CoreException.class,
-			() -> userQueryFacade.getMe(null, VALID_PASSWORD));
+			// Assert
+			assertThat(result.getLoginId()).isEqualTo(VALID_LOGIN_ID);
+		}
 
-		// Assert
-		assertAll(
-			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
-			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
-		);
-	}
+		@ParameterizedTest
+		@NullAndEmptySource
+		@ValueSource(strings = {"  ", "\t"})
+		@DisplayName("[UserQueryFacade.getMe()] loginId가 null/blank -> CoreException(UNAUTHORIZED). "
+			+ "인증 실패: 로그인 ID 미제공")
+		void getMeFailWhenLoginIdNullOrBlank(String loginId) {
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> userQueryFacade.getMe(loginId, VALID_PASSWORD));
 
-	@Test
-	@DisplayName("[getMe()] loginId가 빈 문자열 -> UNAUTHORIZED 예외")
-	void getMeFailWhenLoginIdBlank() {
-		// Act
-		CoreException exception = assertThrows(CoreException.class,
-			() -> userQueryFacade.getMe("", VALID_PASSWORD));
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
+			);
+		}
 
-		// Assert
-		assertAll(
-			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
-			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
-		);
-	}
+		@ParameterizedTest
+		@NullAndEmptySource
+		@ValueSource(strings = {"  ", "\t"})
+		@DisplayName("[UserQueryFacade.getMe()] password가 null/blank -> CoreException(UNAUTHORIZED). "
+			+ "인증 실패: 비밀번호 미제공")
+		void getMeFailWhenPasswordNullOrBlank(String password) {
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> userQueryFacade.getMe(VALID_LOGIN_ID, password));
 
-	@Test
-	@DisplayName("[getMe()] loginId가 공백만 -> UNAUTHORIZED 예외")
-	void getMeFailWhenLoginIdOnlySpaces() {
-		// Act
-		CoreException exception = assertThrows(CoreException.class,
-			() -> userQueryFacade.getMe("   ", VALID_PASSWORD));
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
+			);
+		}
 
-		// Assert
-		assertAll(
-			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
-			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
-		);
-	}
+		@Test
+		@DisplayName("[UserQueryFacade.getMe()] 존재하지 않는 loginId -> CoreException(UNAUTHORIZED). "
+			+ "인증 실패: 사용자 미존재")
+		void getMeFailWhenUserNotFound() {
+			// Arrange
+			given(userQueryService.findByLoginId("nonexistent")).willReturn(Optional.empty());
 
-	@Test
-	@DisplayName("[getMe()] password가 null -> UNAUTHORIZED 예외")
-	void getMeFailWhenPasswordNull() {
-		// Act
-		CoreException exception = assertThrows(CoreException.class,
-			() -> userQueryFacade.getMe(VALID_LOGIN_ID, null));
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> userQueryFacade.getMe("nonexistent", VALID_PASSWORD));
 
-		// Assert
-		assertAll(
-			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
-			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
-		);
-	}
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
+			);
+		}
 
-	@Test
-	@DisplayName("[getMe()] password가 빈 문자열 -> UNAUTHORIZED 예외")
-	void getMeFailWhenPasswordBlank() {
-		// Act
-		CoreException exception = assertThrows(CoreException.class,
-			() -> userQueryFacade.getMe(VALID_LOGIN_ID, ""));
+		@Test
+		@DisplayName("[UserQueryFacade.getMe()] 비밀번호 불일치 -> CoreException(UNAUTHORIZED). User.authenticate() 위임")
+		void getMeFailWhenPasswordNotMatch() {
+			// Arrange
+			User user = createValidUser();
+			given(userQueryService.findByLoginId(VALID_LOGIN_ID)).willReturn(Optional.of(user));
 
-		// Assert
-		assertAll(
-			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
-			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
-		);
-	}
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> userQueryFacade.getMe(VALID_LOGIN_ID, "WrongPass1!"));
 
-	@Test
-	@DisplayName("[getMe()] 존재하지 않는 loginId -> UNAUTHORIZED 예외")
-	void getMeFailWhenUserNotFound() {
-		// Arrange
-		given(userQueryRepository.findByLoginId("nonexistent")).willReturn(Optional.empty());
-
-		// Act
-		CoreException exception = assertThrows(CoreException.class,
-			() -> userQueryFacade.getMe("nonexistent", VALID_PASSWORD));
-
-		// Assert
-		assertAll(
-			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
-			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
-		);
-	}
-
-	@Test
-	@DisplayName("[getMe()] 비밀번호 불일치 -> UNAUTHORIZED 예외. User.authenticate() 위임")
-	void getMeFailWhenPasswordNotMatch() {
-		// Arrange
-		User user = createValidUser();
-		given(userQueryRepository.findByLoginId(VALID_LOGIN_ID)).willReturn(Optional.of(user));
-
-		// Act
-		CoreException exception = assertThrows(CoreException.class,
-			() -> userQueryFacade.getMe(VALID_LOGIN_ID, "WrongPass1!"));
-
-		// Assert
-		assertAll(
-			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
-			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
-		);
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
+			);
+		}
 	}
 }

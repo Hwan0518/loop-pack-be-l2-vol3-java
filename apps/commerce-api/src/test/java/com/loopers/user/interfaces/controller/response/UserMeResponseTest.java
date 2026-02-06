@@ -17,7 +17,7 @@ class UserMeResponseTest {
 	private static final String VALID_EMAIL = "test@example.com";
 
 	@Test
-	@DisplayName("[from()] User 도메인 객체 -> UserMeResponse 변환. loginId, maskedName, birthday, email 매핑")
+	@DisplayName("[UserMeResponse.from()] User 도메인 객체 -> UserMeResponse 변환. loginId, maskedName, birthday, email 매핑")
 	void fromUserThenMappedCorrectly() {
 		// Arrange
 		User user = User.reconstruct(1L, VALID_LOGIN_ID, "encodedPw", "홍길동", VALID_BIRTHDAY, VALID_EMAIL);
@@ -35,7 +35,7 @@ class UserMeResponseTest {
 	}
 
 	@Test
-	@DisplayName("[from()] 이름 3자(홍길동) -> 마지막 글자 마스킹(홍길*)")
+	@DisplayName("[UserMeResponse.from()] 이름 3자(홍길동) -> 마지막 글자 마스킹(홍길*)")
 	void fromUserNameMasking3Chars() {
 		// Arrange
 		User user = User.reconstruct(1L, VALID_LOGIN_ID, "encodedPw", "홍길동", VALID_BIRTHDAY, VALID_EMAIL);
@@ -48,7 +48,7 @@ class UserMeResponseTest {
 	}
 
 	@Test
-	@DisplayName("[from()] 이름 2자(홍길) -> 마지막 글자 마스킹(홍*)")
+	@DisplayName("[UserMeResponse.from()] 이름 2자(홍길) -> 마지막 글자 마스킹(홍*)")
 	void fromUserNameMasking2Chars() {
 		// Arrange
 		User user = User.reconstruct(1L, VALID_LOGIN_ID, "encodedPw", "홍길", VALID_BIRTHDAY, VALID_EMAIL);
@@ -61,7 +61,7 @@ class UserMeResponseTest {
 	}
 
 	@Test
-	@DisplayName("[from()] 이름 1자(김) -> 전체 마스킹(*)")
+	@DisplayName("[UserMeResponse.from()] 이름 1자(김) -> 전체 마스킹(*)")
 	void fromUserNameMasking1Char() {
 		// Arrange
 		User user = User.reconstruct(1L, VALID_LOGIN_ID, "encodedPw", "김", VALID_BIRTHDAY, VALID_EMAIL);
@@ -74,7 +74,7 @@ class UserMeResponseTest {
 	}
 
 	@Test
-	@DisplayName("[from()] 영문 이름(John) -> 마지막 글자 마스킹(Joh*)")
+	@DisplayName("[UserMeResponse.from()] 영문 이름(John) -> 마지막 글자 마스킹(Joh*)")
 	void fromUserNameMaskingEnglish() {
 		// Arrange
 		User user = User.reconstruct(1L, VALID_LOGIN_ID, "encodedPw", "John", VALID_BIRTHDAY, VALID_EMAIL);

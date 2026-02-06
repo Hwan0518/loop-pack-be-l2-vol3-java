@@ -20,7 +20,7 @@ public record UserMeResponse(
 	}
 
 	private static String maskName(String name) {
-		if (name.length() <= 1) {
+		if (name == null || name.length() <= 1) {
 			return "*";
 		}
 		return name.substring(0, name.length() - 1) + "*";

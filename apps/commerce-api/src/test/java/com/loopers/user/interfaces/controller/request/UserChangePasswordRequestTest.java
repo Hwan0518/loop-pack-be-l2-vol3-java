@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class UserChangePasswordRequestTest {
 
 	@Test
-	@DisplayName("[toCommand()] 유효한 Request -> UserChangePasswordCommand 변환. "
+	@DisplayName("[UserChangePasswordRequest.toCommand()] 유효한 Request -> UserChangePasswordCommand 변환. "
 		+ "currentPassword, newPassword 필드가 정확히 매핑됨")
 	void toCommand() {
 		// Arrange

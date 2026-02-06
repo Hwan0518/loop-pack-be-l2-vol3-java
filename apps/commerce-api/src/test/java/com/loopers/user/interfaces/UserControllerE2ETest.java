@@ -254,18 +254,18 @@ class UserControllerE2ETest {
 		}
 	}
 
+	private void signUpUser(String loginId, String password, String name,
+							LocalDate birthday, String email) throws Exception {
+		UserSignUpRequest request = new UserSignUpRequest(loginId, password, name, birthday, email);
+		mockMvc.perform(post("/api/v1/users")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(request)))
+			.andExpect(status().isCreated());
+	}
+
 	@Nested
 	@DisplayName("GET /api/v1/users/me - 내 정보 조회")
 	class GetMeTest {
-
-		private void signUpUser(String loginId, String password, String name,
-								LocalDate birthday, String email) throws Exception {
-			UserSignUpRequest request = new UserSignUpRequest(loginId, password, name, birthday, email);
-			mockMvc.perform(post("/api/v1/users")
-					.contentType(MediaType.APPLICATION_JSON)
-					.content(objectMapper.writeValueAsString(request)))
-				.andExpect(status().isCreated());
-		}
 
 		@Test
 		@DisplayName("[GET /api/v1/users/me] 유효한 인증 헤더 -> 200 OK. loginId, maskedName, birthday, email 포함")
@@ -380,15 +380,6 @@ class UserControllerE2ETest {
 	@Nested
 	@DisplayName("PATCH /api/v1/users/me/password - 비밀번호 변경")
 	class ChangePasswordTest {
-
-		private void signUpUser(String loginId, String password, String name,
-								LocalDate birthday, String email) throws Exception {
-			UserSignUpRequest request = new UserSignUpRequest(loginId, password, name, birthday, email);
-			mockMvc.perform(post("/api/v1/users")
-					.contentType(MediaType.APPLICATION_JSON)
-					.content(objectMapper.writeValueAsString(request)))
-				.andExpect(status().isCreated());
-		}
 
 		@Test
 		@DisplayName("[PATCH /api/v1/users/me/password] 유효한 비밀번호 변경 요청 -> 200 OK. "

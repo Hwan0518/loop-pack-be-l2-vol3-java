@@ -81,6 +81,10 @@ public class User {
 	}
 
 	public void changePassword(String currentRawPassword, String newRawPassword) {
+		if (currentRawPassword == null || newRawPassword == null) {
+			throw new CoreException(ErrorType.UNAUTHORIZED);
+		}
+
 		authenticate(currentRawPassword);
 
 		if (currentRawPassword.equals(newRawPassword)) {
@@ -92,7 +96,7 @@ public class User {
 
 	private static void validateLoginId(String loginId) {
 		if (loginId == null ||
-			loginId.isEmpty() ||
+			loginId.isBlank() ||
 			loginId.length() > LOGIN_ID_MAX_LENGTH ||
 			!LOGIN_ID_PATTERN.matcher(loginId).matches()) {
 			throw new CoreException(ErrorType.INVALID_LOGIN_ID_FORMAT);
@@ -101,7 +105,7 @@ public class User {
 
 	private static void validateName(String name) {
 		if (name == null ||
-			name.isEmpty() ||
+			name.isBlank() ||
 			name.length() > NAME_MAX_LENGTH ||
 			!NAME_PATTERN.matcher(name).matches()) {
 			throw new CoreException(ErrorType.INVALID_NAME_FORMAT);
@@ -110,7 +114,7 @@ public class User {
 
 	private static void validateEmail(String email) {
 		if (email == null ||
-			email.isEmpty() ||
+			email.isBlank() ||
 			email.length() > EMAIL_MAX_LENGTH ||
 			!EMAIL_PATTERN.matcher(email).matches()) {
 			throw new CoreException(ErrorType.INVALID_EMAIL_FORMAT);
