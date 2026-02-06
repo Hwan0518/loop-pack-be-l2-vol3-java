@@ -1,6 +1,6 @@
 package com.loopers.user.interfaces.controller.request;
 
-import com.loopers.user.application.dto.command.UserSignUpCommand;
+import com.loopers.user.application.dto.in.UserSignUpInDto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -22,7 +22,7 @@ public record UserSignUpRequest(
 	@NotBlank(message = "이메일은 필수입니다.")
 	String email
 ) {
-	public UserSignUpCommand toCommand() {
-		return new UserSignUpCommand(loginId, password, name, birthday, email);
+	public UserSignUpInDto toInDto() {
+		return new UserSignUpInDto(loginId, password, name, birthday, email);
 	}
 }

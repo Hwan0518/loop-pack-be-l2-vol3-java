@@ -2,8 +2,9 @@ package com.loopers.user.application.facade;
 
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
-import com.loopers.user.application.dto.command.UserChangePasswordCommand;
-import com.loopers.user.application.dto.command.UserSignUpCommand;
+import com.loopers.user.application.dto.in.UserChangePasswordInDto;
+import com.loopers.user.application.dto.in.UserSignUpInDto;
+import com.loopers.user.application.dto.out.UserSignUpOutDto;
 import com.loopers.user.application.service.UserCommandService;
 import com.loopers.user.application.service.UserQueryService;
 import com.loopers.user.domain.model.User;
@@ -23,35 +24,36 @@ public class UserCommandFacade {
 	}
 
 	@Transactional
-	public User signUp(UserSignUpCommand command) {
-		String normalizedLoginId = command.loginId() != null
-			? command.loginId().trim().toLowerCase()
-			: command.loginId();
+	public UserSignUpOutDto signUp(UserSignUpInDto inDto) {
+		String normalizedLoginId = inDto.loginId() != null
+			? inDto.loginId().trim().toLowerCase()
+			: inDto.loginId();
 
 		if (userQueryService.existsByLoginId(normalizedLoginId)) {
 			throw new CoreException(ErrorType.USER_ALREADY_EXISTS);
 		}
 
 		User user = User.create(
-			command.loginId(),
-			command.password(),
-			command.name(),
-			command.birthday(),
-			command.email()
+			inDto.loginId(),
+			inDto.password(),
+			inDto.name(),
+			inDto.birthday(),
+			inDto.email()
 		);
 
-		return userCommandService.createUser(user);
+		User savedUser = userCommandService.createUser(user);
+		return UserSignUpOutDto.from(savedUser);
 	}
 
 	@Transactional
-	public void changePassword(String loginId, String headerPassword, UserChangePasswordCommand command) {
+	public void changePassword(String loginId, String headerPassword, UserChangePasswordInDto inDto) {
 		HeaderValidator.validate(loginId, headerPassword);
 
 		User user = userQueryService.findByLoginId(loginId.trim())
 			.orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED));
 
 		user.authenticate(headerPassword);
-		user.changePassword(command.currentPassword(), command.newPassword());
+		user.changePassword(inDto.currentPassword(), inDto.newPassword());
 
 		userCommandService.updateUser(user);
 	}

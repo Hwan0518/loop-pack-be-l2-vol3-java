@@ -1,6 +1,6 @@
 package com.loopers.user.interfaces.controller.response;
 
-import com.loopers.user.domain.model.User;
+import com.loopers.user.application.dto.out.UserMeOutDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -17,13 +17,13 @@ class UserMeResponseTest {
 	private static final String VALID_EMAIL = "test@example.com";
 
 	@Test
-	@DisplayName("[UserMeResponse.from()] User 도메인 객체 -> UserMeResponse 변환. loginId, maskedName, birthday, email 매핑")
-	void fromUserThenMappedCorrectly() {
+	@DisplayName("[UserMeResponse.from()] UserMeOutDto -> UserMeResponse 변환. loginId, maskedName, birthday, email 매핑")
+	void fromOutDtoThenMappedCorrectly() {
 		// Arrange
-		User user = User.reconstruct(1L, VALID_LOGIN_ID, "encodedPw", "홍길동", VALID_BIRTHDAY, VALID_EMAIL);
+		UserMeOutDto outDto = new UserMeOutDto(VALID_LOGIN_ID, "홍길동", VALID_BIRTHDAY, VALID_EMAIL);
 
 		// Act
-		UserMeResponse response = UserMeResponse.from(user);
+		UserMeResponse response = UserMeResponse.from(outDto);
 
 		// Assert
 		assertAll(
@@ -36,12 +36,12 @@ class UserMeResponseTest {
 
 	@Test
 	@DisplayName("[UserMeResponse.from()] 이름 3자(홍길동) -> 마지막 글자 마스킹(홍길*)")
-	void fromUserNameMasking3Chars() {
+	void fromOutDtoNameMasking3Chars() {
 		// Arrange
-		User user = User.reconstruct(1L, VALID_LOGIN_ID, "encodedPw", "홍길동", VALID_BIRTHDAY, VALID_EMAIL);
+		UserMeOutDto outDto = new UserMeOutDto(VALID_LOGIN_ID, "홍길동", VALID_BIRTHDAY, VALID_EMAIL);
 
 		// Act
-		UserMeResponse response = UserMeResponse.from(user);
+		UserMeResponse response = UserMeResponse.from(outDto);
 
 		// Assert
 		assertThat(response.name()).isEqualTo("홍길*");
@@ -49,12 +49,12 @@ class UserMeResponseTest {
 
 	@Test
 	@DisplayName("[UserMeResponse.from()] 이름 2자(홍길) -> 마지막 글자 마스킹(홍*)")
-	void fromUserNameMasking2Chars() {
+	void fromOutDtoNameMasking2Chars() {
 		// Arrange
-		User user = User.reconstruct(1L, VALID_LOGIN_ID, "encodedPw", "홍길", VALID_BIRTHDAY, VALID_EMAIL);
+		UserMeOutDto outDto = new UserMeOutDto(VALID_LOGIN_ID, "홍길", VALID_BIRTHDAY, VALID_EMAIL);
 
 		// Act
-		UserMeResponse response = UserMeResponse.from(user);
+		UserMeResponse response = UserMeResponse.from(outDto);
 
 		// Assert
 		assertThat(response.name()).isEqualTo("홍*");
@@ -62,12 +62,12 @@ class UserMeResponseTest {
 
 	@Test
 	@DisplayName("[UserMeResponse.from()] 이름 1자(김) -> 전체 마스킹(*)")
-	void fromUserNameMasking1Char() {
+	void fromOutDtoNameMasking1Char() {
 		// Arrange
-		User user = User.reconstruct(1L, VALID_LOGIN_ID, "encodedPw", "김", VALID_BIRTHDAY, VALID_EMAIL);
+		UserMeOutDto outDto = new UserMeOutDto(VALID_LOGIN_ID, "김", VALID_BIRTHDAY, VALID_EMAIL);
 
 		// Act
-		UserMeResponse response = UserMeResponse.from(user);
+		UserMeResponse response = UserMeResponse.from(outDto);
 
 		// Assert
 		assertThat(response.name()).isEqualTo("*");
@@ -75,12 +75,12 @@ class UserMeResponseTest {
 
 	@Test
 	@DisplayName("[UserMeResponse.from()] 영문 이름(John) -> 마지막 글자 마스킹(Joh*)")
-	void fromUserNameMaskingEnglish() {
+	void fromOutDtoNameMaskingEnglish() {
 		// Arrange
-		User user = User.reconstruct(1L, VALID_LOGIN_ID, "encodedPw", "John", VALID_BIRTHDAY, VALID_EMAIL);
+		UserMeOutDto outDto = new UserMeOutDto(VALID_LOGIN_ID, "John", VALID_BIRTHDAY, VALID_EMAIL);
 
 		// Act
-		UserMeResponse response = UserMeResponse.from(user);
+		UserMeResponse response = UserMeResponse.from(outDto);
 
 		// Assert
 		assertThat(response.name()).isEqualTo("Joh*");

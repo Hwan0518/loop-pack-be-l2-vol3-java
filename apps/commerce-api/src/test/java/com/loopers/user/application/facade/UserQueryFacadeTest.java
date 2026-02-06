@@ -2,6 +2,7 @@ package com.loopers.user.application.facade;
 
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
+import com.loopers.user.application.dto.out.UserMeOutDto;
 import com.loopers.user.application.service.UserQueryService;
 import com.loopers.user.domain.model.User;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,20 +54,20 @@ class UserQueryFacadeTest {
 	class GetMeTest {
 
 		@Test
-		@DisplayName("[UserQueryFacade.getMe()] 유효한 loginId, password -> User 반환. 비밀번호 매칭 성공")
+		@DisplayName("[UserQueryFacade.getMe()] 유효한 loginId, password -> UserMeOutDto 반환. 비밀번호 매칭 성공")
 		void getMeSuccess() {
 			// Arrange
 			User user = createValidUser();
 			given(userQueryService.findByLoginId(VALID_LOGIN_ID)).willReturn(Optional.of(user));
 
 			// Act
-			User result = userQueryFacade.getMe(VALID_LOGIN_ID, VALID_PASSWORD);
+			UserMeOutDto result = userQueryFacade.getMe(VALID_LOGIN_ID, VALID_PASSWORD);
 
 			// Assert
 			assertAll(
 				() -> assertThat(result).isNotNull(),
-				() -> assertThat(result.getLoginId()).isEqualTo(VALID_LOGIN_ID),
-				() -> assertThat(result.getName()).isEqualTo(VALID_NAME)
+				() -> assertThat(result.loginId()).isEqualTo(VALID_LOGIN_ID),
+				() -> assertThat(result.name()).isEqualTo(VALID_NAME)
 			);
 		}
 
@@ -78,10 +79,10 @@ class UserQueryFacadeTest {
 			given(userQueryService.findByLoginId(VALID_LOGIN_ID)).willReturn(Optional.of(user));
 
 			// Act
-			User result = userQueryFacade.getMe("  " + VALID_LOGIN_ID + "  ", VALID_PASSWORD);
+			UserMeOutDto result = userQueryFacade.getMe("  " + VALID_LOGIN_ID + "  ", VALID_PASSWORD);
 
 			// Assert
-			assertThat(result.getLoginId()).isEqualTo(VALID_LOGIN_ID);
+			assertThat(result.loginId()).isEqualTo(VALID_LOGIN_ID);
 		}
 
 		@ParameterizedTest

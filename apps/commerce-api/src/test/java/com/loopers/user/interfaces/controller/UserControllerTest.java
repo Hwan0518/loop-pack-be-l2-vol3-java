@@ -2,10 +2,11 @@ package com.loopers.user.interfaces.controller;
 
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
-import com.loopers.user.application.dto.command.UserChangePasswordCommand;
+import com.loopers.user.application.dto.in.UserChangePasswordInDto;
+import com.loopers.user.application.dto.out.UserMeOutDto;
+import com.loopers.user.application.dto.out.UserSignUpOutDto;
 import com.loopers.user.application.facade.UserCommandFacade;
 import com.loopers.user.application.facade.UserQueryFacade;
-import com.loopers.user.domain.model.User;
 import com.loopers.user.interfaces.controller.request.UserChangePasswordRequest;
 import com.loopers.user.interfaces.controller.request.UserSignUpRequest;
 import com.loopers.user.interfaces.controller.response.UserMeResponse;
@@ -65,16 +66,15 @@ class UserControllerTest {
 				"test@example.com"
 			);
 
-			User savedUser = User.reconstruct(
+			UserSignUpOutDto outDto = new UserSignUpOutDto(
 				1L,
 				"testuser01",
-				"encodedPassword",
 				"홍길동",
 				LocalDate.of(1990, 1, 15),
 				"test@example.com"
 			);
 
-			given(userCommandFacade.signUp(any())).willReturn(savedUser);
+			given(userCommandFacade.signUp(any())).willReturn(outDto);
 
 			// Act
 			ResponseEntity<UserSignUpResponse> response = userController.signUp(request);
@@ -101,11 +101,11 @@ class UserControllerTest {
 		@DisplayName("[UserController.getMe()] 유효한 인증 헤더 -> 200 OK. 응답: UserMeResponse 포함")
 		void getMeReturnsOkResponse() {
 			// Arrange
-			User user = User.reconstruct(
-				1L, "testuser01", "encodedPassword", "홍길동",
+			UserMeOutDto outDto = new UserMeOutDto(
+				"testuser01", "홍길동",
 				LocalDate.of(1990, 1, 15), "test@example.com"
 			);
-			given(userQueryFacade.getMe("testuser01", "Test1234!")).willReturn(user);
+			given(userQueryFacade.getMe("testuser01", "Test1234!")).willReturn(outDto);
 
 			// Act
 			ResponseEntity<UserMeResponse> response = userController.getMe("testuser01", "Test1234!");
@@ -151,7 +151,7 @@ class UserControllerTest {
 			UserChangePasswordRequest request = new UserChangePasswordRequest("Test1234!", "NewPass1234!");
 
 			willDoNothing().given(userCommandFacade)
-				.changePassword(eq("testuser01"), eq("Test1234!"), any(UserChangePasswordCommand.class));
+				.changePassword(eq("testuser01"), eq("Test1234!"), any(UserChangePasswordInDto.class));
 
 			// Act
 			ResponseEntity<Void> response = userController.changePassword("testuser01", "Test1234!", request);
@@ -161,7 +161,7 @@ class UserControllerTest {
 				() -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
 				() -> assertThat(response.getBody()).isNull()
 			);
-			verify(userCommandFacade).changePassword(eq("testuser01"), eq("Test1234!"), any(UserChangePasswordCommand.class));
+			verify(userCommandFacade).changePassword(eq("testuser01"), eq("Test1234!"), any(UserChangePasswordInDto.class));
 		}
 
 		@Test
@@ -171,7 +171,7 @@ class UserControllerTest {
 			UserChangePasswordRequest request = new UserChangePasswordRequest("Test1234!", "NewPass1234!");
 
 			willThrow(new CoreException(ErrorType.UNAUTHORIZED)).given(userCommandFacade)
-				.changePassword(eq(null), eq(null), any(UserChangePasswordCommand.class));
+				.changePassword(eq(null), eq(null), any(UserChangePasswordInDto.class));
 
 			// Act & Assert
 			CoreException exception = assertThrows(CoreException.class,

@@ -1,6 +1,6 @@
 package com.loopers.user.interfaces.controller.response;
 
-import com.loopers.user.domain.model.User;
+import com.loopers.user.application.dto.out.UserSignUpOutDto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,21 +13,20 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 class UserSignUpResponseTest {
 
 	@Test
-	@DisplayName("[UserSignUpResponse.from()] User 도메인 객체 -> UserSignUpResponse 변환. "
+	@DisplayName("[UserSignUpResponse.from()] UserSignUpOutDto -> UserSignUpResponse 변환. "
 		+ "id, loginId, name, birthday, email이 정확히 매핑됨")
 	void from() {
 		// Arrange
 		Long id = 1L;
 		String loginId = "testuser01";
-		String encodedPassword = "encodedPassword";
 		String name = "홍길동";
 		LocalDate birthday = LocalDate.of(1990, 1, 15);
 		String email = "test@example.com";
 
-		User user = User.reconstruct(id, loginId, encodedPassword, name, birthday, email);
+		UserSignUpOutDto outDto = new UserSignUpOutDto(id, loginId, name, birthday, email);
 
 		// Act
-		UserSignUpResponse response = UserSignUpResponse.from(user);
+		UserSignUpResponse response = UserSignUpResponse.from(outDto);
 
 		// Assert
 		assertAll(
