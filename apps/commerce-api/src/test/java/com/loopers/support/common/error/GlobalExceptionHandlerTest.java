@@ -60,6 +60,46 @@ class GlobalExceptionHandlerTest {
 				() -> assertThat(response.getBody().message()).isEqualTo(errorType.getMessage())
 			);
 		}
+
+		@Test
+		@DisplayName("[handleCoreException()] UNAUTHORIZED -> 401 상태코드와 ErrorResponse 반환. "
+			+ "인증 실패 시 UNAUTHORIZED 코드와 메시지가 정확히 매핑됨")
+		void handleCoreExceptionWithUnauthorized() {
+			// Arrange
+			ErrorType errorType = ErrorType.UNAUTHORIZED;
+			CoreException exception = new CoreException(errorType);
+
+			// Act
+			ResponseEntity<ErrorResponse> response = handler.handleCoreException(exception);
+
+			// Assert
+			assertAll(
+				() -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+				() -> assertThat(response.getBody()).isNotNull(),
+				() -> assertThat(response.getBody().code()).isEqualTo("UNAUTHORIZED"),
+				() -> assertThat(response.getBody().message()).isEqualTo(errorType.getMessage())
+			);
+		}
+
+		@Test
+		@DisplayName("[handleCoreException()] INTERNAL_ERROR -> 500 상태코드와 ErrorResponse 반환. "
+			+ "서버 오류 시 INTERNAL_ERROR 코드와 메시지가 정확히 매핑됨")
+		void handleCoreExceptionWithInternalError() {
+			// Arrange
+			ErrorType errorType = ErrorType.INTERNAL_ERROR;
+			CoreException exception = new CoreException(errorType);
+
+			// Act
+			ResponseEntity<ErrorResponse> response = handler.handleCoreException(exception);
+
+			// Assert
+			assertAll(
+				() -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR),
+				() -> assertThat(response.getBody()).isNotNull(),
+				() -> assertThat(response.getBody().code()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase()),
+				() -> assertThat(response.getBody().message()).isEqualTo(errorType.getMessage())
+			);
+		}
 	}
 
 	@Nested

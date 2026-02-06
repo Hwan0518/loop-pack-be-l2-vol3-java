@@ -91,6 +91,33 @@ class UserControllerTest {
 			);
 			verify(userCommandFacade).signUp(any());
 		}
+
+		@Test
+		@DisplayName("[UserController.signUp()] Facade에서 USER_ALREADY_EXISTS 예외 -> 예외 전파. "
+			+ "Controller는 Facade의 CoreException을 그대로 전파")
+		void signUpPropagatesUserAlreadyExistsException() {
+			// Arrange
+			UserSignUpRequest request = new UserSignUpRequest(
+				"existinguser",
+				"Test1234!",
+				"홍길동",
+				LocalDate.of(1990, 1, 15),
+				"test@example.com"
+			);
+
+			given(userCommandFacade.signUp(any()))
+				.willThrow(new CoreException(ErrorType.USER_ALREADY_EXISTS));
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> userController.signUp(request));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.USER_ALREADY_EXISTS),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.USER_ALREADY_EXISTS.getMessage())
+			);
+		}
 	}
 
 	@Nested
