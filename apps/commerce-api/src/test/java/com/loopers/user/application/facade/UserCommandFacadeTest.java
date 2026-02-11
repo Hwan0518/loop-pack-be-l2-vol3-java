@@ -1,5 +1,6 @@
 package com.loopers.user.application.facade;
 
+
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.user.application.dto.in.UserChangePasswordInDto;
@@ -8,14 +9,12 @@ import com.loopers.user.application.dto.out.UserSignUpOutDto;
 import com.loopers.user.application.service.UserCommandService;
 import com.loopers.user.application.service.UserQueryService;
 import com.loopers.user.domain.model.User;
+import com.loopers.user.domain.model.vo.LoginId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -26,11 +25,13 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UserCommandFacade 테스트")
@@ -44,66 +45,59 @@ class UserCommandFacadeTest {
 
 	private UserCommandFacade userCommandFacade;
 
+
 	@BeforeEach
 	void setUp() {
 		userCommandFacade = new UserCommandFacade(userCommandService, userQueryService);
 	}
+
 
 	@Nested
 	@DisplayName("회원가입 테스트")
 	class SignUpTest {
 
 		@Test
-		@DisplayName("[UserCommandFacade.signUp()] 유효한 회원가입 정보 -> UserSignUpOutDto 반환. "
-			+ "정규화된 loginId로 중복 체크 후 CommandService로 저장")
+		@DisplayName("[UserCommandFacade.signUp()] 정상 회원가입 -> 로그인ID 정규화/중복체크 후 UserSignUpOutDto 반환")
 		void signUpSuccess() {
 			// Arrange
 			UserSignUpInDto inDto = new UserSignUpInDto(
-				"testuser01",
+				"  TESTUSER01  ",
 				"Test1234!",
 				"홍길동",
 				LocalDate.of(1990, 1, 15),
 				"test@example.com"
 			);
+			LoginId expectedLoginId = LoginId.create("  TESTUSER01  ");
+			User savedUser = User.reconstruct(
+				1L,
+				expectedLoginId,
+				"encodedPassword",
+				"홍길동",
+				LocalDate.of(1990, 1, 15),
+				"test@example.com"
+			);
 
-			given(userQueryService.existsByLoginId("testuser01")).willReturn(false);
-			given(userCommandService.createUser(any(UserSignUpInDto.class))).willAnswer(invocation -> {
-				UserSignUpInDto request = invocation.getArgument(0);
-				User user = User.create(
-					request.loginId(),
-					request.password(),
-					request.name(),
-					request.birthday(),
-					request.email()
-				);
-				return User.reconstruct(
-					1L,
-					user.getLoginId(),
-					user.getPassword().value(),
-					user.getName(),
-					user.getBirthday(),
-					user.getEmail()
-				);
-			});
+			given(userCommandService.createUser(any(LoginId.class), eq(inDto))).willReturn(savedUser);
 
 			// Act
 			UserSignUpOutDto result = userCommandFacade.signUp(inDto);
 
 			// Assert
 			assertAll(
-				() -> assertThat(result).isNotNull(),
 				() -> assertThat(result.id()).isEqualTo(1L),
 				() -> assertThat(result.loginId()).isEqualTo("testuser01"),
-				() -> assertThat(result.name()).isEqualTo("홍길동"),
-				() -> assertThat(result.email()).isEqualTo("test@example.com")
+				() -> assertThat(result.name()).isEqualTo("홍길동")
 			);
-			verify(userQueryService).existsByLoginId("testuser01");
-			verify(userCommandService).createUser(inDto);
+			verify(userQueryService).loginIdDuplicationCheck("testuser01");
+			verify(userCommandService).createUser(
+				argThat(loginId -> loginId.value().equals("testuser01")),
+				eq(inDto)
+			);
 		}
 
+
 		@Test
-		@DisplayName("[UserCommandFacade.signUp()] 중복된 로그인 ID -> CoreException(ErrorType.USER_ALREADY_EXISTS) 발생. "
-			+ "에러 메시지: '이미 가입된 로그인 ID입니다.'")
+		@DisplayName("[UserCommandFacade.signUp()] 중복 로그인ID -> USER_ALREADY_EXISTS")
 		void signUpFailWhenLoginIdAlreadyExists() {
 			// Arrange
 			UserSignUpInDto inDto = new UserSignUpInDto(
@@ -113,192 +107,140 @@ class UserCommandFacadeTest {
 				LocalDate.of(1990, 1, 15),
 				"test@example.com"
 			);
-
-			given(userQueryService.existsByLoginId("existinguser")).willReturn(true);
+			willThrow(new CoreException(ErrorType.USER_ALREADY_EXISTS))
+				.given(userQueryService).loginIdDuplicationCheck("existinguser");
 
 			// Act
-			CoreException exception = assertThrows(CoreException.class,
-				() -> userCommandFacade.signUp(inDto));
+			CoreException exception = assertThrows(CoreException.class, () -> userCommandFacade.signUp(inDto));
 
 			// Assert
 			assertAll(
 				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.USER_ALREADY_EXISTS),
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.USER_ALREADY_EXISTS.getMessage())
 			);
-			verify(userQueryService).existsByLoginId("existinguser");
-			verify(userCommandService, never()).createUser(any(UserSignUpInDto.class));
+			verify(userQueryService).loginIdDuplicationCheck("existinguser");
+			verify(userCommandService, never()).createUser(any(LoginId.class), any(UserSignUpInDto.class));
 		}
 
+
 		@Test
-		@DisplayName("[UserCommandFacade.signUp()] 대문자/공백 변형 loginId가 정규화 후 중복 -> CoreException(USER_ALREADY_EXISTS)")
-		void signUpFailWhenNormalizedLoginIdAlreadyExists() {
+		@DisplayName("[UserCommandFacade.signUp()] 로그인ID 형식 오류 -> INVALID_LOGIN_ID_FORMAT")
+		void signUpFailWhenLoginIdFormatInvalid() {
 			// Arrange
 			UserSignUpInDto inDto = new UserSignUpInDto(
-				"  TESTUSER01  ",
+				"invalid_id",
 				"Test1234!",
 				"홍길동",
 				LocalDate.of(1990, 1, 15),
 				"test@example.com"
 			);
-			given(userQueryService.existsByLoginId("testuser01")).willReturn(true);
 
 			// Act
-			CoreException exception = assertThrows(CoreException.class,
-				() -> userCommandFacade.signUp(inDto));
+			CoreException exception = assertThrows(CoreException.class, () -> userCommandFacade.signUp(inDto));
 
 			// Assert
 			assertAll(
-				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.USER_ALREADY_EXISTS),
-				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.USER_ALREADY_EXISTS.getMessage())
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT.getMessage())
 			);
-			verify(userQueryService).existsByLoginId("testuser01");
-			verify(userCommandService, never()).createUser(any(UserSignUpInDto.class));
+			verify(userQueryService, never()).loginIdDuplicationCheck(any());
+			verify(userCommandService, never()).createUser(any(LoginId.class), any(UserSignUpInDto.class));
 		}
+
 	}
+
 
 	@Nested
 	@DisplayName("비밀번호 변경 테스트")
 	class ChangePasswordTest {
 
 		@Test
-		@DisplayName("[UserCommandFacade.changePassword()] 유효한 인증 및 비밀번호 변경 요청 -> 정상 완료. "
-			+ "Header 검증 후 UserCommandService.updatePassword()로 위임")
+		@DisplayName("[UserCommandFacade.changePassword()] 유효 입력 -> UserCommandService.updatePassword() 위임")
 		void changePasswordSuccess() {
 			// Arrange
-			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "NewPass1234!");
-			willDoNothing().given(userCommandService)
-				.updatePassword("Test1234!", "testuser01", "Test1234!", "NewPass1234!");
+			UserChangePasswordInDto inDto = new UserChangePasswordInDto("testuser01", "Test1234!", "NewPass1234!");
 
 			// Act & Assert
-			assertDoesNotThrow(() ->
-				userCommandFacade.changePassword("testuser01", "Test1234!", inDto));
-
-			verify(userCommandService)
-				.updatePassword("Test1234!", "testuser01", "Test1234!", "NewPass1234!");
+			assertDoesNotThrow(() -> userCommandFacade.changePassword(inDto));
+			verify(userCommandService).updatePassword(inDto);
 		}
+
 
 		@Test
-		@DisplayName("[UserCommandFacade.changePassword()] loginId 원문은 그대로 서비스에 전달")
-		void changePasswordPassesRawLoginIdToService() {
+		@DisplayName("[UserCommandFacade.changePassword()] loginId null/blank -> UNAUTHORIZED")
+		void failWhenLoginIdHeaderIsBlank() {
 			// Arrange
-			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "NewPass1234!");
-			willDoNothing().given(userCommandService)
-				.updatePassword("Test1234!", "  TESTUSER01  ", "Test1234!", "NewPass1234!");
-
-			// Act & Assert
-			assertDoesNotThrow(() ->
-				userCommandFacade.changePassword("  TESTUSER01  ", "Test1234!", inDto));
-
-			verify(userCommandService)
-				.updatePassword("Test1234!", "  TESTUSER01  ", "Test1234!", "NewPass1234!");
-		}
-
-		@ParameterizedTest
-		@NullAndEmptySource
-		@ValueSource(strings = {"  ", "\t"})
-		@DisplayName("[UserCommandFacade.changePassword()] loginId 헤더 null/blank -> CoreException(UNAUTHORIZED). "
-			+ "인증 실패: 로그인 ID 미제공")
-		void failWhenLoginIdHeaderIsNullOrBlank(String loginId) {
-			// Arrange
-			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "NewPass1234!");
+			UserChangePasswordInDto inDto = new UserChangePasswordInDto("   ", "Test1234!", "NewPass1234!");
 
 			// Act
-			CoreException exception = assertThrows(CoreException.class,
-				() -> userCommandFacade.changePassword(loginId, "Test1234!", inDto));
+			CoreException exception = assertThrows(CoreException.class, () -> userCommandFacade.changePassword(inDto));
 
 			// Assert
 			assertAll(
 				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
 			);
-			verify(userCommandService, never()).updatePassword(any(), any(), any(), any());
+			verify(userCommandService, never()).updatePassword(any(UserChangePasswordInDto.class));
 		}
 
-		@ParameterizedTest
-		@NullAndEmptySource
-		@ValueSource(strings = {"  ", "\t"})
-		@DisplayName("[UserCommandFacade.changePassword()] password 헤더 null/blank -> CoreException(UNAUTHORIZED). "
-			+ "인증 실패: 비밀번호 미제공")
-		void failWhenPasswordHeaderIsNullOrBlank(String password) {
+
+		@Test
+		@DisplayName("[UserCommandFacade.changePassword()] currentPassword null/blank -> UNAUTHORIZED")
+		void failWhenPasswordHeaderIsBlank() {
 			// Arrange
-			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "NewPass1234!");
+			UserChangePasswordInDto inDto = new UserChangePasswordInDto("testuser01", "   ", "NewPass1234!");
 
 			// Act
-			CoreException exception = assertThrows(CoreException.class,
-				() -> userCommandFacade.changePassword("testuser01", password, inDto));
+			CoreException exception = assertThrows(CoreException.class, () -> userCommandFacade.changePassword(inDto));
 
 			// Assert
 			assertAll(
 				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
 			);
-			verify(userCommandService, never()).updatePassword(any(), any(), any(), any());
+			verify(userCommandService, never()).updatePassword(any(UserChangePasswordInDto.class));
 		}
 
+
 		@Test
-		@DisplayName("[UserCommandFacade.changePassword()] 존재하지 않는 사용자 -> CoreException(UNAUTHORIZED). "
-			+ "서비스 예외를 그대로 전파")
+		@DisplayName("[UserCommandFacade.changePassword()] 서비스 USER_NOT_FOUND 예외 전파")
 		void failWhenUserNotFound() {
 			// Arrange
-			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "NewPass1234!");
-			willThrow(new CoreException(ErrorType.UNAUTHORIZED)).given(userCommandService)
-				.updatePassword("Test1234!", "nonexistent", "Test1234!", "NewPass1234!");
+			UserChangePasswordInDto inDto = new UserChangePasswordInDto("nonexistent", "Test1234!", "NewPass1234!");
+			willThrow(new CoreException(ErrorType.USER_NOT_FOUND))
+				.given(userCommandService).updatePassword(inDto);
 
 			// Act
-			CoreException exception = assertThrows(CoreException.class,
-				() -> userCommandFacade.changePassword("nonexistent", "Test1234!", inDto));
+			CoreException exception = assertThrows(CoreException.class, () -> userCommandFacade.changePassword(inDto));
 
 			// Assert
 			assertAll(
-				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
-				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.USER_NOT_FOUND),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.USER_NOT_FOUND.getMessage())
 			);
-			verify(userCommandService)
-				.updatePassword("Test1234!", "nonexistent", "Test1234!", "NewPass1234!");
+			verify(userCommandService).updatePassword(inDto);
 		}
 
-		@Test
-		@DisplayName("[UserCommandFacade.changePassword()] 헤더 비밀번호 불일치 -> CoreException(UNAUTHORIZED). "
-			+ "서비스 예외를 그대로 전파")
-		void failWhenHeaderPasswordNotMatch() {
-			// Arrange
-			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "NewPass1234!");
-			willThrow(new CoreException(ErrorType.UNAUTHORIZED)).given(userCommandService)
-				.updatePassword("WrongPass1!", "testuser01", "Test1234!", "NewPass1234!");
-
-			// Act
-			CoreException exception = assertThrows(CoreException.class,
-				() -> userCommandFacade.changePassword("testuser01", "WrongPass1!", inDto));
-
-			// Assert
-			assertAll(
-				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
-				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
-			);
-			verify(userCommandService)
-				.updatePassword("WrongPass1!", "testuser01", "Test1234!", "NewPass1234!");
-		}
 
 		@Test
-		@DisplayName("[UserCommandFacade.changePassword()] 현재/새 비밀번호 동일 -> CoreException(PASSWORD_SAME_AS_CURRENT). "
-			+ "서비스 예외를 그대로 전파")
+		@DisplayName("[UserCommandFacade.changePassword()] 서비스 PASSWORD_SAME_AS_CURRENT 예외 전파")
 		void failWhenNewPasswordSameAsCurrent() {
 			// Arrange
-			UserChangePasswordInDto inDto = new UserChangePasswordInDto("Test1234!", "Test1234!");
-			willThrow(new CoreException(ErrorType.PASSWORD_SAME_AS_CURRENT)).given(userCommandService)
-				.updatePassword("Test1234!", "testuser01", "Test1234!", "Test1234!");
+			UserChangePasswordInDto inDto = new UserChangePasswordInDto("testuser01", "Test1234!", "Test1234!");
+			willThrow(new CoreException(ErrorType.PASSWORD_SAME_AS_CURRENT))
+				.given(userCommandService).updatePassword(inDto);
 
 			// Act
-			CoreException exception = assertThrows(CoreException.class,
-				() -> userCommandFacade.changePassword("testuser01", "Test1234!", inDto));
+			CoreException exception = assertThrows(CoreException.class, () -> userCommandFacade.changePassword(inDto));
 
 			// Assert
 			assertAll(
 				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.PASSWORD_SAME_AS_CURRENT),
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.PASSWORD_SAME_AS_CURRENT.getMessage())
 			);
-			verify(userCommandService)
-				.updatePassword("Test1234!", "testuser01", "Test1234!", "Test1234!");
+			verify(userCommandService).updatePassword(inDto);
 		}
+
 	}
+
 }

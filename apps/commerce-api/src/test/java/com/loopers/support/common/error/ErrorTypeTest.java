@@ -54,16 +54,18 @@ class ErrorTypeTest {
 				"INVALID_BIRTHDAY", "생년월일은 1900-01-01 이후, 오늘 이전이어야 합니다."),
 			Arguments.of(ErrorType.PASSWORD_SAME_AS_CURRENT, HttpStatus.BAD_REQUEST,
 				"PASSWORD_SAME_AS_CURRENT", "새 비밀번호는 현재 비밀번호와 같을 수 없습니다."),
+			Arguments.of(ErrorType.USER_NOT_FOUND, HttpStatus.NOT_FOUND,
+				"USER_NOT_FOUND", "아이디와 비밀번호를 다시 확인해주세요."),
 			Arguments.of(ErrorType.UNAUTHORIZED, HttpStatus.UNAUTHORIZED,
 				"UNAUTHORIZED", "인증에 실패했습니다.")
 		);
 	}
 
 	@Test
-	@DisplayName("[ErrorType] enum 상수 개수가 13개임을 보장")
+	@DisplayName("[ErrorType] enum 상수 개수가 14개임을 보장")
 	void enumConstantCount() {
 		// Assert
-		assertThat(ErrorType.values()).hasSize(13);
+		assertThat(ErrorType.values()).hasSize(14);
 	}
 
 	@Test

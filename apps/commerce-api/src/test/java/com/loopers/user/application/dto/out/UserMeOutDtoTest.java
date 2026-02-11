@@ -1,6 +1,7 @@
 package com.loopers.user.application.dto.out;
 
 import com.loopers.user.domain.model.User;
+import com.loopers.user.domain.model.vo.LoginId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -22,7 +23,7 @@ class UserMeOutDtoTest {
 		LocalDate birthday = LocalDate.of(1990, 1, 15);
 		String email = "test@example.com";
 
-		User user = User.reconstruct(1L, loginId, "encodedPassword", name, birthday, email);
+		User user = User.reconstruct(1L, LoginId.create(loginId), "encodedPassword", name, birthday, email);
 
 		// Act
 		UserMeOutDto outDto = UserMeOutDto.from(user);

@@ -1,6 +1,8 @@
 package com.loopers.user.interfaces.controller.response;
 
+
 import com.loopers.user.application.dto.out.UserSignUpOutDto;
+import com.loopers.user.interfaces.web.response.UserSignUpResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -8,6 +10,7 @@ import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+
 
 @DisplayName("UserSignUpResponse 테스트")
 class UserSignUpResponseTest {
@@ -38,4 +41,5 @@ class UserSignUpResponseTest {
 			() -> assertThat(response.email()).isEqualTo(email)
 		);
 	}
+
 }

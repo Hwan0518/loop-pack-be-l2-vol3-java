@@ -1,9 +1,13 @@
 package com.loopers.user.infrastructure.repository;
 
+
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
+import com.loopers.user.application.port.PasswordEncoder;
 import com.loopers.user.application.repository.UserCommandRepository;
 import com.loopers.user.domain.model.User;
+import com.loopers.user.domain.model.vo.LoginId;
+import com.loopers.user.domain.model.vo.Password;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -20,9 +24,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+
 @SpringBootTest
 @ActiveProfiles("test")
-@Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
+@Import({ MySqlTestContainersConfig.class, RedisTestContainersConfig.class })
 @DisplayName("UserCommandRepository 테스트")
 class UserCommandRepositoryTest {
 
@@ -30,20 +35,26 @@ class UserCommandRepositoryTest {
 	private UserCommandRepository userCommandRepository;
 
 	@Autowired
+	private PasswordEncoder passwordEncoder;
+
+	@Autowired
 	private DatabaseCleanUp databaseCleanUp;
+
 
 	@AfterEach
 	void tearDown() {
 		databaseCleanUp.truncateAllTables();
 	}
 
+
 	@Test
 	@DisplayName("[UserCommandRepository.save()] 유효한 User 저장 -> ID가 할당된 User 반환")
 	void saveUser() {
 		// Arrange
+		Password password = Password.from(passwordEncoder.encode("Test1234!"));
 		User user = User.create(
-			"testuser01",
-			"Test1234!",
+			LoginId.create("testuser01"),
+			password,
 			"홍길동",
 			LocalDate.of(1990, 1, 15),
 			"test@example.com"
@@ -55,25 +66,26 @@ class UserCommandRepositoryTest {
 		// Assert
 		assertAll(
 			() -> assertThat(savedUser.getId()).isNotNull(),
-			() -> assertThat(savedUser.getLoginId()).isEqualTo("testuser01"),
+			() -> assertThat(savedUser.getLoginId().value()).isEqualTo("testuser01"),
 			() -> assertThat(savedUser.getName()).isEqualTo("홍길동")
 		);
 	}
+
 
 	@Test
 	@DisplayName("[UserCommandRepository.save()] 중복 loginId 저장 시도 -> 예외 발생")
 	void saveDuplicateLoginIdThrowsException() {
 		// Arrange
 		User firstUser = User.create(
-			"testuser01",
-			"Test1234!",
+			LoginId.create("testuser01"),
+			Password.from(passwordEncoder.encode("Test1234!")),
 			"홍길동",
 			LocalDate.of(1990, 1, 15),
 			"test@example.com"
 		);
 		User duplicateLoginIdUser = User.create(
-			"testuser01",
-			"DiffPass123!",
+			LoginId.create("testuser01"),
+			Password.from(passwordEncoder.encode("DiffPass123!")),
 			"김철수",
 			LocalDate.of(1991, 2, 2),
 			"other@example.com"
@@ -83,4 +95,5 @@ class UserCommandRepositoryTest {
 		// Act & Assert
 		assertThrows(DataIntegrityViolationException.class, () -> userCommandRepository.save(duplicateLoginIdUser));
 	}
+
 }

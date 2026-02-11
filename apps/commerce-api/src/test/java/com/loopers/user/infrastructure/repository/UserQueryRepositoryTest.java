@@ -1,10 +1,14 @@
 package com.loopers.user.infrastructure.repository;
 
+
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
+import com.loopers.user.application.port.PasswordEncoder;
 import com.loopers.user.application.repository.UserCommandRepository;
 import com.loopers.user.application.repository.UserQueryRepository;
 import com.loopers.user.domain.model.User;
+import com.loopers.user.domain.model.vo.LoginId;
+import com.loopers.user.domain.model.vo.Password;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -24,9 +28,10 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+
 @SpringBootTest
 @ActiveProfiles("test")
-@Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
+@Import({ MySqlTestContainersConfig.class, RedisTestContainersConfig.class })
 @DisplayName("UserQueryRepository 테스트")
 class UserQueryRepositoryTest {
 
@@ -37,12 +42,17 @@ class UserQueryRepositoryTest {
 	private UserCommandRepository userCommandRepository;
 
 	@Autowired
+	private PasswordEncoder passwordEncoder;
+
+	@Autowired
 	private DatabaseCleanUp databaseCleanUp;
+
 
 	@AfterEach
 	void tearDown() {
 		databaseCleanUp.truncateAllTables();
 	}
+
 
 	@Nested
 	@DisplayName("조회 테스트")
@@ -53,8 +63,8 @@ class UserQueryRepositoryTest {
 		void findByLoginId() {
 			// Arrange
 			User user = User.create(
-				"testuser01",
-				"Test1234!",
+				LoginId.create("testuser01"),
+				Password.from(passwordEncoder.encode("Test1234!")),
 				"홍길동",
 				LocalDate.of(1990, 1, 15),
 				"test@example.com"
@@ -67,10 +77,11 @@ class UserQueryRepositoryTest {
 			// Assert
 			assertAll(
 				() -> assertThat(foundUser).isPresent(),
-				() -> assertThat(foundUser.get().getLoginId()).isEqualTo("testuser01"),
+				() -> assertThat(foundUser.get().getLoginId().value()).isEqualTo("testuser01"),
 				() -> assertThat(foundUser.get().getName()).isEqualTo("홍길동")
 			);
 		}
+
 
 		@Test
 		@DisplayName("[UserQueryRepository.findByLoginId()] 존재하지 않는 loginId 조회 -> Optional.empty() 반환")
@@ -82,9 +93,10 @@ class UserQueryRepositoryTest {
 			assertThat(foundUser).isEmpty();
 		}
 
+
 		@ParameterizedTest
 		@NullAndEmptySource
-		@ValueSource(strings = {"  ", "\t"})
+		@ValueSource(strings = { "  ", "\t" })
 		@DisplayName("[UserQueryRepository.findByLoginId()] loginId가 null/blank -> Optional.empty() 반환. "
 			+ "정규화 결과 null 분기 검증")
 		void findByLoginIdWithNullOrBlank(String loginId) {
@@ -95,14 +107,15 @@ class UserQueryRepositoryTest {
 			assertThat(foundUser).isEmpty();
 		}
 
+
 		@Test
 		@DisplayName("[UserQueryRepository.findByLoginId()] 대문자/공백 loginId 조회 -> Optional.empty() 반환. "
 			+ "정규화는 상위 레이어 책임")
 		void findByLoginIdWithUppercaseAndWhitespace() {
 			// Arrange
 			User user = User.create(
-				"testuser01",
-				"Test1234!",
+				LoginId.create("testuser01"),
+				Password.from(passwordEncoder.encode("Test1234!")),
 				"홍길동",
 				LocalDate.of(1990, 1, 15),
 				"test@example.com"
@@ -115,6 +128,7 @@ class UserQueryRepositoryTest {
 			// Assert
 			assertThat(foundUser).isEmpty();
 		}
+
 	}
 
 	@Nested
@@ -126,8 +140,8 @@ class UserQueryRepositoryTest {
 		void existsByLoginIdTrue() {
 			// Arrange
 			User user = User.create(
-				"testuser01",
-				"Test1234!",
+				LoginId.create("testuser01"),
+				Password.from(passwordEncoder.encode("Test1234!")),
 				"홍길동",
 				LocalDate.of(1990, 1, 15),
 				"test@example.com"
@@ -141,6 +155,7 @@ class UserQueryRepositoryTest {
 			assertThat(exists).isTrue();
 		}
 
+
 		@Test
 		@DisplayName("[UserQueryRepository.existsByLoginId()] 존재하지 않는 loginId -> false 반환")
 		void existsByLoginIdFalse() {
@@ -151,9 +166,10 @@ class UserQueryRepositoryTest {
 			assertThat(exists).isFalse();
 		}
 
+
 		@ParameterizedTest
 		@NullAndEmptySource
-		@ValueSource(strings = {"  ", "\t"})
+		@ValueSource(strings = { "  ", "\t" })
 		@DisplayName("[UserQueryRepository.existsByLoginId()] loginId가 null/blank -> false 반환. "
 			+ "정규화 결과 null 분기 검증")
 		void existsByLoginIdWithNullOrBlank(String loginId) {
@@ -164,14 +180,15 @@ class UserQueryRepositoryTest {
 			assertThat(exists).isFalse();
 		}
 
+
 		@Test
 		@DisplayName("[UserQueryRepository.existsByLoginId()] 대문자/공백 loginId -> false 반환. "
 			+ "정규화는 상위 레이어 책임")
 		void existsByLoginIdWithUppercaseAndWhitespace() {
 			// Arrange
 			User user = User.create(
-				"testuser01",
-				"Test1234!",
+				LoginId.create("testuser01"),
+				Password.from(passwordEncoder.encode("Test1234!")),
 				"홍길동",
 				LocalDate.of(1990, 1, 15),
 				"test@example.com"
@@ -184,6 +201,7 @@ class UserQueryRepositoryTest {
 			// Assert
 			assertThat(exists).isFalse();
 		}
+
 	}
 
 	@Nested
@@ -191,13 +209,13 @@ class UserQueryRepositoryTest {
 	class PasswordMatchTest {
 
 		@Test
-		@DisplayName("[UserQueryRepository.findByLoginId()] 저장/조회 후 Password 값 객체 복원 -> matches(raw)=true")
+		@DisplayName("[UserQueryRepository.findByLoginId()] 저장/조회 후 Password 값 객체 복원 -> passwordEncoder.matches()=true")
 		void matchPasswordAfterSave() {
 			// Arrange
 			String rawPassword = "Test1234!";
 			User user = User.create(
-				"testuser01",
-				rawPassword,
+				LoginId.create("testuser01"),
+				Password.from(passwordEncoder.encode(rawPassword)),
 				"홍길동",
 				LocalDate.of(1990, 1, 15),
 				"test@example.com"
@@ -210,8 +228,10 @@ class UserQueryRepositoryTest {
 			// Assert
 			assertAll(
 				() -> assertThat(foundUser).isPresent(),
-				() -> assertThat(foundUser.get().getPassword().matches(rawPassword)).isTrue()
+				() -> assertThat(passwordEncoder.matches(rawPassword, foundUser.get().getPassword().value())).isTrue()
 			);
 		}
+
 	}
+
 }
