@@ -36,7 +36,7 @@
 | `loginId` | String | O | 로그인 ID |
 | `password` | String | O | 비밀번호 |
 | `name` | String | O | 이름 |
-| `birthday` | LocalDate | O | 생년월일 (yyyy-MM-dd) |
+| `birthDate` | LocalDate | O | 생년월일 (yyyy-MM-dd) |
 | `email` | String | O | 이메일 |
 
 ### 2.2 응답 (201 Created)
@@ -46,7 +46,7 @@
 | `id` | Long | 사용자 ID |
 | `loginId` | String | 로그인 ID |
 | `name` | String | 이름 |
-| `birthday` | String | 생년월일 (yyyy-MM-dd) |
+| `birthDate` | String | 생년월일 (yyyy-MM-dd) |
 | `email` | String | 이메일 |
 
 - **비밀번호/해시는 응답에 절대 포함하지 않음**
@@ -76,7 +76,7 @@
 | 생년월일 포함 금지 | `YYYYMMDD` (예: `19900115`), `YYYY-MM-DD` (예: `1990-01-15`) 형식 모두 체크 |
 | 저장 | 해시 저장 (SHA-256 + Base64) |
 | ErrorType (형식) | `INVALID_PASSWORD_FORMAT` (400) |
-| ErrorType (생년월일) | `PASSWORD_CONTAINS_BIRTHDAY` (400) |
+| ErrorType (생년월일) | `PASSWORD_CONTAINS_BIRTH_DATE` (400) |
 
 #### name (이름)
 
@@ -87,13 +87,13 @@
 | 길이 | 1~50자 |
 | ErrorType | `INVALID_NAME_FORMAT` (400) |
 
-#### birthday (생년월일)
+#### birthDate (생년월일)
 
 | 항목 | 규칙 |
 |------|------|
 | 형식 | `yyyy-MM-dd` (ISO-8601) |
 | 범위 | 1900-01-01 이후, 오늘 이전 (미래 날짜 금지) |
-| ErrorType | `INVALID_BIRTHDAY` (400) |
+| ErrorType | `INVALID_BIRTH_DATE` (400) |
 
 #### email (이메일)
 
@@ -124,7 +124,7 @@
 |------|------|------|
 | `loginId` | String | 로그인 ID |
 | `name` | String | 이름 (**마스킹 적용**) |
-| `birthday` | String | 생년월일 (yyyy-MM-dd) |
+| `birthDate` | String | 생년월일 (yyyy-MM-dd) |
 | `email` | String | 이메일 |
 
 - **비밀번호/해시는 응답에 절대 포함하지 않음**
@@ -173,11 +173,11 @@
 | `CONFLICT` | 409 | `Conflict` | `이미 존재하는 리소스입니다.` |
 | `USER_ALREADY_EXISTS` | 409 | `USER_ALREADY_EXISTS` | `이미 가입된 로그인 ID입니다.` |
 | `INVALID_PASSWORD_FORMAT` | 400 | `INVALID_PASSWORD_FORMAT` | `비밀번호는 8~16자이며, 영문 대소문자, 숫자, 특수문자를 모두 포함해야 합니다.` |
-| `PASSWORD_CONTAINS_BIRTHDAY` | 400 | `PASSWORD_CONTAINS_BIRTHDAY` | `비밀번호에 생년월일을 포함할 수 없습니다.` |
+| `PASSWORD_CONTAINS_BIRTH_DATE` | 400 | `PASSWORD_CONTAINS_BIRTH_DATE` | `비밀번호에 생년월일을 포함할 수 없습니다.` |
 | `INVALID_LOGIN_ID_FORMAT` | 400 | `INVALID_LOGIN_ID_FORMAT` | `로그인 ID는 영문과 숫자만 사용 가능하며, 4~20자여야 합니다.` |
 | `INVALID_NAME_FORMAT` | 400 | `INVALID_NAME_FORMAT` | `이름은 한글, 영문, 공백만 사용 가능하며, 최대 50자입니다.` |
 | `INVALID_EMAIL_FORMAT` | 400 | `INVALID_EMAIL_FORMAT` | `올바른 이메일 형식이 아닙니다.` |
-| `INVALID_BIRTHDAY` | 400 | `INVALID_BIRTHDAY` | `생년월일은 1900-01-01 이후, 오늘 이전이어야 합니다.` |
+| `INVALID_BIRTH_DATE` | 400 | `INVALID_BIRTH_DATE` | `생년월일은 1900-01-01 이후, 오늘 이전이어야 합니다.` |
 
 ---
 

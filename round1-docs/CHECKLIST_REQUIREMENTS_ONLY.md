@@ -56,9 +56,9 @@
 ### 6.2 회원가입 (S1-S34)
 
 - [ ] `S1` `POST /api/v1/users` 엔드포인트 존재
-- [ ] `S2` 요청 필드 `loginId`, `password`, `name`, `birthday`, `email`가 모두 필수
+- [ ] `S2` 요청 필드 `loginId`, `password`, `name`, `birthDate`, `email`가 모두 필수
 - [ ] `S3` 성공 시 `201 Created` 반환
-- [ ] `S4` 성공 응답 필드 `id`, `loginId`, `name`, `birthday`, `email` 반환
+- [ ] `S4` 성공 응답 필드 `id`, `loginId`, `name`, `birthDate`, `email` 반환
 - [ ] `S5` 성공 응답에 비밀번호/해시를 포함하지 않음
 - [ ] `S6` `loginId` 허용 문자: 영문 대소문자 + 숫자만(`^[a-zA-Z0-9]+$`)
 - [ ] `S7` `loginId` 전처리: `trim()` 후 소문자 정규화
@@ -74,14 +74,14 @@
 - [ ] `S17` `password`에 생년월일 포함 금지(`YYYYMMDD`, `YYYY-MM-DD`)
 - [ ] `S18` `password` 저장 시 해시 사용(`SHA-256 + Base64`)
 - [ ] `S19` `password` 형식 위반 시 `INVALID_PASSWORD_FORMAT(400)` 처리
-- [ ] `S20` `password` 생년월일 포함 시 `PASSWORD_CONTAINS_BIRTHDAY(400)` 처리
+- [ ] `S20` `password` 생년월일 포함 시 `PASSWORD_CONTAINS_BIRTH_DATE(400)` 처리
 - [ ] `S21` `name` 허용 문자: 한글, 영문, 공백
 - [ ] `S22` `name`은 `trim()` 적용 후 빈 문자열이면 실패
 - [ ] `S23` `name` 길이 `1~50`
 - [ ] `S24` `name` 형식 위반 시 `INVALID_NAME_FORMAT(400)` 처리
-- [ ] `S25` `birthday` 형식은 `yyyy-MM-dd`(ISO-8601)
-- [ ] `S26` `birthday` 범위는 `1900-01-01` 이후, 오늘 이전
-- [ ] `S27` `birthday` 위반 시 `INVALID_BIRTHDAY(400)` 처리
+- [ ] `S25` `birthDate` 형식은 `yyyy-MM-dd`(ISO-8601)
+- [ ] `S26` `birthDate` 범위는 `1900-01-01` 이후, 오늘 이전
+- [ ] `S27` `birthDate` 위반 시 `INVALID_BIRTH_DATE(400)` 처리
 - [ ] `S28` `email` 최대 길이 `254`
 - [ ] `S29` `email` 형식은 `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$`
 - [ ] `S30` `email` 공백/제어문자 금지
@@ -94,7 +94,7 @@
 
 - [ ] `M1` `GET /api/v1/users/me` 엔드포인트 존재
 - [ ] `M2` 요청 헤더 `X-Loopers-LoginId`, `X-Loopers-LoginPw`가 모두 필수
-- [ ] `M3` 응답 필드 `loginId`, `name`, `birthday`, `email` 반환
+- [ ] `M3` 응답 필드 `loginId`, `name`, `birthDate`, `email` 반환
 - [ ] `M4` 응답에 비밀번호/해시를 포함하지 않음
 - [ ] `M5` `name` 필드에 마스킹 규칙이 적용됨
 - [ ] `M6` 이름 길이 2자 이상: 마지막 글자를 `*`로 대체
@@ -119,11 +119,11 @@
 - [ ] `E4` `CONFLICT` = `409 / Conflict / 이미 존재하는 리소스입니다.`
 - [ ] `E5` `USER_ALREADY_EXISTS` = `409 / USER_ALREADY_EXISTS / 이미 가입된 로그인 ID입니다.`
 - [ ] `E6` `INVALID_PASSWORD_FORMAT` = `400 / INVALID_PASSWORD_FORMAT / 비밀번호는 8~16자이며, 영문 대소문자, 숫자, 특수문자를 모두 포함해야 합니다.`
-- [ ] `E7` `PASSWORD_CONTAINS_BIRTHDAY` = `400 / PASSWORD_CONTAINS_BIRTHDAY / 비밀번호에 생년월일을 포함할 수 없습니다.`
+- [ ] `E7` `PASSWORD_CONTAINS_BIRTH_DATE` = `400 / PASSWORD_CONTAINS_BIRTH_DATE / 비밀번호에 생년월일을 포함할 수 없습니다.`
 - [ ] `E8` `INVALID_LOGIN_ID_FORMAT` = `400 / INVALID_LOGIN_ID_FORMAT / 로그인 ID는 영문과 숫자만 사용 가능하며, 4~20자여야 합니다.`
 - [ ] `E9` `INVALID_NAME_FORMAT` = `400 / INVALID_NAME_FORMAT / 이름은 한글, 영문, 공백만 사용 가능하며, 최대 50자입니다.`
 - [ ] `E10` `INVALID_EMAIL_FORMAT` = `400 / INVALID_EMAIL_FORMAT / 올바른 이메일 형식이 아닙니다.`
-- [ ] `E11` `INVALID_BIRTHDAY` = `400 / INVALID_BIRTHDAY / 생년월일은 1900-01-01 이후, 오늘 이전이어야 합니다.`
+- [ ] `E11` `INVALID_BIRTH_DATE` = `400 / INVALID_BIRTH_DATE / 생년월일은 1900-01-01 이후, 오늘 이전이어야 합니다.`
 
 ## 7. 섹션 운영 규칙
 
