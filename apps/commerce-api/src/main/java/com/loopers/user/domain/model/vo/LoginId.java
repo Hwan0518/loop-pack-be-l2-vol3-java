@@ -20,33 +20,28 @@ public record LoginId(String value) {
 	private static final Pattern PATTERN = Pattern.compile("^[a-zA-Z0-9]+$"); // 영문 대소문자 및 숫자만 허용
 
 
-	// 생성자
-	public LoginId {
-
-		// 값 정규화
-		String normalized = normalize(value);
-
-		// 값 검증
-		validate(normalized);
-
-		// 필드 할당
-		value = normalized;
-	}
-
-
 	/**
 	 * 도메인 로직
 	 * 1. 로그인 ID 생성
-	 * 2. 로그인 ID 정규화
+	 * 2. DB 복원용 로그인 ID 생성
+	 * 3. 로그인 ID 정규화
 	 */
 
 	// 1. 로그인 ID 생성
 	public static LoginId create(String rawLoginId) {
-		return new LoginId(rawLoginId);
+		String normalized = normalize(rawLoginId);
+		validate(normalized);
+		return new LoginId(normalized);
 	}
 
 
-	// 2. 로그인 ID 정규화
+	// 2. DB 복원용 로그인 ID 생성
+	public static LoginId from(String value) {
+		return new LoginId(value);
+	}
+
+
+	// 3. 로그인 ID 정규화
 	public static String normalize(String loginId) {
 		if (loginId == null) {
 			return null;

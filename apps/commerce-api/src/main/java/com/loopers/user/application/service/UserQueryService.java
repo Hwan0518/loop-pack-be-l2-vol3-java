@@ -1,13 +1,12 @@
 package com.loopers.user.application.service;
 
 
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
 import com.loopers.user.application.repository.UserQueryRepository;
-import com.loopers.user.domain.model.User;
+import com.loopers.user.domain.model.vo.LoginId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import java.util.Locale;
-import java.util.Optional;
 
 
 @Service
@@ -20,36 +19,19 @@ public class UserQueryService {
 
 	/**
 	 * 유저 조회 서비스
-	 * 1. 로그인 ID로 유저 조회
-	 * 2. 로그인 ID 중복 여부 확인
+	 * 1. 로그인 ID 중복 여부 확인
 	 */
 
-	// 1. 로그인 ID로 유저 조회
-	public Optional<User> findByLoginId(String loginId) {
+	// 1. 로그인 ID 중복 여부 확인
+	public void loginIdDuplicationCheck(String rawLoginId) {
 
-		// 로그인 ID 정규화
-		String normalizedLoginId = normalizeLoginId(loginId);
+		// 로그인 id 정규화
+		String normalizedLoginId = LoginId.normalize(rawLoginId);
 
-		if (normalizedLoginId == null) {
-			return Optional.empty();
+		// 중복되었다면 예외 발생
+		if (userQueryRepository.existsByLoginId(normalizedLoginId)) {
+			throw new CoreException(ErrorType.USER_ALREADY_EXISTS);
 		}
-
-		return userQueryRepository.findByLoginId(loginId);
-	}
-
-
-	// 2. 로그인 ID 중복 여부 확인
-	public boolean existsByLoginId(String loginId) {
-		return userQueryRepository.existsByLoginId(loginId);
-	}
-
-
-	private String normalizeLoginId(String loginId) {
-		if (loginId == null) {
-			return null;
-		}
-		String normalized = loginId.trim().toLowerCase(Locale.ROOT);
-		return normalized.isBlank() ? null : normalized;
 	}
 
 }

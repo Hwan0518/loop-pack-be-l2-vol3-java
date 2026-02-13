@@ -30,14 +30,14 @@ public class UserQueryRepositoryImpl implements UserQueryRepository {
 	// 1. 로그인 ID로 유저 조회
 	@Override
 	public Optional<User> findByLoginId(String normalizedLoginId) {
-		return userJpaRepository.findByLoginId(normalizedLoginId).map(userMapper::toDomain);
+		return userJpaRepository.findByLoginIdValueAndDeletedAtIsNull(normalizedLoginId).map(userMapper::toDomain);
 	}
 
 
 	// 2. 로그인 ID 중복 여부 확인
 	@Override
 	public boolean existsByLoginId(String normalizedLoginId) {
-		return userJpaRepository.existsByLoginId(normalizedLoginId);
+		return userJpaRepository.existsByLoginIdValueAndDeletedAtIsNull(normalizedLoginId);
 	}
 
 }
