@@ -1,4 +1,4 @@
-package com.loopers.user.interfaces.controller.response;
+package com.loopers.user.interfaces.web.response;
 
 import com.loopers.user.application.dto.out.UserSignUpOutDto;
 import org.junit.jupiter.api.DisplayName;
@@ -14,16 +14,16 @@ class UserSignUpResponseTest {
 
 	@Test
 	@DisplayName("[UserSignUpResponse.from()] UserSignUpOutDto -> UserSignUpResponse 변환. "
-		+ "id, loginId, name, birthday, email이 정확히 매핑됨")
+		+ "id, loginId, name, birthDate, email이 정확히 매핑됨")
 	void from() {
 		// Arrange
 		Long id = 1L;
 		String loginId = "testuser01";
 		String name = "홍길동";
-		LocalDate birthday = LocalDate.of(1990, 1, 15);
+		LocalDate birthDate = LocalDate.of(1990, 1, 15);
 		String email = "test@example.com";
 
-		UserSignUpOutDto outDto = new UserSignUpOutDto(id, loginId, name, birthday, email);
+		UserSignUpOutDto outDto = new UserSignUpOutDto(id, loginId, name, birthDate, email);
 
 		// Act
 		UserSignUpResponse response = UserSignUpResponse.from(outDto);
@@ -34,7 +34,7 @@ class UserSignUpResponseTest {
 			() -> assertThat(response.id()).isEqualTo(id),
 			() -> assertThat(response.loginId()).isEqualTo(loginId),
 			() -> assertThat(response.name()).isEqualTo(name),
-			() -> assertThat(response.birthday()).isEqualTo(birthday),
+			() -> assertThat(response.birthDate()).isEqualTo(birthDate),
 			() -> assertThat(response.email()).isEqualTo(email)
 		);
 	}

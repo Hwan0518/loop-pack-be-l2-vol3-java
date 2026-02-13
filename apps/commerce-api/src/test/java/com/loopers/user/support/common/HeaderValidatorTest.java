@@ -1,5 +1,6 @@
 package com.loopers.user.support.common;
 
+
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -9,9 +10,8 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
+
 
 @DisplayName("HeaderValidator 테스트")
 class HeaderValidatorTest {
@@ -23,9 +23,10 @@ class HeaderValidatorTest {
 		assertDoesNotThrow(() -> HeaderValidator.validate("testuser01", "Test1234!"));
 	}
 
+
 	@ParameterizedTest
 	@NullAndEmptySource
-	@ValueSource(strings = {"  ", "\t"})
+	@ValueSource(strings = { "  ", "\t" })
 	@DisplayName("[HeaderValidator.validate()] loginId가 null/blank -> CoreException(UNAUTHORIZED)")
 	void validateFailWhenLoginIdNullOrBlank(String loginId) {
 		// Act
@@ -34,14 +35,15 @@ class HeaderValidatorTest {
 
 		// Assert
 		assertAll(
-			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
-			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
+			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.AUTHENTICATION_FAILED),
+			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.AUTHENTICATION_FAILED.getMessage())
 		);
 	}
 
+
 	@ParameterizedTest
 	@NullAndEmptySource
-	@ValueSource(strings = {"  ", "\t"})
+	@ValueSource(strings = { "  ", "\t" })
 	@DisplayName("[HeaderValidator.validate()] password가 null/blank -> CoreException(UNAUTHORIZED)")
 	void validateFailWhenPasswordNullOrBlank(String password) {
 		// Act
@@ -50,8 +52,9 @@ class HeaderValidatorTest {
 
 		// Assert
 		assertAll(
-			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED),
-			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.UNAUTHORIZED.getMessage())
+			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.AUTHENTICATION_FAILED),
+			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.AUTHENTICATION_FAILED.getMessage())
 		);
 	}
+
 }

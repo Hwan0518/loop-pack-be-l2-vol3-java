@@ -4,6 +4,7 @@ import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.user.application.repository.UserCommandRepository;
 import com.loopers.user.domain.model.User;
+import com.loopers.user.domain.model.vo.*;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -11,14 +12,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.dao.DataIntegrityViolationException;
+
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -42,11 +43,11 @@ class UserCommandRepositoryTest {
 	void saveUser() {
 		// Arrange
 		User user = User.create(
-			"testuser01",
-			"Test1234!",
-			"홍길동",
-			LocalDate.of(1990, 1, 15),
-			"test@example.com"
+			LoginId.create("testuser01"),
+			Password.from("encodedPassword"),
+			Name.create("홍길동"),
+			Birthdate.create(LocalDate.of(1990, 1, 15)),
+			Email.create("test@example.com")
 		);
 
 		// Act
@@ -55,32 +56,42 @@ class UserCommandRepositoryTest {
 		// Assert
 		assertAll(
 			() -> assertThat(savedUser.getId()).isNotNull(),
-			() -> assertThat(savedUser.getLoginId()).isEqualTo("testuser01"),
-			() -> assertThat(savedUser.getName()).isEqualTo("홍길동")
+			() -> assertThat(savedUser.getLoginId().value()).isEqualTo("testuser01"),
+			() -> assertThat(savedUser.getName().value()).isEqualTo("홍길동")
 		);
 	}
 
 	@Test
-	@DisplayName("[UserCommandRepository.save()] 중복 loginId 저장 시도 -> 예외 발생")
-	void saveDuplicateLoginIdThrowsException() {
+	@DisplayName("[UserCommandRepository.save()] 중복 loginId 저장 시도 -> 정상 저장")
+	void saveDuplicateLoginId() {
 		// Arrange
 		User firstUser = User.create(
-			"testuser01",
-			"Test1234!",
-			"홍길동",
-			LocalDate.of(1990, 1, 15),
-			"test@example.com"
+			LoginId.create("testuser01"),
+			Password.from("encodedPassword1"),
+			Name.create("홍길동"),
+			Birthdate.create(LocalDate.of(1990, 1, 15)),
+			Email.create("test@example.com")
 		);
 		User duplicateLoginIdUser = User.create(
-			"testuser01",
-			"DiffPass123!",
-			"김철수",
-			LocalDate.of(1991, 2, 2),
-			"other@example.com"
+			LoginId.create("testuser01"),
+			Password.from("encodedPassword2"),
+			Name.create("김철수"),
+			Birthdate.create(LocalDate.of(1991, 2, 2)),
+			Email.create("other@example.com")
 		);
-		userCommandRepository.save(firstUser);
+		User savedFirstUser = userCommandRepository.save(firstUser);
 
-		// Act & Assert
-		assertThrows(DataIntegrityViolationException.class, () -> userCommandRepository.save(duplicateLoginIdUser));
+		// Act
+		User savedDuplicateLoginIdUser = assertDoesNotThrow(
+			() -> userCommandRepository.save(duplicateLoginIdUser)
+		);
+
+		// Assert
+		assertAll(
+			() -> assertThat(savedFirstUser.getId()).isNotNull(),
+			() -> assertThat(savedDuplicateLoginIdUser.getId()).isNotNull(),
+			() -> assertThat(savedDuplicateLoginIdUser.getId()).isNotEqualTo(savedFirstUser.getId()),
+			() -> assertThat(savedDuplicateLoginIdUser.getLoginId().value()).isEqualTo("testuser01")
+		);
 	}
 }

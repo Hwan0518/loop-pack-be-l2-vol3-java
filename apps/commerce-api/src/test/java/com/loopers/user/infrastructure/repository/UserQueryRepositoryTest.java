@@ -5,6 +5,7 @@ import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.user.application.repository.UserCommandRepository;
 import com.loopers.user.application.repository.UserQueryRepository;
 import com.loopers.user.domain.model.User;
+import com.loopers.user.domain.model.vo.*;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,11 +54,11 @@ class UserQueryRepositoryTest {
 		void findByLoginId() {
 			// Arrange
 			User user = User.create(
-				"testuser01",
-				"Test1234!",
-				"홍길동",
-				LocalDate.of(1990, 1, 15),
-				"test@example.com"
+				LoginId.create("testuser01"),
+				Password.from("encodedPassword"),
+				Name.create("홍길동"),
+				Birthdate.create(LocalDate.of(1990, 1, 15)),
+				Email.create("test@example.com")
 			);
 			userCommandRepository.save(user);
 
@@ -67,8 +68,8 @@ class UserQueryRepositoryTest {
 			// Assert
 			assertAll(
 				() -> assertThat(foundUser).isPresent(),
-				() -> assertThat(foundUser.get().getLoginId()).isEqualTo("testuser01"),
-				() -> assertThat(foundUser.get().getName()).isEqualTo("홍길동")
+				() -> assertThat(foundUser.get().getLoginId().value()).isEqualTo("testuser01"),
+				() -> assertThat(foundUser.get().getName().value()).isEqualTo("홍길동")
 			);
 		}
 
@@ -101,11 +102,11 @@ class UserQueryRepositoryTest {
 		void findByLoginIdWithUppercaseAndWhitespace() {
 			// Arrange
 			User user = User.create(
-				"testuser01",
-				"Test1234!",
-				"홍길동",
-				LocalDate.of(1990, 1, 15),
-				"test@example.com"
+				LoginId.create("testuser01"),
+				Password.from("encodedPassword"),
+				Name.create("홍길동"),
+				Birthdate.create(LocalDate.of(1990, 1, 15)),
+				Email.create("test@example.com")
 			);
 			userCommandRepository.save(user);
 
@@ -126,11 +127,11 @@ class UserQueryRepositoryTest {
 		void existsByLoginIdTrue() {
 			// Arrange
 			User user = User.create(
-				"testuser01",
-				"Test1234!",
-				"홍길동",
-				LocalDate.of(1990, 1, 15),
-				"test@example.com"
+				LoginId.create("testuser01"),
+				Password.from("encodedPassword"),
+				Name.create("홍길동"),
+				Birthdate.create(LocalDate.of(1990, 1, 15)),
+				Email.create("test@example.com")
 			);
 			userCommandRepository.save(user);
 
@@ -170,11 +171,11 @@ class UserQueryRepositoryTest {
 		void existsByLoginIdWithUppercaseAndWhitespace() {
 			// Arrange
 			User user = User.create(
-				"testuser01",
-				"Test1234!",
-				"홍길동",
-				LocalDate.of(1990, 1, 15),
-				"test@example.com"
+				LoginId.create("testuser01"),
+				Password.from("encodedPassword"),
+				Name.create("홍길동"),
+				Birthdate.create(LocalDate.of(1990, 1, 15)),
+				Email.create("test@example.com")
 			);
 			userCommandRepository.save(user);
 
@@ -188,19 +189,19 @@ class UserQueryRepositoryTest {
 
 	@Nested
 	@DisplayName("비밀번호 값 객체 복원 테스트")
-	class PasswordMatchTest {
+	class PasswordRestoreTest {
 
 		@Test
-		@DisplayName("[UserQueryRepository.findByLoginId()] 저장/조회 후 Password 값 객체 복원 -> matches(raw)=true")
-		void matchPasswordAfterSave() {
+		@DisplayName("[UserQueryRepository.findByLoginId()] 저장/조회 후 Password 값 객체 복원 -> 저장된 값과 동일")
+		void restorePasswordAfterSave() {
 			// Arrange
-			String rawPassword = "Test1234!";
+			String encodedPassword = "encodedPassword123";
 			User user = User.create(
-				"testuser01",
-				rawPassword,
-				"홍길동",
-				LocalDate.of(1990, 1, 15),
-				"test@example.com"
+				LoginId.create("testuser01"),
+				Password.from(encodedPassword),
+				Name.create("홍길동"),
+				Birthdate.create(LocalDate.of(1990, 1, 15)),
+				Email.create("test@example.com")
 			);
 			userCommandRepository.save(user);
 
@@ -210,7 +211,7 @@ class UserQueryRepositoryTest {
 			// Assert
 			assertAll(
 				() -> assertThat(foundUser).isPresent(),
-				() -> assertThat(foundUser.get().getPassword().matches(rawPassword)).isTrue()
+				() -> assertThat(foundUser.get().getPassword().value()).isEqualTo(encodedPassword)
 			);
 		}
 	}

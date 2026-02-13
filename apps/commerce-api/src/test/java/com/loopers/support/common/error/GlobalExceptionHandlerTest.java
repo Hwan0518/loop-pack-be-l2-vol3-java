@@ -1,5 +1,6 @@
 package com.loopers.support.common.error;
 
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+
 
 @DisplayName("GlobalExceptionHandler 테스트")
 class GlobalExceptionHandlerTest {
@@ -42,6 +44,7 @@ class GlobalExceptionHandlerTest {
 			);
 		}
 
+
 		@Test
 		@DisplayName("[handleCoreException()] BAD_REQUEST ErrorType -> 400 상태코드와 함께 ErrorResponse 반환")
 		void handleCoreExceptionWithBadRequest() {
@@ -61,12 +64,13 @@ class GlobalExceptionHandlerTest {
 			);
 		}
 
+
 		@Test
 		@DisplayName("[handleCoreException()] UNAUTHORIZED -> 401 상태코드와 ErrorResponse 반환. "
 			+ "인증 실패 시 UNAUTHORIZED 코드와 메시지가 정확히 매핑됨")
 		void handleCoreExceptionWithUnauthorized() {
 			// Arrange
-			ErrorType errorType = ErrorType.UNAUTHORIZED;
+			ErrorType errorType = ErrorType.AUTHENTICATION_FAILED;
 			CoreException exception = new CoreException(errorType);
 
 			// Act
@@ -76,10 +80,11 @@ class GlobalExceptionHandlerTest {
 			assertAll(
 				() -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
 				() -> assertThat(response.getBody()).isNotNull(),
-				() -> assertThat(response.getBody().code()).isEqualTo("UNAUTHORIZED"),
+				() -> assertThat(response.getBody().code()).isEqualTo("AUTHENTICATION_FAILED"),
 				() -> assertThat(response.getBody().message()).isEqualTo(errorType.getMessage())
 			);
 		}
+
 
 		@Test
 		@DisplayName("[handleCoreException()] INTERNAL_ERROR -> 500 상태코드와 ErrorResponse 반환. "
@@ -100,6 +105,7 @@ class GlobalExceptionHandlerTest {
 				() -> assertThat(response.getBody().message()).isEqualTo(errorType.getMessage())
 			);
 		}
+
 	}
 
 	@Nested
@@ -130,6 +136,7 @@ class GlobalExceptionHandlerTest {
 			);
 		}
 
+
 		@Test
 		@DisplayName("[handleValidationException()] 여러 필드 에러 발생 -> 첫 번째 필드 에러만 반환")
 		void handleValidationExceptionWithMultipleErrors() throws NoSuchMethodException {
@@ -153,6 +160,7 @@ class GlobalExceptionHandlerTest {
 			);
 		}
 
+
 		@Test
 		@DisplayName("[handleValidationException()] 필드 에러가 없는 경우 -> 기본 메시지 'Validation failed' 반환")
 		void handleValidationExceptionWithNoFieldErrors() throws NoSuchMethodException {
@@ -173,5 +181,7 @@ class GlobalExceptionHandlerTest {
 				() -> assertThat(response.getBody().message()).isEqualTo("Validation failed")
 			);
 		}
+
 	}
+
 }
