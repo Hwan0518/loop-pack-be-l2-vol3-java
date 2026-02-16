@@ -124,7 +124,7 @@ class UserCommandFacadeTest {
 
 
 		@Test
-		@DisplayName("[UserCommandFacade.signUp()] 대문자/공백 변형 loginId가 정규화 후 중복 -> CoreException(USER_ALREADY_EXISTS)")
+		@DisplayName("[UserCommandFacade.signUp()] 대문자/공백 변형 loginId -> 원문 그대로 QueryService에 전달하여 중복 검증")
 		void signUpFailWhenNormalizedLoginIdAlreadyExists() {
 			// Arrange
 			UserSignUpInDto inDto = new UserSignUpInDto(

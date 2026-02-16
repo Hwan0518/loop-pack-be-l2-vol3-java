@@ -6,6 +6,7 @@ import com.loopers.support.common.error.ErrorType;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 
@@ -34,7 +35,7 @@ public record Password(String value) {
 
 	// 1. 검증된 비밀번호로 Password 생성
 	public static Password from(String encodedPassword) {
-		return new Password(encodedPassword);
+		return new Password(Objects.requireNonNull(encodedPassword, "encodedPassword value"));
 	}
 
 

@@ -27,7 +27,7 @@ class HeaderValidatorTest {
 	@ParameterizedTest
 	@NullAndEmptySource
 	@ValueSource(strings = { "  ", "\t" })
-	@DisplayName("[HeaderValidator.validate()] loginId가 null/blank -> CoreException(UNAUTHORIZED)")
+	@DisplayName("[HeaderValidator.validate()] loginId가 null/blank -> CoreException(AUTHENTICATION_FAILED)")
 	void validateFailWhenLoginIdNullOrBlank(String loginId) {
 		// Act
 		CoreException exception = assertThrows(CoreException.class,
@@ -44,7 +44,7 @@ class HeaderValidatorTest {
 	@ParameterizedTest
 	@NullAndEmptySource
 	@ValueSource(strings = { "  ", "\t" })
-	@DisplayName("[HeaderValidator.validate()] password가 null/blank -> CoreException(UNAUTHORIZED)")
+	@DisplayName("[HeaderValidator.validate()] password가 null/blank -> CoreException(AUTHENTICATION_FAILED)")
 	void validateFailWhenPasswordNullOrBlank(String password) {
 		// Act
 		CoreException exception = assertThrows(CoreException.class,

@@ -28,6 +28,11 @@ public class UserQueryService {
 		// 로그인 id 정규화
 		String normalizedLoginId = LoginId.normalize(rawLoginId);
 
+		// 정규화 결과가 null이면 유효하지 않은 loginId
+		if (normalizedLoginId == null) {
+			throw new CoreException(ErrorType.INVALID_LOGIN_ID_FORMAT);
+		}
+
 		// 중복되었다면 예외 발생
 		if (userQueryRepository.existsByLoginId(normalizedLoginId)) {
 			throw new CoreException(ErrorType.USER_ALREADY_EXISTS);

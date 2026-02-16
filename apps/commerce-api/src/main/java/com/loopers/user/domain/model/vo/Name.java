@@ -4,6 +4,7 @@ package com.loopers.user.domain.model.vo;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 
@@ -35,7 +36,7 @@ public record Name(String value) {
 
 	// 2. DB 복원용 이름 생성
 	public static Name from(String value) {
-		return new Name(value);
+		return new Name(Objects.requireNonNull(value, "name value"));
 	}
 
 

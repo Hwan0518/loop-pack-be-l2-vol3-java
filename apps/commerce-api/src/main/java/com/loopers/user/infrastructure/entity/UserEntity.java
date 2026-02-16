@@ -11,6 +11,7 @@ import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -18,7 +19,9 @@ import lombok.NoArgsConstructor;
 
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+	@Index(name = "uk_active_login_id", columnList = "active_login_id", unique = true)
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserEntity extends BaseEntity {
@@ -29,6 +32,14 @@ public class UserEntity extends BaseEntity {
 		column = @Column(name = "login_id", nullable = false, unique = false, length = 20)
 	)
 	private UserLoginIdEmbeddable loginId;
+
+	@Column(
+		name = "active_login_id",
+		columnDefinition = "VARCHAR(20) GENERATED ALWAYS AS (IF(deleted_at IS NULL, login_id, NULL)) STORED",
+		insertable = false,
+		updatable = false
+	)
+	private String activeLoginId;
 
 	@Embedded
 	@AttributeOverride(

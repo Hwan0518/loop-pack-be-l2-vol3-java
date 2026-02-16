@@ -1,12 +1,15 @@
 package com.loopers.user.infrastructure.repository;
 
 
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
 import com.loopers.user.application.repository.UserCommandRepository;
 import com.loopers.user.domain.model.User;
 import com.loopers.user.infrastructure.entity.UserEntity;
 import com.loopers.user.infrastructure.jpa.UserJpaRepository;
 import com.loopers.user.infrastructure.mapper.UserEntityMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 
 
@@ -33,7 +36,19 @@ public class UserCommandRepositoryImpl implements UserCommandRepository {
 		UserEntity entity = userMapper.toEntity(user);
 
 		// 엔티티 저장 후 도메인 객체로 변환
-		return userMapper.toDomain(userJpaRepository.save(entity));
+		try {
+			return userMapper.toDomain(userJpaRepository.save(entity));
+		} catch (DataIntegrityViolationException e) {
+			if (isDuplicateLoginIdError(e)) {
+				throw new CoreException(ErrorType.USER_ALREADY_EXISTS);
+			}
+			throw e;
+		}
+	}
+
+
+	private boolean isDuplicateLoginIdError(DataIntegrityViolationException e) {
+		return e.getMessage() != null && e.getMessage().contains("uk_active_login_id");
 	}
 
 }

@@ -74,7 +74,8 @@ class UserEntityTest {
 				() -> assertThat(reconstructedUser.getPassword().value()).isEqualTo(entity.getPassword().toDomain().value()),
 				() -> assertThat(reconstructedUser.getName().value()).isEqualTo(entity.getName().toDomain().value()),
 				() -> assertThat(reconstructedUser.getBirthDate().value()).isEqualTo(entity.getBirthDate().toDomain().value()),
-				() -> assertThat(reconstructedUser.getEmail().value()).isEqualTo(entity.getEmail().toDomain().value())
+				() -> assertThat(reconstructedUser.getEmail().value()).isEqualTo(entity.getEmail().toDomain().value()),
+			() -> assertThat(reconstructedUser.getDeletedAt()).isEqualTo(entity.getDeletedAt())
 			);
 		}
 

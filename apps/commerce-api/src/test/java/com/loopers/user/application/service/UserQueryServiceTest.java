@@ -76,4 +76,36 @@ class UserQueryServiceTest {
 		verify(userQueryRepository).existsByLoginId("testuser01");
 	}
 
+
+	@Test
+	@DisplayName("[UserQueryService.loginIdDuplicationCheck()] null loginId -> CoreException(INVALID_LOGIN_ID_FORMAT). "
+		+ "정규화 결과 null이면 DB 조회 없이 즉시 예외")
+	void loginIdDuplicationCheckWithNull() {
+		// Act
+		CoreException exception = assertThrows(CoreException.class,
+			() -> userQueryService.loginIdDuplicationCheck(null));
+
+		// Assert
+		assertAll(
+			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT),
+			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT.getMessage())
+		);
+	}
+
+
+	@Test
+	@DisplayName("[UserQueryService.loginIdDuplicationCheck()] blank loginId -> CoreException(INVALID_LOGIN_ID_FORMAT). "
+		+ "정규화 결과 null이면 DB 조회 없이 즉시 예외")
+	void loginIdDuplicationCheckWithBlank() {
+		// Act
+		CoreException exception = assertThrows(CoreException.class,
+			() -> userQueryService.loginIdDuplicationCheck("   "));
+
+		// Assert
+		assertAll(
+			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT),
+			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_LOGIN_ID_FORMAT.getMessage())
+		);
+	}
+
 }

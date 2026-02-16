@@ -5,6 +5,7 @@ import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 
 import java.util.Locale;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 
@@ -37,7 +38,7 @@ public record LoginId(String value) {
 
 	// 2. DB 복원용 로그인 ID 생성
 	public static LoginId from(String value) {
-		return new LoginId(value);
+		return new LoginId(Objects.requireNonNull(value, "loginId value"));
 	}
 
 

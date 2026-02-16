@@ -50,7 +50,7 @@ public record Birthdate(LocalDate value) {
 		}
 
 		// 생년월일이 MIN_BIRTH_DATE보다 이전인 경우
-		else if (!birthDate.isAfter(MIN_BIRTH_DATE)) {
+		else if (birthDate.isBefore(MIN_BIRTH_DATE)) {
 			throw new CoreException(ErrorType.INVALID_BIRTH_DATE).addMessage("생일은 1900년 1월 1일 이후여야 합니다.");
 		}
 

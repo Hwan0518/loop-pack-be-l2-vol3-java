@@ -66,8 +66,8 @@ class GlobalExceptionHandlerTest {
 
 
 		@Test
-		@DisplayName("[handleCoreException()] UNAUTHORIZED -> 401 상태코드와 ErrorResponse 반환. "
-			+ "인증 실패 시 UNAUTHORIZED 코드와 메시지가 정확히 매핑됨")
+		@DisplayName("[handleCoreException()] AUTHENTICATION_FAILED -> 401 상태코드와 ErrorResponse 반환. "
+			+ "인증 실패 시 AUTHENTICATION_FAILED 코드와 메시지가 정확히 매핑됨")
 		void handleCoreExceptionWithUnauthorized() {
 			// Arrange
 			ErrorType errorType = ErrorType.AUTHENTICATION_FAILED;
