@@ -81,8 +81,10 @@ public record Password(String value) {
 
 설계 원칙:
 - **순수 클래스** — 프레임워크 어노테이션 없음
+- **상태 없이(stateless)** 설계: 동일 BC 내 도메인 객체 협력을 중재
 - 생성자에 함수형 인터페이스 주입 (예: `Predicate<String>`)
 - Config 클래스에서 `@Bean`으로 등록, 리포지토리 메서드 레퍼런스 주입
+- 복합 유스케이스(cross-BC 조합)는 Application Layer(Facade)에서 Client를 통해 처리
 
 ```
 // 도메인 서비스 (순수 클래스)

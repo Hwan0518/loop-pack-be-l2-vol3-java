@@ -14,7 +14,7 @@ Client Request
       → Service (application/service/)
         → Domain Service (domain/service/)
         → Domain Model (domain/model/)
-      → Repository Interface (application/repository/)
+      → Repository Interface (domain/repository/)
         → RepositoryImpl (infrastructure/repository/)
           → JPA Repository (infrastructure/jpa/)
             → Entity (infrastructure/entity/) ↔ Domain Model
@@ -30,13 +30,19 @@ Client Request
 | Facade (Command) | `{Domain}CommandFacade` | `@Service`, `@Transactional` | 명령 유스케이스 오케스트레이션, 트랜잭션 경계 |
 | Facade (Query) | `{Domain}QueryFacade` | `@Service`, `@Transactional(readOnly=true)` | 조회 유스케이스 오케스트레이션 |
 | Service | `{Domain}CommandService` | `@Service`, `@Transactional` | 단일 도메인 비즈니스 로직 실행 |
-| Domain Service | `{Domain}XxxValidator` 등 | 순수 클래스 (`@Bean` 등록) | 리포지토리 의존 비즈니스 불변식 검증 |
+| Domain Service | `{Domain}XxxValidator` 등 | 순수 클래스 (`@Bean` 등록) | stateless, 동일 BC 내 도메인 객체 협력 중재, 비즈니스 불변식 검증 |
 | Repository (I) | `{Domain}CommandRepository` | 인터페이스 | 명령 계약 (save, delete) |
 | Repository (I) | `{Domain}QueryRepository` | 인터페이스 | 조회 계약 (find, exists) |
 | RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain 변환 후 JPA 호출 |
 | Entity | `{Domain}Entity` | `@Entity` | DB 매핑, `from(Domain)` + `toDomain()` |
 
 ## 3. 핵심 규칙
+
+### 3.0 아키텍처 원칙
+
+- 의존 방향: `Application → Domain ← Infrastructure`
+- Domain Layer가 중심, Application과 Infrastructure가 Domain에 의존
+- Repository Interface는 Domain Layer(`domain/repository/`)에 정의, 구현체는 Infrastructure에 위치
 
 ### 3.1 호출 순서
 
@@ -59,6 +65,19 @@ Controller → Facade → Service → Repository
 - Command: 상태 변경 (save, update, delete)
 - Query: 상태 조회 (find, exists, count)
 - Repository 인터페이스부터 Command/Query로 분리
+
+### 3.4 Bounded Context 경계
+
+| BC | 포함 도메인 | 설명 |
+|----|-----------|------|
+| `catalog` | Brand, Product | 상품 카탈로그 |
+| `engagement` | Like | 사용자 참여 |
+| `ordering` | Order, OrderItem | 주문 |
+| `user` | User | 사용자 |
+
+- **같은 BC 내**: Facade에서 같은 BC 내 다른 도메인의 Service를 직접 호출 가능
+- **다른 BC 간 (동기)**: Client 인터페이스(`application/client/`) + ACL 구현체(`infrastructure/acl/`) 패턴
+- **다른 BC 간 (비동기)**: 도메인 이벤트 + `@TransactionalEventListener` (최종적 일관성)
 
 ## 4. 데이터 변환 흐름 (DTO 패턴)
 
@@ -106,17 +125,21 @@ jpaRepository.findById(id) → existingEntity.updateXxx(...) → JPA dirty check
 ├── application/
 │   ├── service/       # 애플리케이션 서비스
 │   ├── facade/        # 퍼사드 서비스
-│   ├── repository/    # 리포지토리 인터페이스 (CQRS)
+│   ├── client/        # Cross-BC 접근 인터페이스
+│   │   └── {other-domain}/{OtherDomain}Client
 │   └── dto/
 │       ├── in/        # 입력 DTO
 │       └── out/       # 출력 DTO
 ├── domain/
 │   ├── model/         # 도메인 모델 + enum/ + vo/
+│   ├── repository/    # 리포지토리 인터페이스 (CQRS)
 │   ├── event/         # 도메인 이벤트
 │   └── service/       # 도메인 서비스
 ├── infrastructure/
 │   ├── jpa/           # JPA 레포지토리
-│   ├── repository/    # 애플리케이션 레포지토리 구현체
+│   ├── repository/    # 리포지토리 구현체
+│   ├── acl/           # Cross-BC 접근 구현체
+│   │   └── {other-domain}/{OtherDomain}ClientImpl
 │   └── entity/        # JPA 엔티티
 ├── interfaces/
 │   ├── controller/    # REST 컨트롤러 + request/ + response/

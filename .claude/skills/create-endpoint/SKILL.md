@@ -30,12 +30,12 @@ description: TDD 기반 REST 엔드포인트 생성 워크플로우. 새 API 엔
 
 ### 2.2 Repository
 
-- [ ] Command Repository 인터페이스 (save, delete)
-- [ ] Query Repository 인터페이스 (find, exists)
+- [ ] Command Repository 인터페이스 (save, delete) — 위치: `domain/repository/`
+- [ ] Query Repository 인터페이스 (find, exists) — 위치: `domain/repository/`
 - [ ] Entity 클래스 (`from(Domain)` + `toDomain()`)
 - [ ] JPA Repository 인터페이스
-- [ ] CommandRepositoryImpl 구현
-- [ ] QueryRepositoryImpl 구현
+- [ ] CommandRepositoryImpl 구현 — 위치: `infrastructure/repository/`
+- [ ] QueryRepositoryImpl 구현 — 위치: `infrastructure/repository/`
 - [ ] **테스트**: 저장 후 조회, 존재 여부 확인, 도메인 변환 정확성
 
 ### 2.3 Service
@@ -93,7 +93,19 @@ Request
 3. 도메인 코드에서 `throw new CoreException(ErrorType.XXX)`
 4. E2E 테스트에서 에러 응답 검증
 
-## 5. 완료 기준
+## 5. Cross-BC 데이터 필요 시 (다른 Bounded Context 참조)
+
+다른 BC의 데이터가 필요한 경우 아래 단계를 추가한다:
+
+- [ ] Client 인터페이스 생성 — 위치: `{domain}/application/client/{other-domain}/{OtherDomain}Client`
+- [ ] ACL 구현체 생성 — 위치: `{domain}/infrastructure/acl/{other-domain}/{OtherDomain}ClientImpl`
+- [ ] 구현체에서만 다른 도메인의 domain model, JPA 직접 참조
+- [ ] Service에서 Client 인터페이스를 통해 호출
+- [ ] **테스트**: Client Mock 기반 단위 테스트
+
+> BC 경계: catalog(Brand, Product) / engagement(Like) / ordering(Order, OrderItem) / user(User)
+
+## 6. 완료 기준
 
 - [ ] 모든 레이어의 단위 테스트 통과
 - [ ] E2E 테스트 통과 (정상 + 에러 시나리오)
@@ -102,7 +114,7 @@ Request
 - [ ] REQUIREMENTS.md의 해당 기능 요구사항과 1:1 매핑 확인
 - [ ] 린트/포맷 검사 통과
 
-## 6. 주의 사항
+## 7. 주의 사항
 
 - 계층 건너뛰기 금지 (Controller → Facade → Service → Repository)
 - 비즈니스 로직은 Domain Model/Domain Service에서만 작성

@@ -121,7 +121,8 @@ assertAll(
 
 ### 4.1 단위 테스트
 
-- Mock 프레임워크 사용 (`@Mock` + 수동 생성자 주입)
+- 모든 테스트 더블(Fake, Stub, Mock, Spy) 사용 가능 — 상황에 맞게 적절한 것을 선택
+- Mock 사용 시: `@ExtendWith(MockitoExtension.class)` + `@Mock` + 수동 생성자 주입
 - BDD 스타일: `given().willReturn()`, `willThrow()`
 - 검증: `verify()`, `never()`
 - 파라미터화 테스트: `@ParameterizedTest` + `@NullAndEmptySource` + `@ValueSource`
