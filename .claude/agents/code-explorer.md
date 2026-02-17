@@ -23,16 +23,16 @@ Controller(@RestController)
 **Package Structure**:
 ```
 com.loopers.{domain}/
-├── application/service/, facade/, client/{other-domain}/, dto/in/, dto/out/
+├── application/service/, facade/, port/out/client/, port/out/query/, port/out/util/, dto/in/, dto/out/
 ├── domain/model/, model/vo/, model/enum/, repository/, event/, service/
-├── infrastructure/jpa/, repository/, acl/{other-domain}/, entity/
+├── infrastructure/jpa/, repository/, acl/{other-domain}/, query/, entity/
 ├── interfaces/controller/, controller/request/, controller/response/, event/
 └── support/common/, common/error/, config/
 ```
 
 **BC (Bounded Context) Boundaries**:
 - `catalog`: Brand, Product | `engagement`: Like | `ordering`: Order, OrderItem | `user`: User
-- Same BC: direct Service call allowed | Cross-BC: Client/ACL pattern required
+- Same BC: direct Service call allowed | Cross-BC: Port/ACL pattern required
 
 ## Analysis Approach
 

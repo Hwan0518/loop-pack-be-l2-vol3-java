@@ -55,9 +55,14 @@ com.loopers
     ├── application/               # 애플리케이션 서비스 레이어
     │   └── service/               # 애플리케이션 서비스
     │   └── facade/                # 퍼사드 서비스
-    │   └── client/                # Cross-BC 접근 인터페이스
-    │       └── {other-domain}/
-    │           └── {OtherDomain}Client
+    │   └── port/out/              # 아웃바운드 포트
+    │       └── client/            # Cross-BC 접근 인터페이스
+    │           └── {other-domain}/
+    │               └── {OtherDomain}Port
+    │       └── query/             # 유스케이스 전용 복잡 조회
+    │           └── {Domain}QueryPort
+    │           └── criteria/      # 조회 조건 객체
+    │       └── util/              # 유틸리티 포트 (PasswordEncoder 등)
     │   └── dto/                   # DTO (InDto/OutDto)
     │       └── in/                # 입력 DTO (Request → InDto)
     │       └── out/               # 출력 DTO (Domain → OutDto → Response)
@@ -68,6 +73,7 @@ com.loopers
     │   └── repository/            # 리포지토리 인터페이스 (CQRS)
     │       └── {Domain}CommandRepository  # 명령 (save, delete)
     │       └── {Domain}QueryRepository    # 조회 (find, exists)
+    │       └── vo/                # 페이지네이션 VO (PageCriteria, PageResult)
     │   └── event/                 # 도메인 이벤트
     │   └── service/               # 도메인 서비스
     ├── infrastructure/            # 인프라 레이어 (Repository 구현 등)
@@ -77,7 +83,9 @@ com.loopers
     │       └── {Domain}QueryRepositoryImpl    # 조회 구현체
     │   └── acl/                   # Cross-BC 접근 구현체
     │       └── {other-domain}/
-    │           └── {OtherDomain}ClientImpl
+    │           └── {OtherDomain}PortImpl
+    │   └── query/                 # QueryPort 구현체
+    │       └── {Domain}QueryPortImpl
     │   └── entity/                # JPA 엔티티
     ├── interfaces/                # 프레젠테이션 레이어 (Controller)
     │   └── event/                 # 이벤트 리스너
@@ -274,11 +282,11 @@ Controller → Facade(@Transactional) → Service / Domain Service → Repositor
 - 예: `ProductQueryFacade`에서 `BrandQueryService` 호출 (catalog BC 내)
 
 ##### 다른 BC 간 통신 (동기)
-- Client 인터페이스 + ACL 구현체 패턴
-- 인터페이스: `{domain}/application/client/{other-domain}/{OtherDomain}Client`
-- 구현체: `{domain}/infrastructure/acl/{other-domain}/{OtherDomain}ClientImpl`
+- Port 인터페이스 + ACL 구현체 패턴
+- 인터페이스: `{domain}/application/port/out/client/{other-domain}/{OtherDomain}Port`
+- 구현체: `{domain}/infrastructure/acl/{other-domain}/{OtherDomain}PortImpl`
 - 구현체에서만 다른 도메인의 domain model, JPA 직접 참조 허용
-- 예: 주문 시 재고 차감 → `ProductStockClient` + `ProductStockClientImpl`
+- 예: 주문 시 재고 차감 → `ProductStockPort` + `ProductStockPortImpl`
 
 ##### 다른 BC 간 통신 (비동기)
 - 도메인 이벤트 + `@TransactionalEventListener`
@@ -295,6 +303,51 @@ Controller → Facade(@Transactional) → Service / Domain Service → Repositor
 | Repository(I) | `{Domain}Command/QueryRepository` | (인터페이스, `domain/repository/`) | 명령(save,delete) / 조회(find,exists) 계약 |
 | RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain 변환 후 JPA 호출 |
 | Entity | `{Domain}Entity` | `@Entity` | `from(Domain)` + `toDomain()` 변환 |
+| QueryPort(I) | `{Domain}QueryPort` | (인터페이스, `application/port/out/query/`) | 유스케이스 전용 복잡 조회 계약 |
+| QueryPortImpl | `{Domain}QueryPortImpl` | `@Repository` | QueryPort 구현 (JPA/QueryDSL) |
+
+#### 조회 방식 판단 가이드
+
+| 기준 | Domain Repository | QueryPort |
+|------|-------------------|-----------|
+| 위치 | `domain/repository/` | `application/port/out/query/` |
+| 반환 타입 | Domain Model | DTO (OutDto, Projection) |
+| 시그니처 | 도메인 언어만 (Spring/JPA 타입 금지) | 유스케이스 DTO, criteria 사용 가능 |
+| 용도 | 단일 엔티티 CRUD, 존재 여부 확인 | 복잡 조회, 다중 조인, 집계, Projection |
+| 페이지네이션 | `PageCriteria`/`PageResult` (domain/repository/vo/) | `PageCriteria`/`PageResult` 또는 Spring Page 래핑 |
+
+#### 도메인 리포지토리 규칙
+
+- **MUST**: 시그니처에 도메인 언어만 사용 (`User`, `Long`, `String`, `Optional<User>`, `List<User>`, `PageCriteria`, `PageResult`)
+- **MUST NOT**: `Page`, `Pageable`, `Slice`, `Sort`, `Specification`, `Predicate` 등 Spring/JPA 타입 노출 금지
+- **MUST NOT**: 유스케이스 DTO (OutDto 등) 반환 금지 — Domain Model만 반환
+- Infrastructure 구현체에서 Spring 타입 ↔ 도메인 타입 변환 담당
+
+#### 유스케이스 전용 조회 (QueryPort)
+
+복잡 조회, Projection, DTO 직접 반환이 필요한 경우 QueryPort를 사용한다.
+
+- 인터페이스: `{domain}/application/port/out/query/{Domain}QueryPort`
+- 조건 객체: `{domain}/application/port/out/query/criteria/{Domain}SearchCriteria`
+- 구현체: `{domain}/infrastructure/query/{Domain}QueryPortImpl`
+- **"Repository" 네이밍 사용 금지** — 반드시 `QueryPort` 사용
+- Service에서 QueryPort 인터페이스를 통해 호출
+
+#### Port 네이밍 규칙
+
+| 유형 | 위치 | 네이밍 | 예시 |
+|------|------|--------|------|
+| Cross-BC (client) | `application/port/out/client/` | `...Port` | `ProductStockPort` |
+| 유스케이스 조회 (query) | `application/port/out/query/` | `...QueryPort` | `ProductQueryPort` |
+| 유틸리티 (util) | `application/port/out/util/` | 기존 네이밍 유지 (`...Port` 미사용) | `PasswordEncoder` |
+
+#### Pagination VO (`domain/repository/vo/`)
+
+- `PageCriteria`: 프레임워크 비의존 record (`page`, `size`)
+- `PageResult<T>`: 프레임워크 비의존 record (`content`, `page`, `size`, `totalElements`)
+- 위치: `domain/repository/vo/` — Domain Layer에 속함
+- Domain Repository와 QueryPort 모두 사용 가능
+- Infrastructure 구현체에서 Spring `Page`/`Pageable` ↔ `PageCriteria`/`PageResult` 변환 담당
 
 #### Entity 업데이트 패턴
 - **신규 생성**: `Entity.from(domain)` → `jpaRepository.save(entity)` → `entity.toDomain()`

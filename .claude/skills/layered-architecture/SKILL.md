@@ -35,6 +35,8 @@ Client Request
 | Repository (I) | `{Domain}QueryRepository` | Interface | Query contract (find, exists) |
 | RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain conversion then JPA call |
 | Entity | `{Domain}Entity` | `@Entity` | DB mapping, `from(Domain)` + `toDomain()` |
+| QueryPort (I) | `{Domain}QueryPort` | Interface (`application/port/out/query/`) | Use-case specific complex query contract |
+| QueryPortImpl | `{Domain}QueryPortImpl` | `@Repository` | QueryPort implementation (JPA/QueryDSL) |
 
 ## 3. Core Rules
 
@@ -76,8 +78,33 @@ Controller → Facade → Service → Repository
 | `user` | User | Users |
 
 - **Same BC**: Facade can directly call another domain's Service within the same BC
-- **Cross-BC (sync)**: Client interface (`application/client/`) + ACL implementation (`infrastructure/acl/`) pattern
+- **Cross-BC (sync)**: Port interface (`application/port/out/client/`) + ACL implementation (`infrastructure/acl/`) pattern
 - **Cross-BC (async)**: Domain events + `@TransactionalEventListener` (eventual consistency)
+
+### 3.5 Domain Repository Rules
+
+- **MUST**: Signatures use only domain language (`User`, `Long`, `Optional<User>`, `List<User>`, `PageCriteria`, `PageResult`)
+- **MUST NOT**: No `Page`, `Pageable`, `Slice`, `Sort`, `Specification` or other Spring/JPA type exposure
+- **MUST NOT**: No use-case DTO (OutDto, etc.) returns — only Domain Model
+- Infrastructure implementations handle Spring type ↔ domain type conversion
+
+### 3.6 Use-Case Specific Query (QueryPort)
+
+Use QueryPort when complex queries, Projections, or direct DTO returns are needed.
+
+- Interface: `{domain}/application/port/out/query/{Domain}QueryPort`
+- Criteria: `{domain}/application/port/out/query/criteria/{Domain}SearchCriteria`
+- Implementation: `{domain}/infrastructure/query/{Domain}QueryPortImpl`
+- **"Repository" naming prohibited** — must use `QueryPort`
+- Service calls through QueryPort interface
+
+### 3.7 Port Naming Rules
+
+| Type | Location | Naming |
+|------|----------|--------|
+| Cross-BC (client) | `application/port/out/client/` | `...Port` |
+| Use-case query | `application/port/out/query/` | `...QueryPort` |
+| Utility (util) | `application/port/out/util/` | Keep existing naming (`...Port` suffix not used) |
 
 ## 4. Data Conversion Flow (DTO Pattern)
 
@@ -125,21 +152,29 @@ jpaRepository.findById(id) → existingEntity.updateXxx(...) → JPA dirty check
 ├── application/
 │   ├── service/       # Application services
 │   ├── facade/        # Facade services
-│   ├── client/        # Cross-BC access interfaces
-│   │   └── {other-domain}/{OtherDomain}Client
+│   ├── port/out/      # Outbound ports
+│   │   ├── client/    # Cross-BC access interfaces
+│   │   │   └── {other-domain}/{OtherDomain}Port
+│   │   ├── query/     # Use-case specific complex queries
+│   │   │   ├── {Domain}QueryPort
+│   │   │   └── criteria/  # Query criteria objects
+│   │   └── util/      # Utility ports (PasswordEncoder, etc.)
 │   └── dto/
 │       ├── in/        # Input DTOs
 │       └── out/       # Output DTOs
 ├── domain/
 │   ├── model/         # Domain models + enum/ + vo/
 │   ├── repository/    # Repository interfaces (CQRS)
+│   │   └── vo/        # Pagination VOs (PageCriteria, PageResult)
 │   ├── event/         # Domain events
 │   └── service/       # Domain services
 ├── infrastructure/
 │   ├── jpa/           # JPA repositories
 │   ├── repository/    # Repository implementations
 │   ├── acl/           # Cross-BC access implementations
-│   │   └── {other-domain}/{OtherDomain}ClientImpl
+│   │   └── {other-domain}/{OtherDomain}PortImpl
+│   ├── query/         # QueryPort implementations
+│   │   └── {Domain}QueryPortImpl
 │   └── entity/        # JPA entities
 ├── interfaces/
 │   ├── controller/    # REST controllers + request/ + response/

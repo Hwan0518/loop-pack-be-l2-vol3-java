@@ -97,13 +97,24 @@ When new domain business errors are needed:
 
 Add these steps when data from another BC is required:
 
-- [ ] Create Client interface — location: `{domain}/application/client/{other-domain}/{OtherDomain}Client`
-- [ ] Create ACL implementation — location: `{domain}/infrastructure/acl/{other-domain}/{OtherDomain}ClientImpl`
+- [ ] Create Port interface — location: `{domain}/application/port/out/client/{other-domain}/{OtherDomain}Port`
+- [ ] Create ACL implementation — location: `{domain}/infrastructure/acl/{other-domain}/{OtherDomain}PortImpl`
 - [ ] Only the implementation directly references other domain's domain model and JPA
-- [ ] Service calls through the Client interface
-- [ ] **Tests**: Client Mock-based unit tests
+- [ ] Service calls through the Port interface
+- [ ] **Tests**: Port Mock-based unit tests
 
 > BC boundaries: catalog(Brand, Product) / engagement(Like) / ordering(Order, OrderItem) / user(User)
+
+## 5.5 When QueryPort Is Needed (Use-Case Specific Complex Queries)
+
+When complex queries, Projections, or direct DTO returns are needed:
+
+- [ ] Create QueryPort interface — location: `{domain}/application/port/out/query/{Domain}QueryPort`
+- [ ] Create criteria object (if needed) — location: `application/port/out/query/criteria/{Domain}SearchCriteria`
+- [ ] Create QueryPortImpl implementation — location: `{domain}/infrastructure/query/{Domain}QueryPortImpl`
+- [ ] "Repository" naming prohibited
+- [ ] Service calls through QueryPort interface
+- [ ] **Tests**: QueryPort Mock-based unit tests, QueryPortImpl integration tests
 
 ## 6. Completion Criteria
 

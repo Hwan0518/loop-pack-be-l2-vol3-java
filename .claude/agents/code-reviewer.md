@@ -23,9 +23,16 @@ Default: review unstaged changes from `git diff`. User may specify a different s
 
 ### 1.5. BC Violations (Critical)
 - [ ] Only direct calls within same BC (catalog: Brand+Product / engagement: Like / ordering: Order+OrderItem / user: User)
-- [ ] Cross-BC communication uses Client/ACL pattern (`application/client/` + `infrastructure/acl/`)
-- [ ] No direct references to other BC's Service/Repository without Client/ACL
+- [ ] Cross-BC communication uses Port/ACL pattern (`application/port/out/client/` + `infrastructure/acl/`)
+- [ ] No direct references to other BC's Service/Repository without Port/ACL
 - [ ] Only ACL implementations directly reference other domain's domain model and JPA
+
+### 1.7. Port & Repository Violations (Critical)
+- [ ] Domain Repository signatures do not expose Spring/JPA types (Page, Pageable, etc.)
+- [ ] Domain Repository does not return use-case DTOs (OutDto, etc.)
+- [ ] "Repository" naming not used in QueryPort
+- [ ] client/query ports use `...Port` suffix
+- [ ] PageCriteria/PageResult located in `domain/repository/vo/`
 
 ### 2. Domain Model Violations (Critical)
 - [ ] `create()` factory: includes validation + normalization, id = null
