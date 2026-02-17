@@ -1,155 +1,155 @@
 ---
 name: tdd-workflow
-description: TDD(Red-Green-Refactor) 기반 개발 워크플로우와 테스트 작성 패턴. 새 기능 구현, 버그 수정, 리팩토링 시 테스트 작성이 필요할 때 사용한다.
+description: TDD (Red-Green-Refactor) based development workflow and test writing patterns. Use when tests need to be written for new feature implementation, bug fixes, or refactoring.
 ---
 
 # TDD Workflow
 
-## 1. TDD 사이클
+## 1. TDD Cycle
 
-### 1.1 Red Phase — 실패하는 테스트 작성
+### 1.1 Red Phase — Write Failing Tests
 
-- [ ] 요구사항을 테스트 케이스로 변환
-- [ ] 테스트가 **컴파일은 되지만 실패**하는 상태 확인
-- [ ] 한 번에 하나의 동작만 테스트 (단일 책임)
-- [ ] 경계값, 예외 케이스를 별도 테스트로 분리
+- [ ] Convert requirements to test cases
+- [ ] Verify tests **compile but fail**
+- [ ] Test only one behavior at a time (single responsibility)
+- [ ] Separate boundary values and exception cases into individual tests
 
-### 1.2 Green Phase — 최소한의 코드로 통과
+### 1.2 Green Phase — Pass with Minimal Code
 
-- [ ] Red Phase의 테스트가 **모두 통과**할 수 있는 최소 코드 작성
-- [ ] 오버엔지니어링 금지 — 테스트가 요구하지 않는 기능 미작성
-- [ ] 기존 테스트가 깨지지 않는지 확인
+- [ ] Write minimal code to make **all** Red Phase tests pass
+- [ ] No over-engineering — do not write features not required by tests
+- [ ] Verify existing tests are not broken
 
-### 1.3 Refactor Phase — 품질 개선
+### 1.3 Refactor Phase — Improve Quality
 
-- [ ] 불필요한 코드 제거, 중복 제거
-- [ ] 객체지향 원칙에 맞게 구조 개선
-- [ ] unused import 제거
-- [ ] 성능 최적화 (필요 시)
-- [ ] **모든 테스트 케이스가 통과해야 함**
+- [ ] Remove unnecessary code, eliminate duplication
+- [ ] Improve structure following OOP principles
+- [ ] Remove unused imports
+- [ ] Performance optimization (if needed)
+- [ ] **All test cases must pass**
 
-## 2. 테스트 작성 원칙
+## 2. Test Writing Principles
 
-### 2.1 3A 패턴 (Arrange-Act-Assert)
+### 2.1 3A Pattern (Arrange-Act-Assert)
 
 ```
-// Arrange — 테스트 데이터 및 환경 준비
-<테스트 대상 객체 생성, Mock 설정, 입력값 준비>
+// Arrange — Prepare test data and environment
+<Create test target objects, set up Mocks, prepare input values>
 
-// Act — 테스트 대상 실행
-<단일 메서드 호출 또는 단일 동작 수행>
+// Act — Execute test target
+<Single method call or single action>
 
-// Assert — 결과 검증
-<기대값과 실제값 비교, 예외 검증, 호출 검증>
+// Assert — Verify results
+<Compare expected vs actual values, verify exceptions, verify calls>
 ```
 
-### 2.2 @DisplayName 작성 규칙
+### 2.2 @DisplayName Writing Rules
 
-**형식**: `[메서드명()] 조건 -> 결과. 상세 설명`
+**Format**: `[methodName()] condition -> result. Detailed description`
 
-요구사항:
-- 테스트만 보고도 요구사항을 파악할 수 있을 만큼 **자세하게** 작성
-- 메서드명은 대괄호로 감싸고, 조건과 결과를 화살표로 연결
+Requirements:
+- Write **detailed enough** that requirements can be understood from the test alone
+- Wrap method name in brackets, connect condition and result with arrow
 
-예시:
+Examples:
 - `[POST /api/v1/users] 유효한 요청 -> 201 Created. 응답에 id, name 포함`
 - `[save()] 유효한 엔티티 저장 -> ID가 할당된 엔티티 반환`
 - `[create()] 8자 미만 비밀번호 -> INVALID_FORMAT 예외`
 
-### 2.3 커버리지 목표
+### 2.3 Coverage Target
 
-- **100%에 가깝게** 커버리지를 채울 것
-- 모든 public 메서드, 분기(branch), 예외 케이스를 테스트로 검증
-- 커버리지가 높더라도 **의미 있는 검증**이 없으면 불충분
+- Aim for coverage **as close to 100% as possible**
+- Verify all public methods, branches, and exception cases with tests
+- High coverage is insufficient if **meaningful assertions** are missing
 
-### 2.4 테스트 케이스 도출 기법
+### 2.4 Test Case Derivation Techniques
 
-요구사항에서 테스트 케이스를 체계적으로 도출하기 위해 아래 기법을 적용한다.
+Apply the following techniques to systematically derive test cases from requirements.
 
-#### 경계값 분석 (BVA)
+#### Boundary Value Analysis (BVA)
 
-범위가 있는 입력값은 **경계**에서 결함이 발생하기 쉽다. 경계와 그 바로 바깥을 테스트한다.
+Inputs with ranges are prone to defects at **boundaries**. Test the boundary and just beyond it.
 
-| 테스트 포인트 | 예시: 길이 4~20자 필드 |
-|-------------|---------------------|
-| 하한 - 1 | 3자 → 실패 |
-| 하한 (경계) | 4자 → 성공 |
-| 상한 (경계) | 20자 → 성공 |
-| 상한 + 1 | 21자 → 실패 |
+| Test Point | Example: 4-20 character field |
+|------------|-------------------------------|
+| Lower - 1 | 3 chars → fail |
+| Lower (boundary) | 4 chars → pass |
+| Upper (boundary) | 20 chars → pass |
+| Upper + 1 | 21 chars → fail |
 
-#### 동등 클래스 분할 (ECP)
+#### Equivalence Class Partitioning (ECP)
 
-입력값을 동일하게 동작하는 그룹(동등 클래스)으로 나누고, 각 그룹에서 대표값 1개만 테스트한다.
+Divide inputs into groups (equivalence classes) that behave identically, then test only 1 representative value from each group.
 
-| 클래스 | 예시: loginId 필드 | 기대 결과 |
-|--------|-------------------|-----------|
-| 유효한 값 | `"validuser"` | 성공 |
-| null | `null` | 에러 |
-| 빈 문자열 | `""` | 에러 |
-| 길이 미달 | `"abc"` | 에러 |
-| 길이 초과 | `"a".repeat(21)` | 에러 |
-| 허용되지 않는 문자 | `"user@name"` | 에러 |
+| Class | Example: loginId field | Expected Result |
+|-------|------------------------|-----------------|
+| Valid value | `"validuser"` | Success |
+| null | `null` | Error |
+| Empty string | `""` | Error |
+| Below min length | `"abc"` | Error |
+| Above max length | `"a".repeat(21)` | Error |
+| Disallowed characters | `"user@name"` | Error |
 
-#### 기타 기법 (해당 시 적용)
+#### Other Techniques (Apply When Applicable)
 
-- **의사결정표**: 2개 이상 조건이 조합되는 경우 조건 조합표로 누락 방지 (예: 헤더 유무 × 사용자 존재 × 비밀번호 일치)
-- **상태 전이**: 상태 머신이 있는 도메인에서 각 전이 경로와 잘못된 전이를 테스트
+- **Decision table**: When 2+ conditions combine, use a condition combination table to prevent omissions (e.g., header presence × user existence × password match)
+- **State transition**: For domains with state machines, test each transition path and invalid transitions
 
-#### 오류 추측
+#### Error Guessing
 
-경험적으로 자주 발생하는 오류 패턴을 보충 테스트한다:
-- null, 빈 문자열, 공백만(`" "`, `"\t"`)
-- 특수문자, 한글 등 비ASCII 입력
-- 최대 길이 + 1, 중복 값 (유니크 제약 위반)
-- 의미 없는 형식 (이메일에 @ 없음, 날짜에 미래값)
+Supplement with tests for empirically common error patterns:
+- null, empty string, whitespace only (`" "`, `"\t"`)
+- Special characters, non-ASCII input (Korean, etc.)
+- Max length + 1, duplicate values (unique constraint violations)
+- Invalid formats (email without @, future dates)
 
-## 3. 예외 검증 패턴
+## 3. Exception Verification Pattern
 
 ```
-// Act — 예외를 발생시키는 동작
-<예외 타입> exception = assertThrows(<예외 타입>.class,
+// Act — Action that triggers the exception
+<ExceptionType> exception = assertThrows(<ExceptionType>.class,
     () -> targetMethod(args));
 
-// Assert — 예외 내용 검증
+// Assert — Verify exception details
 assertAll(
-    () -> assertThat(exception.getErrorType()).isEqualTo(<에러 타입>),
-    () -> assertThat(exception.getMessage()).isEqualTo(<에러 메시지>)
+    () -> assertThat(exception.getErrorType()).isEqualTo(<errorType>),
+    () -> assertThat(exception.getMessage()).isEqualTo(<errorMessage>)
 );
 ```
 
-## 4. 테스트 유형별 패턴
+## 4. Test Type Patterns
 
-### 4.1 단위 테스트
+### 4.1 Unit Tests
 
-- 모든 테스트 더블(Fake, Stub, Mock, Spy) 사용 가능 — 상황에 맞게 적절한 것을 선택
-- Mock 사용 시: `@ExtendWith(MockitoExtension.class)` + `@Mock` + 수동 생성자 주입
-- BDD 스타일: `given().willReturn()`, `willThrow()`
-- 검증: `verify()`, `never()`
-- 파라미터화 테스트: `@ParameterizedTest` + `@NullAndEmptySource` + `@ValueSource`
+- All test doubles (Fake, Stub, Mock, Spy) allowed — choose the appropriate one for the situation
+- When using Mocks: `@ExtendWith(MockitoExtension.class)` + `@Mock` + manual constructor injection
+- BDD style: `given().willReturn()`, `willThrow()`
+- Verification: `verify()`, `never()`
+- Parameterized tests: `@ParameterizedTest` + `@NullAndEmptySource` + `@ValueSource`
 
-### 4.2 통합 테스트
+### 4.2 Integration Tests
 
-- 어노테이션: `@SpringBootTest`, `@ActiveProfiles("test")`
-- TestContainers 등 실제 인프라와 연동
-- 필요 시 Config 클래스 Import
+- Annotations: `@SpringBootTest`, `@ActiveProfiles("test")`
+- Integrate with real infrastructure via TestContainers
+- Import Config classes if needed
 
-### 4.3 E2E 테스트
+### 4.3 E2E Tests
 
-- 위치: `{domain}/interfaces/{Domain}ControllerE2ETest` (controller 하위 아님)
-- 어노테이션: `@SpringBootTest` + `@AutoConfigureMockMvc` + `@ActiveProfiles("test")`
-- 테스트 격리: `@AfterEach`에서 DB 초기화 (`@Transactional` 미사용)
-- 테스트 데이터: API 호출 헬퍼 메서드로 직접 생성
-- 구조: `@Nested` 클래스로 엔드포인트별 그룹화
+- Location: `{domain}/interfaces/{Domain}ControllerE2ETest` (not under controller/)
+- Annotations: `@SpringBootTest` + `@AutoConfigureMockMvc` + `@ActiveProfiles("test")`
+- Test isolation: DB cleanup in `@AfterEach` (do not use `@Transactional`)
+- Test data: create directly via API call helper methods
+- Structure: group by endpoint using `@Nested` classes
 
-## 5. 에러 타입 추가 시 테스트 체크리스트
+## 5. Error Type Addition Test Checklist
 
-- [ ] 에러 타입 enum에 새 값 추가
-- [ ] 에러 타입 테스트의 provider 메서드에 케이스 추가
-- [ ] enum 개수 검증 테스트의 `hasSize(N)` 값을 N+1로 업데이트
+- [ ] Add new value to error type enum
+- [ ] Add case to error type test's provider method
+- [ ] Update `hasSize(N)` to N+1 in enum count verification test
 
-## 6. 금지 사항
+## 6. Prohibited Actions
 
-- 실패 테스트를 삭제하여 통과시키기 금지
-- 테스트 없이 프로덕션 코드 작성 금지 (TDD 사이클 준수)
-- Mock으로만 동작하고 실제 환경에서 실패하는 테스트 금지
-- `@Disabled`로 테스트를 무력화하기 금지 (임시라도 승인 필요)
+- Deleting failing tests to make them pass
+- Writing production code without tests (follow TDD cycle)
+- Tests that only work with Mocks but fail in real environments
+- Disabling tests with `@Disabled` (requires approval even if temporary)

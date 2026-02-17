@@ -1,92 +1,92 @@
 ---
 name: requirements-analysis
 description:
-  제공된 요구사항을 분석하고, 개발자와의 질문/대답을 통해 애매한 요구사항을 명확히 하여 정리합니다.
-  모든 정리가 끝나면, 시퀀스 다이어그램, 클래스 다이어그램, ERD 등을 Mermaid 문법으로 작성한다.
-  요구사항이 제공되었을 때, 코드를 작성하기 전 이를 명확히 하는 데에 사용합니다.
+  Analyzes provided requirements and clarifies ambiguous ones through Q&A with the developer.
+  Once all clarification is complete, creates sequence diagrams, class diagrams, ERDs, etc. in Mermaid syntax.
+  Use when requirements are provided and need to be clarified before writing code.
 ---
 
-요구사항을 분석할 때 반드시 다음 흐름을 따른다.
+Always follow this flow when analyzing requirements.
 
-### 1️⃣ 요구사항을 그대로 믿지 말고, 문제 상황으로 다시 설명한다.
+### 1. Do not take requirements at face value — restate them as problem situations.
 
-- 요구사항 문장을 정리하는 데서 끝내지 않는다.
-- "무엇을 만들까?"가 아니라 "지금 어떤 문제가 있고, 그걸 왜 해결하려는가?" 로 재해석한다.
-- 다음 관점을 분리해서 정리한다:
-    - 사용자 관점
-    - 비즈니스 관점
-    - 시스템 관점
+- Do not stop at just organizing requirement statements.
+- Reinterpret as "What problem exists now, and why are we trying to solve it?" rather than "What should we build?"
+- Separate and organize from these perspectives:
+    - User perspective
+    - Business perspective
+    - System perspective
 
-> 예시
-> "주문 실패 시 결제를 취소한다" → "결제 성공/실패와 주문 상태가 어긋나지 않도록 일관성을 유지하려는 문제"
+> Example
+> "Cancel payment when order fails" → "The problem of maintaining consistency so that payment success/failure and order status don't become misaligned"
 
-### 2️⃣ 애매한 요구사항을 숨기지 말고 드러낸다
+### 2. Do not hide ambiguous requirements — surface them explicitly
 
-- 추측하거나 알아서 결정하지 않는다.
-- 요구사항에서 결정되지 않은 부분을 명시적으로 나열한다.
-  **다음 유형의 질문을 반드시 포함한다:**
-- 정책 질문: 기준 시점, 성공/실패 조건, 예외 처리 규칙
-- 경계 질문: 어디까지가 한 책임인가, 어디서 분리되는가
-- 확장 질문: 나중에 바뀔 가능성이 있는가
+- Do not guess or decide on your own.
+- Explicitly list undecided parts from the requirements.
+  **The following types of questions must be included:**
+- Policy questions: reference time points, success/failure conditions, exception handling rules
+- Boundary questions: where does one responsibility end, where is the separation
+- Extension questions: is there a possibility of future changes
 
-### 3️⃣ 요구사항 명확화를 위한 질문을 개발자 답변이 쉬운 형태로 제시한다
+### 3. Present questions for requirement clarification in a form easy for the developer to answer
 
-- 질문은 우선순위를 가진다 (중요한 것부터).
-- 선택지가 있는 경우, 옵션 + 영향도를 함께 제시한다.
+- Questions have priorities (most important first).
+- When options exist, present them with options + impact assessment.
 
-> 형식 예시:
+> Format example:
 
-- 선택지 A: 하나의 트랜잭션으로 처리 → 구현 단순, 확장성 낮음
-- 선택지 B: 단계별 분리 → 구조 복잡, 확장/보상 처리 유리
+- Option A: Process in a single transaction → Simple implementation, low scalability
+- Option B: Separate into stages → Complex structure, better for extension/compensation handling
 
-### 4️⃣ 합의된 내용을 바탕으로 개념 모델부터 잡는다
+### 4. Based on agreed content, establish the conceptual model first
 
-- 바로 코드나 기술 얘기로 들어가지 않는다.
-- 먼저 다음을 정의한다:
-    - 액터 (사용자, 외부 시스템)
-    - 핵심 도메인
-    - 보조/외부 시스템
-- 이 단계는 “구현”이 아니라 설계 사고 정렬이 목적이다.
+- Do not jump straight into code or technical discussions.
+- First define:
+    - Actors (users, external systems)
+    - Core domain
+    - Supporting/external systems
+- The purpose of this step is design thinking alignment, not "implementation."
 
-### 5️⃣ 다이어그램은 항상 이유 → 다이어그램 → 해석 순서로 제시한다
+### 5. Always present diagrams in the order: reasoning → diagram → interpretation
 
-**다이어그램을 그리기 전에 반드시 설명한다**
+**Always explain before drawing a diagram**
 
-- 왜 이 다이어그램이 필요한지
-- 이 다이어그램으로 무엇을 검증하려는지
+- Why this diagram is needed
+- What this diagram aims to verify
 
-**다이어그램은 Mermaid 문법으로 작성한다**
-사용 기준:
+**Diagrams are written in Mermaid syntax**
+Usage criteria:
 
-- **시퀀스 다이어그램**
-    - 책임 분리
-    - 호출 순서
-    - 트랜잭션 경계 확인
-- **클래스 다이어그램**
-    - 도메인 책임
-    - 의존 방향
-    - 응집도 확인
+- **Sequence diagram**
+    - Responsibility separation
+    - Call order
+    - Transaction boundary verification
+- **Class diagram**
+    - Domain responsibilities
+    - Dependency direction
+    - Cohesion verification
 - **ERD**
-    - 영속성 구조
-    - 관계의 주인
-    - 정규화 여부
+    - Persistence structure
+    - Relationship ownership
+    - Normalization status
 
-### 6️⃣ 다이어그램을 던지고 끝내지 말고 읽는 법을 짚어준다
+### 6. Do not just throw diagrams out — explain how to read them
 
-- "이 구조에서 특히 봐야 할 포인트"를 2~3줄로 설명한다.
-- 설계 의도가 드러나도록 해석을 붙인다.
+- Explain "key points to look for in this structure" in 2-3 lines.
+- Attach interpretation so design intent is visible.
 
-### 7️⃣ 설계의 잠재 리스크를 반드시 언급한다
+### 7. Always mention potential risks of the design
 
-- 현재 설계가 가질 수 있는 위험을 숨기지 않는다.
-    - 트랜잭션 비대화
-    - 도메인 간 결합도 증가
-    - 정책 변경 시 영향 범위 확대
-- 해결책은 정답처럼 말하지 않고 선택지로 제시한다.
+- Do not hide risks the current design may have.
+    - Transaction bloat
+    - Increased coupling between domains
+    - Expanded impact scope on policy changes
+- Do not present solutions as definitive answers — present them as options.
 
-### 톤 & 스타일 가이드
+### Tone & Style Guide
 
-- 강의처럼 설명하지 말고 설계 리뷰 톤을 유지한다
-- 정답이라고 제시하기보다, 다른 선택지가 있다면 이를 제공하도록 한다.
-- 코드보다 의도, 책임, 경계를 더 중요하게 다룬다
-- 구현 전에 생각해야 할 것을 끌어내는 데 집중한다
+- Maintain a design review tone, not a lecture tone
+- Rather than presenting as the definitive answer, provide alternative options when available
+- Treat intent, responsibilities, and boundaries as more important than code
+- Focus on drawing out what needs to be thought about before implementation

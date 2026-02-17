@@ -1,11 +1,11 @@
 ---
 name: layered-architecture
-description: 레이어드 아키텍처 가이드 (CQRS 포함). 새 도메인 패키지 생성, 레이어 간 데이터 흐름 설계, 기존 코드의 레이어 구조 이해 시 사용한다.
+description: Layered architecture guide (including CQRS). Use when creating new domain packages, designing inter-layer data flows, or understanding layer structure of existing code.
 ---
 
 # Layered Architecture
 
-## 1. 레이어 흐름도
+## 1. Layer Flow Diagram
 
 ```
 Client Request
@@ -22,137 +22,137 @@ Client Request
 → Client Response
 ```
 
-## 2. 레이어별 책임
+## 2. Layer Responsibilities
 
-| 레이어 | 클래스 패턴 | 어노테이션 | 역할 |
-|--------|-------------|-----------|------|
-| Controller | `{Domain}Controller` | `@RestController` | 요청 수신, 응답 반환, Facade 호출 |
-| Facade (Command) | `{Domain}CommandFacade` | `@Service`, `@Transactional` | 명령 유스케이스 오케스트레이션, 트랜잭션 경계 |
-| Facade (Query) | `{Domain}QueryFacade` | `@Service`, `@Transactional(readOnly=true)` | 조회 유스케이스 오케스트레이션 |
-| Service | `{Domain}CommandService` | `@Service`, `@Transactional` | 단일 도메인 비즈니스 로직 실행 |
-| Domain Service | `{Domain}XxxValidator` 등 | 순수 클래스 (`@Bean` 등록) | stateless, 동일 BC 내 도메인 객체 협력 중재, 비즈니스 불변식 검증 |
-| Repository (I) | `{Domain}CommandRepository` | 인터페이스 | 명령 계약 (save, delete) |
-| Repository (I) | `{Domain}QueryRepository` | 인터페이스 | 조회 계약 (find, exists) |
-| RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain 변환 후 JPA 호출 |
-| Entity | `{Domain}Entity` | `@Entity` | DB 매핑, `from(Domain)` + `toDomain()` |
+| Layer | Class Pattern | Annotation | Role |
+|-------|--------------|-----------|------|
+| Controller | `{Domain}Controller` | `@RestController` | Receive requests, return responses, call Facade |
+| Facade (Command) | `{Domain}CommandFacade` | `@Service`, `@Transactional` | Command use-case orchestration, transaction boundary |
+| Facade (Query) | `{Domain}QueryFacade` | `@Service`, `@Transactional(readOnly=true)` | Query use-case orchestration |
+| Service | `{Domain}CommandService` | `@Service`, `@Transactional` | Single domain business logic execution |
+| Domain Service | `{Domain}XxxValidator`, etc. | Pure class (`@Bean` registration) | Stateless, mediates domain object collaboration within same BC, business invariant verification |
+| Repository (I) | `{Domain}CommandRepository` | Interface | Command contract (save, delete) |
+| Repository (I) | `{Domain}QueryRepository` | Interface | Query contract (find, exists) |
+| RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain conversion then JPA call |
+| Entity | `{Domain}Entity` | `@Entity` | DB mapping, `from(Domain)` + `toDomain()` |
 
-## 3. 핵심 규칙
+## 3. Core Rules
 
-### 3.0 아키텍처 원칙
+### 3.0 Architecture Principle
 
-- 의존 방향: `Application → Domain ← Infrastructure`
-- Domain Layer가 중심, Application과 Infrastructure가 Domain에 의존
-- Repository Interface는 Domain Layer(`domain/repository/`)에 정의, 구현체는 Infrastructure에 위치
+- Dependency direction: `Application → Domain ← Infrastructure`
+- Domain Layer is central; Application and Infrastructure depend on Domain
+- Repository Interface defined in Domain Layer (`domain/repository/`), implementations in Infrastructure
 
-### 3.1 호출 순서
+### 3.1 Call Order
 
 ```
 Controller → Facade → Service → Repository
 ```
 
-- **계층 건너뛰기 절대 금지** (예: Controller → Service 직접 호출 불가)
-- Controller는 반드시 Facade를 통해서만 비즈니스 로직에 접근
+- **Absolutely no layer skipping** (e.g., Controller → Service direct call prohibited)
+- Controller must access business logic only through Facade
 
-### 3.2 비즈니스 vs 서비스 로직 분리
+### 3.2 Business vs Service Logic Separation
 
-| 구분 | 위치 | 예시 |
-|------|------|------|
-| 비즈니스 로직 | Domain Model, Domain Service | 유효성 검증, 도메인 계산, 상태 전이, 불변식 검증 |
-| 서비스 로직 | Facade, Service | 유스케이스 오케스트레이션, 트랜잭션 관리, 외부 시스템 연동 |
+| Category | Location | Examples |
+|----------|----------|---------|
+| Business logic | Domain Model, Domain Service | Validation, domain calculations, state transitions, invariant verification |
+| Service logic | Facade, Service | Use-case orchestration, transaction management, external system integration |
 
-### 3.3 CQRS 분리
+### 3.3 CQRS Separation
 
-- Command: 상태 변경 (save, update, delete)
-- Query: 상태 조회 (find, exists, count)
-- Repository 인터페이스부터 Command/Query로 분리
+- Command: state changes (save, update, delete)
+- Query: state queries (find, exists, count)
+- Repository interfaces split into Command/Query from the start
 
-### 3.4 Bounded Context 경계
+### 3.4 Bounded Context Boundaries
 
-| BC | 포함 도메인 | 설명 |
-|----|-----------|------|
-| `catalog` | Brand, Product | 상품 카탈로그 |
-| `engagement` | Like | 사용자 참여 |
-| `ordering` | Order, OrderItem | 주문 |
-| `user` | User | 사용자 |
+| BC | Included Domains | Description |
+|----|-----------------|-------------|
+| `catalog` | Brand, Product | Product catalog |
+| `engagement` | Like | User engagement |
+| `ordering` | Order, OrderItem | Orders |
+| `user` | User | Users |
 
-- **같은 BC 내**: Facade에서 같은 BC 내 다른 도메인의 Service를 직접 호출 가능
-- **다른 BC 간 (동기)**: Client 인터페이스(`application/client/`) + ACL 구현체(`infrastructure/acl/`) 패턴
-- **다른 BC 간 (비동기)**: 도메인 이벤트 + `@TransactionalEventListener` (최종적 일관성)
+- **Same BC**: Facade can directly call another domain's Service within the same BC
+- **Cross-BC (sync)**: Client interface (`application/client/`) + ACL implementation (`infrastructure/acl/`) pattern
+- **Cross-BC (async)**: Domain events + `@TransactionalEventListener` (eventual consistency)
 
-## 4. 데이터 변환 흐름 (DTO 패턴)
+## 4. Data Conversion Flow (DTO Pattern)
 
 ```
 Request → toInDto() → [Facade] → Domain → OutDto.from(domain) → [Controller] → Response.from(outDto)
 ```
 
-### 4.1 DTO 유형별 규칙
+### 4.1 DTO Type Rules
 
-| DTO | 위치 | 변환 메서드 | 역할 |
-|-----|------|-----------|------|
-| Request | `interfaces/controller/request/` | `toInDto()` | 외부 입력 수신, Jakarta Validation 적용 |
-| InDto | `application/dto/in/` | 없음 (불변 record) | 레이어 간 입력 전달 |
-| OutDto | `application/dto/out/` | `from(Domain)` static 팩토리 | 도메인 → 출력 변환 |
-| Response | `interfaces/controller/response/` | `from(OutDto)` static 팩토리 | 최종 응답 (마스킹 가능) |
+| DTO | Location | Conversion Method | Role |
+|-----|----------|------------------|------|
+| Request | `interfaces/controller/request/` | `toInDto()` | Receive external input, apply Jakarta Validation |
+| InDto | `application/dto/in/` | None (immutable record) | Pass input between layers |
+| OutDto | `application/dto/out/` | `from(Domain)` static factory | Domain → output conversion |
+| Response | `interfaces/controller/response/` | `from(OutDto)` static factory | Final response (masking possible) |
 
-### 4.2 DTO 규칙
+### 4.2 DTO Rules
 
-- 모든 DTO는 불변 record로 구현
-- Request에 `@NotBlank`, `@NotNull` 등 Jakarta Validation 적용
-- Response에 민감정보(password 등) 포함 **금지**
-- Response에서 데이터 마스킹 가능 (예: 이름 마지막 글자)
+- All DTOs implemented as immutable records
+- Apply `@NotBlank`, `@NotNull`, etc. Jakarta Validation to Request
+- **Prohibited**: including sensitive info (password, etc.) in Response
+- Data masking possible in Response (e.g., last character of name)
 
-## 5. Entity 업데이트 패턴
+## 5. Entity Update Pattern
 
-### 5.1 신규 생성
+### 5.1 New Creation
 
 ```
 Entity.from(domain) → jpaRepository.save(entity) → entity.toDomain()
 ```
 
-### 5.2 기존 수정
+### 5.2 Existing Update
 
 ```
 jpaRepository.findById(id) → existingEntity.updateXxx(...) → JPA dirty checking → entity.toDomain()
 ```
 
-- `Entity.from(domain)`은 항상 **새 엔티티(id 없음)**를 생성
-- 업데이트 시 `Entity.from(domain)` 사용 **절대 금지** — 기존 엔티티를 조회하여 수정
+- `Entity.from(domain)` always creates a **new entity (no id)**
+- **Absolutely prohibited** to use `Entity.from(domain)` for updates — query existing entity and modify
 
-## 6. 패키지 구조
+## 6. Package Structure
 
 ```
 {domain}/
 ├── application/
-│   ├── service/       # 애플리케이션 서비스
-│   ├── facade/        # 퍼사드 서비스
-│   ├── client/        # Cross-BC 접근 인터페이스
+│   ├── service/       # Application services
+│   ├── facade/        # Facade services
+│   ├── client/        # Cross-BC access interfaces
 │   │   └── {other-domain}/{OtherDomain}Client
 │   └── dto/
-│       ├── in/        # 입력 DTO
-│       └── out/       # 출력 DTO
+│       ├── in/        # Input DTOs
+│       └── out/       # Output DTOs
 ├── domain/
-│   ├── model/         # 도메인 모델 + enum/ + vo/
-│   ├── repository/    # 리포지토리 인터페이스 (CQRS)
-│   ├── event/         # 도메인 이벤트
-│   └── service/       # 도메인 서비스
+│   ├── model/         # Domain models + enum/ + vo/
+│   ├── repository/    # Repository interfaces (CQRS)
+│   ├── event/         # Domain events
+│   └── service/       # Domain services
 ├── infrastructure/
-│   ├── jpa/           # JPA 레포지토리
-│   ├── repository/    # 리포지토리 구현체
-│   ├── acl/           # Cross-BC 접근 구현체
+│   ├── jpa/           # JPA repositories
+│   ├── repository/    # Repository implementations
+│   ├── acl/           # Cross-BC access implementations
 │   │   └── {other-domain}/{OtherDomain}ClientImpl
-│   └── entity/        # JPA 엔티티
+│   └── entity/        # JPA entities
 ├── interfaces/
-│   ├── controller/    # REST 컨트롤러 + request/ + response/
-│   └── event/         # 이벤트 리스너
+│   ├── controller/    # REST controllers + request/ + response/
+│   └── event/         # Event listeners
 └── support/
-    ├── common/        # 공통 유틸리티 + error/
-    └── config/        # 도메인별 설정
+    ├── common/        # Common utilities + error/
+    └── config/        # Domain-specific configuration
 ```
 
-## 7. 금지 사항
+## 7. Prohibited Actions
 
-- Controller에서 Repository 직접 호출 금지
-- Facade/Service에서 입력값 정규화 금지 (도메인 모델 책임)
-- Entity 업데이트 시 `Entity.from()` 사용 금지
-- 비즈니스 로직을 Controller/Facade에 작성 금지
-- 도메인 모델에 프레임워크 어노테이션 사용 금지
+- Controller directly calling Repository
+- Input normalization in Facade/Service (domain model responsibility)
+- Using `Entity.from()` for Entity updates
+- Writing business logic in Controller/Facade
+- Using framework annotations on domain models

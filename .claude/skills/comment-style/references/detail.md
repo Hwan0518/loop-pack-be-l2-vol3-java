@@ -1,14 +1,14 @@
-# Comment Style - 상세 레퍼런스
+# Comment Style - Detailed Reference
 
-> 핵심 규칙: [../SKILL.md](../SKILL.md)
+> Core rules: [../SKILL.md](../SKILL.md)
 
-이 문서는 레이어별 전체 코드 예제, 인라인 주석 상세 예제, 안티패턴을 포함한다.
+This document contains full code examples per layer, detailed inline comment examples, and anti-patterns.
 
 ---
 
-## 1. Domain Model 주석 패턴
+## 1. Domain Model Comment Pattern
 
-### 필드 목록 Javadoc
+### Field Listing Javadoc
 
 ```java
 
@@ -38,7 +38,7 @@ public class Incentive {
 }
 ```
 
-### 도메인 로직 메서드 주석
+### Domain Logic Method Comments
 
 ```java
 /**
@@ -65,9 +65,9 @@ public static Incentive createReversal(...) {
 
 ---
 
-## 2. Application Service / Facade 주석 패턴
+## 2. Application Service / Facade Comment Pattern
 
-의존성 그룹핑 + 클래스 Javadoc + 번호 매칭 전체 예제:
+Full example with dependency grouping + class Javadoc + numbered matching:
 
 ```java
 
@@ -132,10 +132,10 @@ public class ItemFacade {
 }
 ```
 
-의존성 그룹핑 상세 예제:
+Detailed dependency grouping example:
 
 ```java
-// ✅ CORRECT: 구조적 마커로 그룹핑
+// ✅ CORRECT: Grouped with structural markers
 // service
 private final UserManagementService userManagementService;
 private final BranchManagementService branchManagementService;
@@ -150,7 +150,7 @@ private final TradeEventPublisher tradeEventPublisher;
 ```
 
 ```java
-// ❌ WRONG: 그룹핑 없이 한국어 인라인 설명
+// ❌ WRONG: No grouping, Korean inline descriptions
 private final UserManagementService userManagementService; // 유저 서비스
 private final ModelMapper modelMapper; // 모델 매퍼
 private final UserQueryRepository userQueryRepository; // 유저 조회
@@ -158,7 +158,7 @@ private final UserQueryRepository userQueryRepository; // 유저 조회
 
 ---
 
-## 3. Controller 주석 패턴
+## 3. Controller Comment Pattern
 
 ```java
 
@@ -198,7 +198,7 @@ public class TradeManagementController {
 
 ---
 
-## 4. Repository Implementation 주석 패턴
+## 4. Repository Implementation Comment Pattern
 
 ```java
 
@@ -229,7 +229,7 @@ public class ItemCommandRepositoryImpl implements ItemCommandRepository {
 
 ---
 
-## 5. Event Handler 주석 패턴
+## 5. Event Handler Comment Pattern
 
 ```java
 
@@ -245,7 +245,7 @@ public class TradeCreatedEventHandler {
 	// 1. 거래 생성 이벤트 처리
 	@EventListener(TradeCreatedEvent.class)
 	public void handleTradeCreatedEvent(TradeCreatedEvent event) {
-		
+
 		// 이벤트에서 거래 정보 추출
 		Trades trade = event.getTrade();
 
@@ -258,7 +258,7 @@ public class TradeCreatedEventHandler {
 
 ---
 
-## 6. Global / Config 주석 패턴
+## 6. Global / Config Comment Pattern
 
 ```java
 
@@ -272,12 +272,12 @@ public class SecurityConfig {
 
 ---
 
-## 7. Inline Comment 상세 예제
+## 7. Detailed Inline Comment Examples
 
 ### Sequential Processing (Facade/Service)
 
 ```java
-// ❌ WRONG: 인라인 주석 없는 다중 행 메서드
+// ❌ WRONG: Multi-line method without inline comments
 // 1. 거래 생성
 @Transactional
 public CreateTradeOutDto createTrade(CreateTradeInDto inDto) {
@@ -290,7 +290,7 @@ public CreateTradeOutDto createTrade(CreateTradeInDto inDto) {
 }
 
 
-// ✅ CORRECT: 각 논리적 단계 설명
+// ✅ CORRECT: Each logical step explained
 // 1. 거래 생성
 @Transactional
 public CreateTradeOutDto createTrade(CreateTradeInDto inDto) {
@@ -314,7 +314,7 @@ public CreateTradeOutDto createTrade(CreateTradeInDto inDto) {
 ### Conditional Branching (Domain)
 
 ```java
-// ❌ WRONG: 분기 로직에 인라인 주석 없음
+// ❌ WRONG: Branch logic without inline comments
 public void validateSearchAccess(UserType userType, UUID userUuid) {
 	if (userType == UserType.ADMIN) {
 		return;
@@ -329,7 +329,7 @@ public void validateSearchAccess(UserType userType, UUID userUuid) {
 }
 
 
-// ✅ CORRECT: 각 분기 설명
+// ✅ CORRECT: Each branch explained
 public void validateSearchAccess(UserType userType, UUID userUuid) {
 
 	// 관리자는 모든 접근 허용
@@ -355,9 +355,9 @@ public void validateSearchAccess(UserType userType, UUID userUuid) {
 
 ## 8. Anti-Patterns
 
-### given/when/then 누락 (테스트)
+### Missing given/when/then (Tests)
 
-테스트에서 `// given`, `// when`, `// then` 구분이 없으면 가독성과 유지보수성이 저하된다.
+Tests without `// given`, `// when`, `// then` separation have degraded readability and maintainability.
 
 ```java
 // ❌ WRONG
@@ -385,12 +385,12 @@ void createItem_Success() {
 }
 ```
 
-### 번호 불일치 (Numbered Method Mismatch)
+### Numbered Method Mismatch
 
-클래스 Javadoc의 번호 목록과 메서드 `// N.` 주석이 일치하지 않으면 탐색 패턴이 깨진다.
+When class Javadoc numbered list and method `// N.` comments don't match, the navigation pattern breaks.
 
 ```java
-// ❌ WRONG: 번호 누락 또는 불일치
+// ❌ WRONG: Missing or incorrect numbers
 /**
  * 유저 관리 서비스
  * 1. 유저 생성
@@ -398,13 +398,13 @@ void createItem_Success() {
  */
 
 // 유저 생성
-public void createUser(...) { ...}  // ← 번호 없음
+public void createUser(...) { ...}  // ← missing number
 
 
 // 1. 유저 수정
-public void updateUser(...) { ...}  // ← 잘못된 번호
+public void updateUser(...) { ...}  // ← wrong number
 
-// ✅ CORRECT: 정확한 번호 매칭
+// ✅ CORRECT: Exact number matching
 
 
 /**
@@ -421,10 +421,10 @@ public void createUser(...) { ...}
 public void updateUser(...) { ...}
 ```
 
-### Javadoc 위치 오류 (Class Declaration 위)
+### Javadoc Placement Error (Above Class Declaration)
 
 ```java
-// ❌ WRONG: 클래스 선언 위에 Javadoc 배치
+// ❌ WRONG: Javadoc placed above class declaration
 
 /**
  * 품목 관리 파사드
@@ -443,7 +443,7 @@ public class ItemFacade {
 
 }
 
-// ✅ CORRECT: 클래스 본문 내부, 의존성 필드 뒤에 배치
+// ✅ CORRECT: Placed inside class body, after dependency fields
 @Service
 @RequiredArgsConstructor
 public class ItemFacade {
@@ -463,7 +463,7 @@ public class ItemFacade {
 }
 ```
 
-### 영어 비즈니스 설명
+### English Business Descriptions
 
 ```java
 // ❌ WRONG
@@ -479,7 +479,7 @@ public class ItemFacade {
  */
 ```
 
-### Block Comment 사용
+### Block Comment Usage
 
 ```java
 // ❌ WRONG
