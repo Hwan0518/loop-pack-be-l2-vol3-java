@@ -22,4 +22,10 @@ public class CoreException extends RuntimeException {
 		this.customMessage = customMessage;
 	}
 
+
+	public CoreException addMessage(String additionalMessage) {
+		String newMessage = this.getMessage() + " " + additionalMessage;
+		return new CoreException(this.errorType, newMessage);
+	}
+
 }

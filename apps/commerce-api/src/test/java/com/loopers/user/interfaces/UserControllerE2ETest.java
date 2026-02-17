@@ -1,10 +1,11 @@
 package com.loopers.user.interfaces;
 
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.support.common.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
-import com.loopers.user.interfaces.controller.request.UserSignUpRequest;
-import com.loopers.support.common.error.ErrorType;
+import com.loopers.user.interfaces.web.request.UserSignUpRequest;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -20,18 +21,17 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 
-import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.hasKey;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.hamcrest.Matchers.not;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
+@Import({ MySqlTestContainersConfig.class, RedisTestContainersConfig.class })
 @DisplayName("UserController E2E 테스트")
 class UserControllerE2ETest {
 
@@ -44,10 +44,12 @@ class UserControllerE2ETest {
 	@Autowired
 	private DatabaseCleanUp databaseCleanUp;
 
+
 	@AfterEach
 	void tearDown() {
 		databaseCleanUp.truncateAllTables();
 	}
+
 
 	@Nested
 	@DisplayName("POST /api/v1/users - 회원가입")
@@ -55,7 +57,7 @@ class UserControllerE2ETest {
 
 		@Test
 		@DisplayName("[POST /api/v1/users] 유효한 회원가입 요청 -> 201 Created. "
-			+ "응답: id, loginId, name, birthday, email 포함")
+			+ "응답: id, loginId, name, birthDate, email 포함")
 		void signUpSuccess() throws Exception {
 			// Arrange
 			UserSignUpRequest request = new UserSignUpRequest(
@@ -75,8 +77,9 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$.loginId").value("testuser01"))
 				.andExpect(jsonPath("$.name").value("홍길동"))
 				.andExpect(jsonPath("$.email").value("test@example.com"))
-				.andExpect(jsonPath("$.birthday").value("1990-01-15"));
+				.andExpect(jsonPath("$.birthDate").value("1990-01-15"));
 		}
+
 
 		@Test
 		@DisplayName("[POST /api/v1/users] 중복 로그인 ID -> 409 Conflict. "
@@ -106,6 +109,7 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$.message").value(ErrorType.USER_ALREADY_EXISTS.getMessage()));
 		}
 
+
 		@Test
 		@DisplayName("[POST /api/v1/users] 비밀번호 형식 오류 (8자 미만) -> 400 Bad Request. "
 			+ "에러 코드: INVALID_PASSWORD_FORMAT")
@@ -127,10 +131,11 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_PASSWORD_FORMAT.getCode()));
 		}
 
+
 		@Test
 		@DisplayName("[POST /api/v1/users] 비밀번호에 생년월일 포함 -> 400 Bad Request. "
-			+ "에러 코드: PASSWORD_CONTAINS_BIRTHDAY")
-		void signUpFailPasswordContainsBirthday() throws Exception {
+			+ "에러 코드: PASSWORD_CONTAINS_BIRTH_DATE")
+		void signUpFailPasswordContainsBirthDate() throws Exception {
 			// Arrange
 			UserSignUpRequest request = new UserSignUpRequest(
 				"testuser01",
@@ -145,8 +150,9 @@ class UserControllerE2ETest {
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.code").value(ErrorType.PASSWORD_CONTAINS_BIRTHDAY.getCode()));
+				.andExpect(jsonPath("$.code").value(ErrorType.PASSWORD_CONTAINS_BIRTH_DATE.getCode()));
 		}
+
 
 		@Test
 		@DisplayName("[POST /api/v1/users] 로그인 ID 형식 오류 (특수문자 포함) -> 400 Bad Request. "
@@ -169,6 +175,7 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_LOGIN_ID_FORMAT.getCode()));
 		}
 
+
 		@Test
 		@DisplayName("[POST /api/v1/users] 이메일 형식 오류 -> 400 Bad Request. "
 			+ "에러 코드: INVALID_EMAIL_FORMAT")
@@ -190,18 +197,19 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_EMAIL_FORMAT.getCode()));
 		}
 
+
 		@Test
-		@DisplayName("[POST /api/v1/users] 필수 필드 누락 (birthday, email) -> 400 Bad Request. "
+		@DisplayName("[POST /api/v1/users] 필수 필드 누락 (birthDate, email) -> 400 Bad Request. "
 			+ "에러 코드: BAD_REQUEST")
 		void signUpFailMissingRequiredFields() throws Exception {
 			// Arrange
 			String requestJson = """
-				{
-					"loginId": "testuser01",
-					"password": "Test1234!",
-					"name": "홍길동"
-				}
-				""";
+			                     {
+			                     	"loginId": "testuser01",
+			                     	"password": "Test1234!",
+			                     	"name": "홍길동"
+			                     }
+			                     """;
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/users")
@@ -210,6 +218,7 @@ class UserControllerE2ETest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value(ErrorType.BAD_REQUEST.getCode()));
 		}
+
 
 		@Test
 		@DisplayName("[POST /api/v1/users] 이름 형식 오류 (숫자 포함) -> 400 Bad Request. "
@@ -232,6 +241,7 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_NAME_FORMAT.getCode()));
 		}
 
+
 		@Test
 		@DisplayName("[POST /api/v1/users] 로그인ID 앞뒤 공백 및 대문자 정규화 -> 201 Created. "
 			+ "loginId '  TestUser01  ' -> 'testuser01'로 저장")
@@ -252,6 +262,7 @@ class UserControllerE2ETest {
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.loginId").value("testuser01"));
 		}
+
 
 		@Test
 		@DisplayName("[POST /api/v1/users] 정규화 후 중복 loginId -> 409 Conflict. "
@@ -278,6 +289,7 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$.code").value(ErrorType.USER_ALREADY_EXISTS.getCode()));
 		}
 
+
 		@Test
 		@DisplayName("[POST /api/v1/users] 비밀번호에 공백 포함 -> 400 Bad Request. "
 			+ "에러 코드: INVALID_PASSWORD_FORMAT")
@@ -299,10 +311,11 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_PASSWORD_FORMAT.getCode()));
 		}
 
+
 		@Test
 		@DisplayName("[POST /api/v1/users] 생년월일 오늘 당일 -> 400 Bad Request. "
-			+ "에러 코드: INVALID_BIRTHDAY")
-		void signUpFailBirthdayIsToday() throws Exception {
+			+ "에러 코드: INVALID_BIRTH_DATE")
+		void signUpFailBirthDateIsToday() throws Exception {
 			// Arrange
 			UserSignUpRequest request = new UserSignUpRequest(
 				"testuser01",
@@ -317,8 +330,9 @@ class UserControllerE2ETest {
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_BIRTHDAY.getCode()));
+				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_BIRTH_DATE.getCode()));
 		}
+
 
 		@Test
 		@DisplayName("[POST /api/v1/users] 공백 포함 영문 이름 -> 201 Created. "
@@ -341,10 +355,11 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$.name").value("Hong Gildong"));
 		}
 
+
 		@Test
 		@DisplayName("[POST /api/v1/users] 비밀번호에 생년월일(YYYY-MM-DD) 포함 -> 400 Bad Request. "
-			+ "에러 코드: PASSWORD_CONTAINS_BIRTHDAY")
-		void signUpFailPasswordContainsBirthdayDash() throws Exception {
+			+ "에러 코드: PASSWORD_CONTAINS_BIRTH_DATE")
+		void signUpFailPasswordContainsBirthDateDash() throws Exception {
 			// Arrange
 			UserSignUpRequest request = new UserSignUpRequest(
 				"testuser01",
@@ -359,13 +374,14 @@ class UserControllerE2ETest {
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.code").value(ErrorType.PASSWORD_CONTAINS_BIRTHDAY.getCode()));
+				.andExpect(jsonPath("$.code").value(ErrorType.PASSWORD_CONTAINS_BIRTH_DATE.getCode()));
 		}
+
 
 		@Test
 		@DisplayName("[POST /api/v1/users] 생년월일 미래 날짜 -> 400 Bad Request. "
-			+ "에러 코드: INVALID_BIRTHDAY")
-		void signUpFailFutureBirthday() throws Exception {
+			+ "에러 코드: INVALID_BIRTH_DATE")
+		void signUpFailFutureBirthDate() throws Exception {
 			// Arrange
 			UserSignUpRequest request = new UserSignUpRequest(
 				"testuser01",
@@ -380,25 +396,28 @@ class UserControllerE2ETest {
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_BIRTHDAY.getCode()));
+				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_BIRTH_DATE.getCode()));
 		}
+
 	}
 
+
 	private void signUpUser(String loginId, String password, String name,
-							LocalDate birthday, String email) throws Exception {
-		UserSignUpRequest request = new UserSignUpRequest(loginId, password, name, birthday, email);
+		LocalDate birthDate, String email) throws Exception {
+		UserSignUpRequest request = new UserSignUpRequest(loginId, password, name, birthDate, email);
 		mockMvc.perform(post("/api/v1/users")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request)))
 			.andExpect(status().isCreated());
 	}
 
+
 	@Nested
 	@DisplayName("GET /api/v1/users/me - 내 정보 조회")
 	class GetMeTest {
 
 		@Test
-		@DisplayName("[GET /api/v1/users/me] 유효한 인증 헤더 -> 200 OK. loginId, maskedName, birthday, email 포함")
+		@DisplayName("[GET /api/v1/users/me] 유효한 인증 헤더 -> 200 OK. loginId, maskedName, birthDate, email 포함")
 		void getMeSuccess() throws Exception {
 			// Arrange
 			signUpUser("testuser01", "Test1234!", "홍길동",
@@ -411,9 +430,10 @@ class UserControllerE2ETest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.loginId").value("testuser01"))
 				.andExpect(jsonPath("$.name").value("홍길*"))
-				.andExpect(jsonPath("$.birthday").value("1990-01-15"))
+				.andExpect(jsonPath("$.birthDate").value("1990-01-15"))
 				.andExpect(jsonPath("$.email").value("test@example.com"));
 		}
+
 
 		@Test
 		@DisplayName("[GET /api/v1/users/me] 응답에 password 미포함. 민감정보 누출 방지")
@@ -430,6 +450,7 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$", not(hasKey("password"))));
 		}
 
+
 		@Test
 		@DisplayName("[GET /api/v1/users/me] X-Loopers-LoginId 누락 -> 401 Unauthorized")
 		void getMeFailWhenLoginIdHeaderMissing() throws Exception {
@@ -437,8 +458,9 @@ class UserControllerE2ETest {
 			mockMvc.perform(get("/api/v1/users/me")
 					.header("X-Loopers-LoginPw", "Test1234!"))
 				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+				.andExpect(jsonPath("$.code").value(ErrorType.AUTHENTICATION_FAILED.getCode()));
 		}
+
 
 		@Test
 		@DisplayName("[GET /api/v1/users/me] X-Loopers-LoginPw 누락 -> 401 Unauthorized")
@@ -447,8 +469,9 @@ class UserControllerE2ETest {
 			mockMvc.perform(get("/api/v1/users/me")
 					.header("X-Loopers-LoginId", "testuser01"))
 				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+				.andExpect(jsonPath("$.code").value(ErrorType.AUTHENTICATION_FAILED.getCode()));
 		}
+
 
 		@Test
 		@DisplayName("[GET /api/v1/users/me] 존재하지 않는 loginId -> 401 Unauthorized")
@@ -458,8 +481,9 @@ class UserControllerE2ETest {
 					.header("X-Loopers-LoginId", "nonexistent")
 					.header("X-Loopers-LoginPw", "Test1234!"))
 				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+				.andExpect(jsonPath("$.code").value(ErrorType.AUTHENTICATION_FAILED.getCode()));
 		}
+
 
 		@Test
 		@DisplayName("[GET /api/v1/users/me] 비밀번호 불일치 -> 401 Unauthorized")
@@ -473,8 +497,9 @@ class UserControllerE2ETest {
 					.header("X-Loopers-LoginId", "testuser01")
 					.header("X-Loopers-LoginPw", "WrongPass1!"))
 				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+				.andExpect(jsonPath("$.code").value(ErrorType.AUTHENTICATION_FAILED.getCode()));
 		}
+
 
 		@Test
 		@DisplayName("[GET /api/v1/users/me] loginId 앞뒤 공백 -> trim 후 정상 조회")
@@ -491,6 +516,7 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$.loginId").value("testuser01"));
 		}
 
+
 		@Test
 		@DisplayName("[GET /api/v1/users/me] 이름 1자 사용자 -> *로 마스킹")
 		void getMeNameMasking1Char() throws Exception {
@@ -505,6 +531,7 @@ class UserControllerE2ETest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.name").value("*"));
 		}
+
 	}
 
 	@Nested
@@ -520,11 +547,10 @@ class UserControllerE2ETest {
 				LocalDate.of(1990, 1, 15), "test@example.com");
 
 			String requestJson = """
-				{
-					"currentPassword": "Test1234!",
-					"newPassword": "NewPass1234!"
-				}
-				""";
+			                     {
+			                     	"newPassword": "NewPass1234!"
+			                     }
+			                     """;
 
 			// Act
 			mockMvc.perform(patch("/api/v1/users/me/password")
@@ -542,16 +568,16 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$.loginId").value("testuser01"));
 		}
 
+
 		@Test
 		@DisplayName("[PATCH /api/v1/users/me/password] X-Loopers-LoginId 헤더 누락 -> 401 Unauthorized")
 		void failWhenLoginIdHeaderMissing() throws Exception {
 			// Arrange
 			String requestJson = """
-				{
-					"currentPassword": "Test1234!",
-					"newPassword": "NewPass1234!"
-				}
-				""";
+			                     {
+			                     	"newPassword": "NewPass1234!"
+			                     }
+			                     """;
 
 			// Act & Assert
 			mockMvc.perform(patch("/api/v1/users/me/password")
@@ -559,19 +585,19 @@ class UserControllerE2ETest {
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(requestJson))
 				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+				.andExpect(jsonPath("$.code").value(ErrorType.AUTHENTICATION_FAILED.getCode()));
 		}
+
 
 		@Test
 		@DisplayName("[PATCH /api/v1/users/me/password] X-Loopers-LoginPw 헤더 누락 -> 401 Unauthorized")
 		void failWhenPasswordHeaderMissing() throws Exception {
 			// Arrange
 			String requestJson = """
-				{
-					"currentPassword": "Test1234!",
-					"newPassword": "NewPass1234!"
-				}
-				""";
+			                     {
+			                     	"newPassword": "NewPass1234!"
+			                     }
+			                     """;
 
 			// Act & Assert
 			mockMvc.perform(patch("/api/v1/users/me/password")
@@ -579,8 +605,9 @@ class UserControllerE2ETest {
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(requestJson))
 				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+				.andExpect(jsonPath("$.code").value(ErrorType.AUTHENTICATION_FAILED.getCode()));
 		}
+
 
 		@Test
 		@DisplayName("[PATCH /api/v1/users/me/password] 헤더 비밀번호 불일치 -> 401 Unauthorized")
@@ -590,11 +617,10 @@ class UserControllerE2ETest {
 				LocalDate.of(1990, 1, 15), "test@example.com");
 
 			String requestJson = """
-				{
-					"currentPassword": "Test1234!",
-					"newPassword": "NewPass1234!"
-				}
-				""";
+			                     {
+			                     	"newPassword": "NewPass1234!"
+			                     }
+			                     """;
 
 			// Act & Assert
 			mockMvc.perform(patch("/api/v1/users/me/password")
@@ -603,32 +629,9 @@ class UserControllerE2ETest {
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(requestJson))
 				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
+				.andExpect(jsonPath("$.code").value(ErrorType.AUTHENTICATION_FAILED.getCode()));
 		}
 
-		@Test
-		@DisplayName("[PATCH /api/v1/users/me/password] currentPassword 불일치 -> 401 Unauthorized")
-		void failWhenCurrentPasswordNotMatch() throws Exception {
-			// Arrange
-			signUpUser("testuser01", "Test1234!", "홍길동",
-				LocalDate.of(1990, 1, 15), "test@example.com");
-
-			String requestJson = """
-				{
-					"currentPassword": "WrongCurrent1!",
-					"newPassword": "NewPass1234!"
-				}
-				""";
-
-			// Act & Assert
-			mockMvc.perform(patch("/api/v1/users/me/password")
-					.header("X-Loopers-LoginId", "testuser01")
-					.header("X-Loopers-LoginPw", "Test1234!")
-					.contentType(MediaType.APPLICATION_JSON)
-					.content(requestJson))
-				.andExpect(status().isUnauthorized())
-				.andExpect(jsonPath("$.code").value(ErrorType.UNAUTHORIZED.getCode()));
-		}
 
 		@Test
 		@DisplayName("[PATCH /api/v1/users/me/password] newPassword == currentPassword -> 400 Bad Request. "
@@ -639,11 +642,10 @@ class UserControllerE2ETest {
 				LocalDate.of(1990, 1, 15), "test@example.com");
 
 			String requestJson = """
-				{
-					"currentPassword": "Test1234!",
-					"newPassword": "Test1234!"
-				}
-				""";
+			                     {
+			                     	"newPassword": "Test1234!"
+			                     }
+			                     """;
 
 			// Act & Assert
 			mockMvc.perform(patch("/api/v1/users/me/password")
@@ -655,6 +657,7 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$.code").value(ErrorType.PASSWORD_SAME_AS_CURRENT.getCode()));
 		}
 
+
 		@Test
 		@DisplayName("[PATCH /api/v1/users/me/password] newPassword 형식 오류 -> 400 Bad Request. "
 			+ "에러 코드: INVALID_PASSWORD_FORMAT")
@@ -664,11 +667,10 @@ class UserControllerE2ETest {
 				LocalDate.of(1990, 1, 15), "test@example.com");
 
 			String requestJson = """
-				{
-					"currentPassword": "Test1234!",
-					"newPassword": "short"
-				}
-				""";
+			                     {
+			                     	"newPassword": "short"
+			                     }
+			                     """;
 
 			// Act & Assert
 			mockMvc.perform(patch("/api/v1/users/me/password")
@@ -680,20 +682,20 @@ class UserControllerE2ETest {
 				.andExpect(jsonPath("$.code").value(ErrorType.INVALID_PASSWORD_FORMAT.getCode()));
 		}
 
+
 		@Test
 		@DisplayName("[PATCH /api/v1/users/me/password] newPassword에 생년월일 포함 -> 400 Bad Request. "
-			+ "에러 코드: PASSWORD_CONTAINS_BIRTHDAY")
-		void failWhenNewPasswordContainsBirthday() throws Exception {
+			+ "에러 코드: PASSWORD_CONTAINS_BIRTH_DATE")
+		void failWhenNewPasswordContainsBirthDate() throws Exception {
 			// Arrange
 			signUpUser("testuser01", "Test1234!", "홍길동",
 				LocalDate.of(1990, 1, 15), "test@example.com");
 
 			String requestJson = """
-				{
-					"currentPassword": "Test1234!",
-					"newPassword": "Aa19900115!"
-				}
-				""";
+			                     {
+			                     	"newPassword": "Aa19900115!"
+			                     }
+			                     """;
 
 			// Act & Assert
 			mockMvc.perform(patch("/api/v1/users/me/password")
@@ -702,18 +704,17 @@ class UserControllerE2ETest {
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(requestJson))
 				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.code").value(ErrorType.PASSWORD_CONTAINS_BIRTHDAY.getCode()));
+				.andExpect(jsonPath("$.code").value(ErrorType.PASSWORD_CONTAINS_BIRTH_DATE.getCode()));
 		}
+
 
 		@Test
 		@DisplayName("[PATCH /api/v1/users/me/password] 필수 필드 누락 (newPassword) -> 400 Bad Request")
 		void failWhenRequiredFieldMissing() throws Exception {
 			// Arrange
 			String requestJson = """
-				{
-					"currentPassword": "Test1234!"
-				}
-				""";
+			                     {}
+			                     """;
 
 			// Act & Assert
 			mockMvc.perform(patch("/api/v1/users/me/password")
@@ -724,5 +725,7 @@ class UserControllerE2ETest {
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.code").value(ErrorType.BAD_REQUEST.getCode()));
 		}
+
 	}
+
 }

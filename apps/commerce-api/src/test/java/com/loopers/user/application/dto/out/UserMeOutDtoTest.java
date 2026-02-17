@@ -1,6 +1,7 @@
 package com.loopers.user.application.dto.out;
 
 import com.loopers.user.domain.model.User;
+import com.loopers.user.domain.model.vo.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -14,15 +15,16 @@ class UserMeOutDtoTest {
 
 	@Test
 	@DisplayName("[UserMeOutDto.from()] User 도메인 객체 -> UserMeOutDto 변환. "
-		+ "loginId, name, birthday, email이 정확히 매핑됨 (마스킹 없음)")
+		+ "loginId, name, birthDate, email이 정확히 매핑됨 (마스킹 없음)")
 	void from() {
 		// Arrange
 		String loginId = "testuser01";
 		String name = "홍길동";
-		LocalDate birthday = LocalDate.of(1990, 1, 15);
+		LocalDate birthDate = LocalDate.of(1990, 1, 15);
 		String email = "test@example.com";
 
-		User user = User.reconstruct(1L, loginId, "encodedPassword", name, birthday, email);
+		User user = User.reconstruct(1L, LoginId.from(loginId), Password.from("encodedPassword"),
+			Name.from(name), Birthdate.from(birthDate), Email.from(email), null);
 
 		// Act
 		UserMeOutDto outDto = UserMeOutDto.from(user);
@@ -32,7 +34,7 @@ class UserMeOutDtoTest {
 			() -> assertThat(outDto).isNotNull(),
 			() -> assertThat(outDto.loginId()).isEqualTo(loginId),
 			() -> assertThat(outDto.name()).isEqualTo(name),
-			() -> assertThat(outDto.birthday()).isEqualTo(birthday),
+			() -> assertThat(outDto.birthDate()).isEqualTo(birthDate),
 			() -> assertThat(outDto.email()).isEqualTo(email)
 		);
 	}

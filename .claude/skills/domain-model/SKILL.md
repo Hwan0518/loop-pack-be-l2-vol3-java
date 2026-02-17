@@ -1,26 +1,26 @@
 ---
 name: domain-model
-description: 도메인 모델 설계 패턴 (팩토리 메서드, Value Object, 도메인 서비스). 새 도메인 모델을 생성하거나 기존 모델에 비즈니스 규칙을 추가할 때 사용한다.
+description: Domain model design patterns (factory methods, Value Objects, domain services). Use when creating new domain models or adding business rules to existing models.
 ---
 
 # Domain Model
 
-## 1. 팩토리 메서드 패턴
+## 1. Factory Method Pattern
 
-| 메서드 | 용도 | 검증 | id |
-|--------|------|------|----|
-| `create(...)` | 새 객체 생성 | 유효성 검증 + 정규화 | null |
-| `reconstruct(...)` | DB 복원 | 검증/정규화 생략 | DB 값 |
+| Method | Purpose | Validation | id |
+|--------|---------|-----------|-----|
+| `create(...)` | New object creation | Validation + normalization | null |
+| `reconstruct(...)` | Restore from DB | Skip validation/normalization | DB value |
 
-- 생성자는 반드시 `private`으로 제한
-- `create()`와 `reconstruct()`만 인스턴스 생성 가능
+- Constructor must be restricted to `private`
+- Only `create()` and `reconstruct()` can create instances
 
 ```
 public class {Domain} {
     private {Domain}(Long id, String name) { ... }
 
     public static {Domain} create(String name) {
-        // 유효성 검증 → 정규화
+        // Validation → Normalization
         return new {Domain}(null, normalized);
     }
     public static {Domain} reconstruct(Long id, String name) {
@@ -29,63 +29,65 @@ public class {Domain} {
 }
 ```
 
-## 2. 유효성 검증 순서
+## 2. Validation Order
 
 ```
-null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈니스 규칙
+null check → empty check → length limit → format (regex) → business rules
 ```
 
-- 각 단계 실패 시 해당 `ErrorType`으로 예외 발생
-- 이전 단계를 통과해야 다음 단계로 진행
+- Each stage failure throws an exception with the corresponding `ErrorType`
+- Must pass previous stage before proceeding to next
 
-## 3. 입력값 정규화 (Normalization)
+## 3. Input Normalization
 
-- `create()` 팩토리 메서드에서**만** 수행
-- Facade/Service에서 중복 정규화 **금지** (도메인 모델이 단일 책임)
+- Performed **only** in the `create()` factory method
+- **Prohibited** to duplicate normalization in Facade/Service (domain model has single responsibility)
 
-| 필드 유형 | 정규화 | 예시 |
-|-----------|--------|------|
-| 식별자 (loginId 등) | `trim().toLowerCase()` | `"  Admin "` → `"admin"` |
-| 이름, 이메일 | `trim()` | `"  홍길동 "` → `"홍길동"` |
-| 비밀번호 | 정규화 없음 | 공백도 의미 있는 문자 |
+| Field Type | Normalization | Example |
+|------------|--------------|---------|
+| Identifier (loginId, etc.) | `trim().toLowerCase()` | `"  Admin "` → `"admin"` |
+| Name, email | `trim()` | `"  홍길동 "` → `"홍길동"` |
+| Password | No normalization | Whitespace is meaningful |
 
 ## 4. Value Object (VO)
 
-- 불변 record로 구현, 자체 유효성 검증 수행, 비즈니스 로직 캡슐화
+- Implemented as immutable records, performs its own validation, encapsulates business logic
 
-| 메서드 | 용도 | 검증 |
-|--------|------|------|
-| `create(rawValue)` | 새 값 생성 | 검증 + 변환 포함 |
-| `fromEncoded(encodedValue)` | 저장된 값 복원 | 검증 생략 |
+| Method | Purpose | Validation |
+|--------|---------|-----------|
+| `create(rawValue)` | Create new value | Includes validation + conversion |
+| `fromEncoded(encodedValue)` | Restore stored value | Skip validation |
 
 ```
 public record Password(String value) {
-    public static Password create(String raw) { /* 검증 → 인코딩 */ }
+    public static Password create(String raw) { /* validation → encoding */ }
     public static Password fromEncoded(String encoded) { return new Password(encoded); }
 }
 ```
 
-## 5. 필드 가변성
+## 5. Field Mutability
 
-| 유형 | 선언 | 변경 방법 | 예시 |
-|------|------|-----------|------|
-| 불변 | `private final` | 변경 불가, setter 없음 | loginId, name, email |
-| 가변 | `private` (non-final) | `changeXxx()` 메서드 | password |
+| Type | Declaration | Modification | Examples |
+|------|------------|-------------|---------|
+| Immutable | `private final` | Cannot change, no setter | loginId, name, email |
+| Mutable | `private` (non-final) | `changeXxx()` method | password |
 
-- `setXxx()` 금지 → 의미 있는 메서드명 `changeXxx()` 사용
-- 가변 필드 변경 시에도 유효성 검증 수행
+- `setXxx()` prohibited → use meaningful method name `changeXxx()`
+- Validation also performed when changing mutable fields
 
-## 6. 도메인 서비스 (Domain Service)
+## 6. Domain Service
 
-**사용 시점**: 리포지토리 조회가 필요한 비즈니스 불변식 검증 (예: 중복 ID 검증)
+**When to use**: Business invariant verification requiring repository queries (e.g., duplicate ID check)
 
-설계 원칙:
-- **순수 클래스** — 프레임워크 어노테이션 없음
-- 생성자에 함수형 인터페이스 주입 (예: `Predicate<String>`)
-- Config 클래스에서 `@Bean`으로 등록, 리포지토리 메서드 레퍼런스 주입
+Design principles:
+- **Pure class** — no framework annotations
+- **Stateless** design: mediates domain object collaboration within the same BC
+- Inject functional interfaces via constructor (e.g., `Predicate<String>`)
+- Register with `@Bean` in Config class, inject repository method references
+- Complex use-cases (cross-BC combinations) handled in Application Layer (Facade) via Client
 
 ```
-// 도메인 서비스 (순수 클래스)
+// Domain Service (pure class)
 public class LoginIdDuplicateValidator {
     private final Predicate<String> existsByLoginId;
     public LoginIdDuplicateValidator(Predicate<String> existsByLoginId) { ... }
@@ -94,22 +96,22 @@ public class LoginIdDuplicateValidator {
     }
 }
 
-// Config 등록
+// Config registration
 @Bean LoginIdDuplicateValidator validator(UserQueryRepository repo) {
     return new LoginIdDuplicateValidator(repo::existsByLoginId);
 }
 ```
 
-## 7. BaseEntity 제약사항
+## 7. BaseEntity Constraints
 
-- `id`: `final Long id = 0L` + `@GeneratedValue(IDENTITY)` → 직접 설정 불가
-- `createdAt`, `updatedAt`: `@PrePersist`, `@PreUpdate`로 자동 관리
-- Soft delete: `deletedAt` 필드, `delete()`/`restore()` 메서드 제공
+- `id`: `final Long id = 0L` + `@GeneratedValue(IDENTITY)` → cannot set id directly
+- `createdAt`, `updatedAt`: auto-managed via `@PrePersist`, `@PreUpdate`
+- Soft delete: `deletedAt` field, `delete()`/`restore()` methods provided
 
-## 8. 금지 사항
+## 8. Prohibited Actions
 
-- 도메인 모델에 프레임워크 어노테이션 사용 금지 (`@Entity`, `@Service` 등)
-- 도메인 모델에서 직접 DB 접근 금지
-- `setXxx()` 메서드 사용 금지 → `changeXxx()` 사용
-- Facade/Service에서 입력값 정규화 수행 금지 (도메인 모델 책임)
-- 도메인 서비스에 프레임워크 어노테이션 사용 금지
+- Using framework annotations on domain models (`@Entity`, `@Service`, etc.)
+- Direct DB access from domain models
+- Using `setXxx()` methods → use `changeXxx()`
+- Performing input normalization in Facade/Service (domain model responsibility)
+- Using framework annotations on domain services

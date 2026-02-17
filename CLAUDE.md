@@ -55,9 +55,9 @@ com.loopers
     ├── application/               # 애플리케이션 서비스 레이어
     │   └── service/               # 애플리케이션 서비스
     │   └── facade/                # 퍼사드 서비스
-    │   └── repository/            # 리포지토리 인터페이스 (CQRS)
-    │       └── {Domain}CommandRepository  # 명령 (save, delete)
-    │       └── {Domain}QueryRepository    # 조회 (find, exists)
+    │   └── client/                # Cross-BC 접근 인터페이스
+    │       └── {other-domain}/
+    │           └── {OtherDomain}Client
     │   └── dto/                   # DTO (InDto/OutDto)
     │       └── in/                # 입력 DTO (Request → InDto)
     │       └── out/               # 출력 DTO (Domain → OutDto → Response)
@@ -65,13 +65,19 @@ com.loopers
     │   └── model/                 # 도메인 모델
     │       └── enum/              # 도메인 내 공통 Enum
     │       └── vo/                # Value Object (예: Password)
+    │   └── repository/            # 리포지토리 인터페이스 (CQRS)
+    │       └── {Domain}CommandRepository  # 명령 (save, delete)
+    │       └── {Domain}QueryRepository    # 조회 (find, exists)
     │   └── event/                 # 도메인 이벤트
     │   └── service/               # 도메인 서비스
     ├── infrastructure/            # 인프라 레이어 (Repository 구현 등)
     │   └── jpa/                   # JPA 레포지토리
-    │   └── repository/            # 애플리케이션 레포지토리 구현체 (CQRS)
+    │   └── repository/            # 리포지토리 구현체 (CQRS)
     │       └── {Domain}CommandRepositoryImpl  # 명령 구현체
     │       └── {Domain}QueryRepositoryImpl    # 조회 구현체
+    │   └── acl/                   # Cross-BC 접근 구현체
+    │       └── {other-domain}/
+    │           └── {OtherDomain}ClientImpl
     │   └── entity/                # JPA 엔티티
     ├── interfaces/                # 프레젠테이션 레이어 (Controller)
     │   └── event/                 # 이벤트 리스너
@@ -114,7 +120,7 @@ com.loopers
 - **형식**: `[메서드명()] 조건 -> 결과. 상세 설명`
 - **아주 자세하게 작성**: 테스트만 보고도 요구사항을 파악할 수 있어야 함
 - 예시:
-  - `[POST /api/v1/users] 유효한 회원가입 요청 -> 201 Created. 응답: id, loginId, name, birthday, email 포함`
+  - `[POST /api/v1/users] 유효한 회원가입 요청 -> 201 Created. 응답: id, loginId, name, birthDate, email 포함`
   - `[UserCommandRepository.save()] 유효한 User 저장 -> ID가 할당된 User 반환`
   - `[Password.create()] 8자 미만 비밀번호 -> INVALID_PASSWORD_FORMAT 예외`
 
@@ -148,8 +154,9 @@ class SomeIntegrationTest {
 - 테스트 데이터: API 호출 헬퍼 메서드로 직접 생성 (예: `signUpUser()`)
 - 테스트 구조: `@Nested` 클래스로 엔드포인트별 그룹화
 
-#### 단위 테스트 Mock 패턴
-- `@ExtendWith(MockitoExtension.class)` + `@Mock` + `@BeforeEach`에서 수동 생성자 주입
+#### 단위 테스트 패턴
+- 모든 테스트 더블(Fake, Stub, Mock, Spy) 사용 가능 — 상황에 맞게 적절한 것을 선택
+- Mock 사용 시: `@ExtendWith(MockitoExtension.class)` + `@Mock` + `@BeforeEach`에서 수동 생성자 주입
 - BDDMockito: `given().willReturn()`, `willDoNothing()`, `willThrow()`
 - 검증: `verify()`, `never()`
 - 헤더 검증 파라미터화: `@ParameterizedTest` + `@NullAndEmptySource` + `@ValueSource(strings = {"  ", "\t"})`
@@ -221,30 +228,71 @@ null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈�
 
 #### 필드 가변성
 - 변경 가능 필드: `private` (non-final) → `changeXxx()` 메서드 제공 (예: `password`)
-- 불변 필드: `private final` → 변경 불가 (예: `loginId`, `name`, `birthday`, `email`)
+- 불변 필드: `private final` → 변경 불가 (예: `loginId`, `name`, `birthDate`, `email`)
 
 #### 도메인 서비스 (Domain Service)
 - **순수 Java 클래스** — Spring 어노테이션 없음 (Domain Model과 일관성 유지)
-- 리포지토리 조회가 필요한 비즈니스 불변식(invariant) 검증에 사용 (예: loginId 중복 체크)
-- 생성자에 함수형 인터페이스 주입 (예: `Predicate<String> existsByLoginId`)
-- `support/config/DomainServiceConfig.java`에서 `@Configuration` + `@Bean`으로 등록, 리포지토리 메서드 레퍼런스를 주입
+- **상태 없이(stateless)** 설계: 동일한 도메인 경계(BC) 내의 도메인 객체 협력을 중재
+- 비즈니스 불변식(invariant) 검증에 사용 (예: 브랜드 삭제 시 활성 상품 존재 여부 검증)
+- **Service가 필요한 데이터를 조회하여 DomainService에 전달한다.** DomainService는 Repository/Port를 직접 호출하지 않는다.
+- `support/config/DomainServiceConfig.java`에서 `@Configuration` + `@Bean`으로 등록
 
 ### 4.7 CQRS 레이어 흐름
+
+#### 아키텍처 원칙
+- 의존 방향: `Application → Domain ← Infrastructure`
+- Domain Layer가 중심, Application과 Infrastructure가 Domain에 의존
+- Repository Interface는 Domain Layer에 정의, 구현체는 Infrastructure에 위치
 
 Controller → Facade(@Transactional) → Service / Domain Service → Repository(interface) → RepositoryImpl → JpaRepository + Entity ↔ Domain
 
 #### 레이어 규칙
-- **호출 순서 준수**: Controller → Facade → Service → Repository 순서를 반드시 지켜야 하며, 계층을 건너뛰는 호출(예: Controller → Service 직접 호출)을 금지한다.
-- **비즈니스 로직과 서비스 로직 분리**: 비즈니스 로직(도메인 규칙, 검증, 계산)은 Domain Model 또는 Domain Service에서 작성하고, 서비스 로직(유스케이스 오케스트레이션, 트랜잭션 관리, 외부 시스템 연동)은 Facade와 Service에서 작성한다.
+
+##### 호출 순서 및 책임
+
+1. **Facade는 Service만 호출한다.** Port, Repository, DomainService 등을 직접 호출하지 않는다.
+2. **Service가 모든 외부 호출의 주체다.** Repository, Port(Cross-BC), DomainService를 Service에서 호출한다.
+3. **호출 순서**: Controller → Facade → Service → (Repository / Port / DomainService). 계층 건너뛰기 금지.
+4. **DomainService는 Repository/Port를 호출하지 않는다.** Service가 데이터를 조회하여 DomainService에 전달한다.
+5. **Domain Model은 순수 비즈니스 로직만 포함한다.** 외부 의존(Repository, Port, Spring 등) 없음.
+
+##### 비즈니스 로직 분리
+- 비즈니스 로직(도메인 규칙, 검증, 계산)은 Domain Model 또는 Domain Service에서 작성한다.
+- 서비스 로직(유스케이스 오케스트레이션, 트랜잭션 관리)은 Facade와 Service에서 작성한다.
+
+##### Bounded Context 경계
+
+| BC | 포함 도메인 | 설명 |
+|----|-----------|------|
+| `catalog` | Brand, Product | 상품 카탈로그 |
+| `engagement` | Like | 사용자 참여 |
+| `ordering` | Order, OrderItem | 주문 |
+| `user` | User | 사용자 |
+
+##### 같은 BC 내 통신
+- Facade에서 같은 BC 내 다른 도메인의 Service를 직접 호출 가능
+- 예: `ProductQueryFacade`에서 `BrandQueryService` 호출 (catalog BC 내)
+
+##### 다른 BC 간 통신 (동기)
+- Client 인터페이스 + ACL 구현체 패턴
+- 인터페이스: `{domain}/application/client/{other-domain}/{OtherDomain}Client`
+- 구현체: `{domain}/infrastructure/acl/{other-domain}/{OtherDomain}ClientImpl`
+- 구현체에서만 다른 도메인의 domain model, JPA 직접 참조 허용
+- 예: 주문 시 재고 차감 → `ProductStockClient` + `ProductStockClientImpl`
+
+##### 다른 BC 간 통신 (비동기)
+- 도메인 이벤트 + `@TransactionalEventListener`
+- 최종적 일관성만 필요한 부수효과에 사용
+- 예: 주문 완료 후 알림 발송, 통계 업데이트
 
 | 레이어 | 클래스 | 어노테이션 | 역할 |
 |--------|--------|-----------|------|
 | Controller | `{Domain}Controller` | `@RestController` | 요청 수신, Facade 호출 |
-| Facade | `{Domain}CommandFacade` | `@Service`, `@Transactional` | 명령 유스케이스 오케스트레이션, 트랜잭션 경계 |
+| Facade | `{Domain}CommandFacade` | `@Service`, `@Transactional` | 명령 유스케이스 오케스트레이션, 트랜잭션 경계, **Service만 호출** |
 | Facade | `{Domain}QueryFacade` | `@Service`, `@Transactional(readOnly = true)` | 조회 유스케이스 오케스트레이션 |
 | Service | `{Domain}CommandService` | `@Service`, `@Transactional` | 단일 도메인 비즈니스 로직 |
-| Domain Service | `{Domain}XxxValidator` 등 | (순수 Java, `@Bean` 등록) | 리포지토리 의존 비즈니스 불변식 검증 |
-| Repository(I) | `{Domain}Command/QueryRepository` | (인터페이스) | 명령(save,delete) / 조회(find,exists) 계약 |
+| Domain Service | `{Domain}XxxValidator` 등 | (순수 Java, `@Bean` 등록) | 비즈니스 불변식 검증 **(Repository/Port 호출 금지, Service가 데이터 전달)** |
+| Repository(I) | `{Domain}Command/QueryRepository` | (인터페이스, `domain/repository/`) | 명령(save,delete) / 조회(find,exists) 계약 |
 | RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain 변환 후 JPA 호출 |
 | Entity | `{Domain}Entity` | `@Entity` | `from(Domain)` + `toDomain()` 변환 |
 
@@ -259,14 +307,14 @@ Controller → Facade(@Transactional) → Service / Domain Service → Repositor
 
 | DTO 유형 | 위치 | 변환 메서드 |
 |----------|------|-----------|
-| Request | `interfaces/controller/request/` | `toInDto()` → InDto 반환 |
+| Request | `interfaces/web/request/` | 순수 데이터 + validation (변환 없음) |
 | InDto | `application/dto/in/` | 불변 record, 변환 없음 |
 | OutDto | `application/dto/out/` | `from(Domain)` static 팩토리 |
-| Response | `interfaces/controller/response/` | `from(OutDto)` static 팩토리 |
+| Response | `interfaces/web/response/` | `from(OutDto)` static 팩토리 |
 | Entity | `infrastructure/entity/` | `from(Domain)` + `toDomain()` 양방향 |
 
 #### 데이터 변환 흐름
-`Request` → `toInDto()` → **Facade** → Domain → `OutDto.from(domain)` → **Controller** → `Response.from(outDto)`
+`Request` → **Controller에서 InDto 직접 생성** → **Facade** → Domain → `OutDto.from(domain)` → **Controller** → `Response.from(outDto)`
 
 - Response에서 데이터 마스킹 가능 (예: `UserMeResponse.maskName()` — 이름 마지막 글자 마스킹)
 

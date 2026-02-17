@@ -1,106 +1,106 @@
 ---
 name: commit-protocol
-description: Git 커밋 메시지 규약 및 커밋 전후 검증 절차. 코드 변경사항을 커밋할 때 사용한다.
+description: Git commit message conventions and pre/post-commit verification procedures. Use when committing code changes.
 ---
 
 # Commit Protocol
 
-## 1. 커밋 전 확인사항
+## 1. Pre-Commit Checklist
 
-### 1.1 상태 확인
+### 1.1 Status Check
 
 ```bash
-git status          # 변경된 파일 목록 확인 (-uall 플래그 금지)
-git diff            # staged + unstaged 변경사항 확인
-git log --oneline -5  # 최근 커밋 메시지 스타일 확인
+git status          # Check modified file list (never use -uall flag)
+git diff            # Check staged + unstaged changes
+git log --oneline -5  # Check recent commit message style
 ```
 
-### 1.2 스테이징 규칙
+### 1.2 Staging Rules
 
-- 관련 파일만 선택적으로 `git add` (파일명 지정)
-- `git add -A` 또는 `git add .` 사용 자제 — 민감 파일 포함 방지
-- `.env`, `credentials.json` 등 비밀정보 파일은 **절대 커밋 금지**
+- Selectively `git add` only related files (specify by filename)
+- Avoid `git add -A` or `git add .` — prevents accidental inclusion of sensitive files
+- **Never commit** `.env`, `credentials.json`, or other secret files
 
-### 1.3 사전 점검
+### 1.3 Pre-Check
 
-- [ ] 모든 테스트가 통과하는가?
-- [ ] 린트/포맷 검사를 통과하는가?
-- [ ] 불필요한 디버그 코드(println, console.log)가 제거되었는가?
-- [ ] 미사용 import가 제거되었는가?
+- [ ] All tests passing?
+- [ ] Lint/format checks passing?
+- [ ] Unnecessary debug code (println, console.log) removed?
+- [ ] Unused imports removed?
 
-## 2. 커밋 메시지 형식
+## 2. Commit Message Format
 
-### 2.1 기본 형식
+### 2.1 Basic Format
 
 ```
-{type}: {한국어 설명}
+{type}: {Korean description}
 
-- {변경된 파일/클래스 1}
-- {변경된 파일/클래스 2}
+- {changed file/class 1}
+- {changed file/class 2}
 ```
 
-### 2.2 타입 규약
+### 2.2 Type Conventions
 
-| type | 용도 | 예시 |
-|------|------|------|
-| `feat` | 새 기능 추가 | `feat: 회원가입 API 구현` |
-| `fix` | 버그 수정 | `fix: 비밀번호 검증 로직 오류 수정` |
-| `test` | 테스트 추가/수정 | `test: 회원가입 E2E 테스트 추가` |
-| `refactor` | 리팩토링 (기능 변경 없음) | `refactor: 도메인 서비스로 검증 로직 이동` |
-| `docs` | 문서 추가/수정 | `docs: CLAUDE.md에 레이어 규칙 추가` |
-| `chore` | 빌드 설정, 의존성 관리 | `chore: Spring Boot 3.4.4로 업그레이드` |
-| `init` | 초기 설정 | `init: 프로젝트 초기 구조 생성` |
+| type | Purpose | Example |
+|------|---------|---------|
+| `feat` | New feature | `feat: 회원가입 API 구현` |
+| `fix` | Bug fix | `fix: 비밀번호 검증 로직 오류 수정` |
+| `test` | Add/modify tests | `test: 회원가입 E2E 테스트 추가` |
+| `refactor` | Refactoring (no behavior change) | `refactor: 도메인 서비스로 검증 로직 이동` |
+| `docs` | Add/modify documentation | `docs: CLAUDE.md에 레이어 규칙 추가` |
+| `chore` | Build config, dependency management | `chore: Spring Boot 3.4.4로 업그레이드` |
+| `init` | Initial setup | `init: 프로젝트 초기 구조 생성` |
 
-### 2.3 메시지 작성 규칙
+### 2.3 Message Writing Rules
 
-- 제목은 **한국어**로 작성 (코드/명령어는 영어)
-- 제목은 50자 이내로 간결하게
-- 본문에는 변경된 파일/클래스 목록을 `-` 리스트로 기술
-- "왜" 변경했는지를 중심으로 작성 (what보다 why)
+- Title written in **Korean** (code/commands in English)
+- Keep title under 50 characters
+- Body lists changed files/classes with `-` list format
+- Focus on "why" rather than "what" changed
 
-## 3. 커밋 실행
+## 3. Commit Execution
 
 ```bash
 git commit -m "$(cat <<'EOF'
-{type}: {한국어 설명}
+{type}: {Korean description}
 
-- {변경 목록}
+- {change list}
 
 Co-Authored-By: Claude <noreply@anthropic.com>
 EOF
 )"
 ```
 
-## 4. 커밋 후 검증
+## 4. Post-Commit Verification
 
 ```bash
-git status          # 커밋 누락 파일 확인
-git log --oneline -3  # 커밋 메시지 확인
+git status          # Check for missed files
+git log --oneline -3  # Verify commit message
 ```
 
-- [ ] 커밋 메시지가 규약에 맞는가?
-- [ ] 의도하지 않은 파일이 포함되지 않았는가?
-- [ ] pre-commit hook이 통과했는가?
+- [ ] Does the commit message follow conventions?
+- [ ] Were any unintended files included?
+- [ ] Did the pre-commit hook pass?
 
-## 5. 금지 사항
+## 5. Prohibited Actions
 
-| 항목 | 이유 |
-|------|------|
-| `git push --force` | 원격 히스토리 파괴 위험 (명시적 요청 시에만) |
-| `git commit --amend` | 이전 커밋 변경 위험 (명시적 요청 시에만) |
-| `--no-verify` | pre-commit hook 우회 금지 |
-| `git reset --hard` | 작업 손실 위험 (명시적 요청 시에만) |
-| 비밀정보 커밋 | `.env`, 인증서, API 키 등 절대 금지 |
+| Item | Reason |
+|------|--------|
+| `git push --force` | Risk of destroying remote history (only on explicit request) |
+| `git commit --amend` | Risk of modifying previous commit (only on explicit request) |
+| `--no-verify` | Never bypass pre-commit hooks |
+| `git reset --hard` | Risk of losing work (only on explicit request) |
+| Committing secrets | `.env`, certificates, API keys — absolutely prohibited |
 
-## 6. pre-commit hook 실패 시
+## 6. When Pre-Commit Hook Fails
 
-1. hook이 실패하면 커밋은 **생성되지 않은 상태**
-2. 실패 원인을 수정
-3. 변경사항을 다시 스테이징 (`git add`)
-4. **새 커밋을 생성** (`--amend` 사용 금지 — 이전 커밋이 변경될 수 있음)
+1. The commit **was not created** when the hook fails
+2. Fix the failure cause
+3. Re-stage changes (`git add`)
+4. **Create a new commit** (do not use `--amend` — it would modify the previous commit)
 
-## 7. 브랜치 규칙
+## 7. Branch Rules
 
-- 메인 브랜치(`main`/`master`)에 직접 push 금지
-- 기능 브랜치에서 작업 후 PR을 통해 병합
-- force push to main/master는 **경고 후에도 권장하지 않음**
+- No direct push to main branch (`main`/`master`)
+- Work on feature branches, merge via PR
+- Force push to main/master is **not recommended even after warning**

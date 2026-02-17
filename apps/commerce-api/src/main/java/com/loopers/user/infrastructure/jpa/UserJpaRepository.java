@@ -7,14 +7,14 @@ import java.util.Optional;
 
 /**
  * 유저 JPA 리포지토리
- * 1. 로그인 ID로 유저 엔티티 조회
- * 2. 로그인 ID 중복 여부 확인
+ * 1. 로그인 ID로 활성 유저 엔티티 조회
+ * 2. 활성 유저 로그인 ID 중복 여부 확인
  */
 public interface UserJpaRepository extends JpaRepository<UserEntity, Long> {
 
-	// 1. 로그인 ID로 유저 엔티티 조회
-	Optional<UserEntity> findByLoginId(String loginId);
+	// 1. 로그인 ID로 활성 유저 엔티티 조회
+	Optional<UserEntity> findByLoginIdValueAndDeletedAtIsNull(String loginId);
 
-	// 2. 로그인 ID 중복 여부 확인
-	boolean existsByLoginId(String loginId);
+	// 2. 활성 유저 로그인 ID 중복 여부 확인
+	boolean existsByLoginIdValueAndDeletedAtIsNull(String loginId);
 }
