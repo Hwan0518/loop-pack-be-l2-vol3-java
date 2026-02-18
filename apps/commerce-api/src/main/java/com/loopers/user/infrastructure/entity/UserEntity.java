@@ -1,7 +1,7 @@
 package com.loopers.user.infrastructure.entity;
 
 
-import com.loopers.domain.BaseEntity;
+import com.loopers.domain.SoftDeleteBaseEntity;
 import com.loopers.user.infrastructure.entity.vo.UserBirthdateEmbeddable;
 import com.loopers.user.infrastructure.entity.vo.UserEmailEmbeddable;
 import com.loopers.user.infrastructure.entity.vo.UserLoginIdEmbeddable;
@@ -33,7 +33,7 @@ import lombok.NoArgsConstructor;
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class UserEntity extends BaseEntity {
+public class UserEntity extends SoftDeleteBaseEntity {
 
 	@Embedded
 	@AttributeOverride(

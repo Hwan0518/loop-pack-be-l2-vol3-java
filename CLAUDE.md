@@ -353,9 +353,9 @@ Controller → Facade(@Transactional) → Service / Domain Service → Repositor
 - Infrastructure 구현체에서 Spring `Page`/`Pageable` ↔ `PageCriteria`/`PageResult` 변환 담당
 
 #### Entity 업데이트 패턴
-- **신규 생성**: `Entity.from(domain)` → `jpaRepository.save(entity)` → `entity.toDomain()`
-- **기존 수정**: `jpaRepository.findById(id)` → `existingEntity.updateXxx(...)` → JPA dirty checking → `entity.toDomain()`
-- ⚠️ `Entity.from(domain)`은 항상 새 엔티티(id 없음)를 생성하므로, 업데이트 시 절대 사용 금지
+- **신규 생성**: `mapper.toEntity(domain)` → `jpaRepository.save(entity)` → `mapper.toDomain(entity)`
+- **기존 수정**: `mapper.toEntity(domain)` → `jpaRepository.save(entity)` → `mapper.toDomain(entity)` (id가 설정되어 있으면 JPA merge 수행)
+- ⚠️ Entity.of(id, ...)는 id를 포함하여 생성할 수 있으므로, 업데이트 시에도 동일하게 save() 호출
 
 ### 4.8 DTO 패턴
 
