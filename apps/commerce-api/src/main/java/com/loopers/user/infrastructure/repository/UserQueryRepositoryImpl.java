@@ -1,7 +1,7 @@
 package com.loopers.user.infrastructure.repository;
 
 
-import com.loopers.user.application.repository.UserQueryRepository;
+import com.loopers.user.domain.repository.UserQueryRepository;
 import com.loopers.user.domain.model.User;
 import com.loopers.user.infrastructure.jpa.UserJpaRepository;
 import com.loopers.user.infrastructure.mapper.UserEntityMapper;

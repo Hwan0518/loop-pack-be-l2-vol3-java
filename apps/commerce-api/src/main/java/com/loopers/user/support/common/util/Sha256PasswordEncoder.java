@@ -3,7 +3,7 @@ package com.loopers.user.support.common.util;
 
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
-import com.loopers.user.application.port.PasswordEncoder;
+import com.loopers.user.application.port.out.util.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;

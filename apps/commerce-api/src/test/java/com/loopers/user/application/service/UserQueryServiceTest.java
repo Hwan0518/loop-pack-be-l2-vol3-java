@@ -3,7 +3,7 @@ package com.loopers.user.application.service;
 
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
-import com.loopers.user.application.repository.UserQueryRepository;
+import com.loopers.user.domain.repository.UserQueryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

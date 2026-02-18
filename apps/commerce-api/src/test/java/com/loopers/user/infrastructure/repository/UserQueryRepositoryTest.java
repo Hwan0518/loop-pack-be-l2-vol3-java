@@ -2,8 +2,8 @@ package com.loopers.user.infrastructure.repository;
 
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
-import com.loopers.user.application.repository.UserCommandRepository;
-import com.loopers.user.application.repository.UserQueryRepository;
+import com.loopers.user.domain.repository.UserCommandRepository;
+import com.loopers.user.domain.repository.UserQueryRepository;
 import com.loopers.user.domain.model.User;
 import com.loopers.user.domain.model.vo.*;
 import com.loopers.utils.DatabaseCleanUp;

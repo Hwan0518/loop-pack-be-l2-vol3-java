@@ -3,7 +3,7 @@ package com.loopers.user.application.service;
 
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
-import com.loopers.user.application.repository.UserQueryRepository;
+import com.loopers.user.domain.repository.UserQueryRepository;
 import com.loopers.user.domain.model.vo.LoginId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
