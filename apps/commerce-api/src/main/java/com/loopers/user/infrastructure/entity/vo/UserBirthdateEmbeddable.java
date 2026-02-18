@@ -12,6 +12,10 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 
 
+/**
+ * 유저 생년월일 임베더블
+ * - value: 생년월일
+ */
 @Embeddable
 @Access(AccessType.FIELD)
 @Getter

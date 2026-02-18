@@ -18,6 +18,15 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 
+/**
+ * 유저 엔티티
+ * - loginId: 로그인 ID
+ * - activeLoginId: 활성 로그인 ID (유니크 제약용 가상 컬럼)
+ * - password: 비밀번호
+ * - name: 이름
+ * - birthDate: 생년월일
+ * - email: 이메일
+ */
 @Entity
 @Table(name = "users", indexes = {
 	@Index(name = "uk_active_login_id", columnList = "active_login_id", unique = true)

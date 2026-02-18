@@ -10,6 +10,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 
+/**
+ * 유저 이름 임베더블
+ * - value: 이름
+ */
 @Embeddable
 @Access(AccessType.FIELD)
 @Getter

@@ -59,7 +59,7 @@ public record Password(String value) {
 	// 1. 비밀번호 형식 검증
 	private static void validateFormat(String rawPassword) {
 
-		// 길이/허용문자/문자 조합 규칙 검증
+		// null/빈 값 검증
 		if (rawPassword == null || rawPassword.isBlank() || rawPassword.isEmpty()) {
 			throw new CoreException(ErrorType.INVALID_PASSWORD_FORMAT, "비밀번호를 입력해주세요.");
 		}

@@ -10,6 +10,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 
+/**
+ * 유저 이메일 임베더블
+ * - value: 이메일
+ */
 @Embeddable
 @Access(AccessType.FIELD)
 @Getter

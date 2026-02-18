@@ -10,6 +10,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 
+/**
+ * 유저 비밀번호 임베더블
+ * - value: 비밀번호 해시값
+ */
 @Embeddable
 @Access(AccessType.FIELD)
 @Getter

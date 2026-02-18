@@ -10,6 +10,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 
+/**
+ * 유저 로그인 ID 임베더블
+ * - value: 로그인 ID
+ */
 @Embeddable
 @Access(AccessType.FIELD)
 @Getter

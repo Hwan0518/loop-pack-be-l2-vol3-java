@@ -19,6 +19,7 @@ public class UserCommandRepositoryImpl implements UserCommandRepository {
 
 	// jpa
 	private final UserJpaRepository userJpaRepository;
+	// mapper
 	private final UserEntityMapper userMapper;
 
 
