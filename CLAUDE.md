@@ -108,7 +108,14 @@ com.loopers
 | **중간 결과 보고** | AI가 반복적인 동작을 하거나, 요청하지 않은 기능을 구현, 테스트 삭제를 임의로 진행할 경우 개발자가 개입 |
 | **설계 주도권 유지** | AI가 임의판단을 하지 않고, 방향성에 대한 제안 등을 진행할 수 있으나 개발자의 승인을 받은 후 수행 |
 
-### 4.2 개발 Workflow - TDD (Red > Green > Refactor)
+### 4.2 주석 컨벤션 (Comment-First Design)
+
+- **모든 코드 작성 시** `.claude/skills/comment-style/SKILL.md` 규칙을 반드시 준수
+- **주석 선행 작성**: 주석으로 논리 흐름을 먼저 스케치하고, 그에 맞춰 코드를 채운다 (Comment-First)
+- Javadoc(클래스 문서화) + `// N.` (메서드 번호 매칭) + `//` 인라인 주석(논리 단계) 필수
+- 비즈니스 설명은 한국어, 구조적 마커(`// service`, `// repository` 등)는 영어
+
+### 4.3 개발 Workflow - TDD (Red > Green > Refactor)
 
 - 모든 테스트는 **3A 원칙**으로 작성: Arrange - Act - Assert
 
@@ -118,7 +125,7 @@ com.loopers
 | **2. Green Phase** | 테스트를 통과하는 코드 작성. Red Phase의 테스트가 모두 통과할 수 있는 코드 작성. 오버엔지니어링 금지 |
 | **3. Refactor Phase** | 불필요한 코드 제거 및 품질 개선. 불필요한 private 함수 지양, 객체지향적 코드 작성. unused import 제거. 성능 최적화. 모든 테스트 케이스가 통과해야 함 |
 
-### 4.3 테스트 컨벤션
+### 4.4 테스트 컨벤션
 
 #### 테스트 커버리지 목표
 - **100%에 가깝게** 테스트 커버리지를 채울 것
@@ -174,7 +181,7 @@ class SomeIntegrationTest {
 - `ErrorTypeTest.errorTypeProvider()`에 테스트 케이스 추가
 - `ErrorTypeTest.enumConstantCount()`의 `hasSize(N)` 값을 N+1로 업데이트
 
-### 4.4 커밋 메시지 컨벤션
+### 4.5 커밋 메시지 컨벤션
 
 **형식**: `{type}: {한국어 설명}`
 
@@ -190,7 +197,7 @@ class SomeIntegrationTest {
 
 - 본문: 변경된 파일/클래스 목록을 `-` 리스트로 기술
 
-### 4.5 에러 처리 패턴
+### 4.6 에러 처리 패턴
 
 모든 비즈니스 예외는 `CoreException` + `ErrorType` 조합으로 처리한다.
 
@@ -210,7 +217,7 @@ class SomeIntegrationTest {
 - Controller에서 `HeaderValidator.validate()` 또는 `AdminHeaderValidator.validate()` 호출 → 단일 `UNAUTHORIZED` 응답 (보안: 실패 사유 미구분)
 - 비밀번호 검증은 도메인 모델에 위임: `User.authenticate(rawPassword)`
 
-### 4.6 도메인 모델 패턴
+### 4.7 도메인 모델 패턴
 
 #### 팩토리 메서드
 - `create(...)`: 새 객체 생성 (유효성 검증 포함, id = null)
@@ -248,7 +255,7 @@ null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈�
 - **Service가 필요한 데이터를 조회하여 DomainService에 전달한다.** DomainService는 Repository/Port를 직접 호출하지 않는다.
 - `support/config/DomainServiceConfig.java`에서 `@Configuration` + `@Bean`으로 등록
 
-### 4.7 CQRS 레이어 흐름
+### 4.8 CQRS 레이어 흐름
 
 #### 아키텍처 원칙
 - 의존 방향: `Application → Domain ← Infrastructure`
@@ -357,7 +364,7 @@ Controller → Facade(@Transactional) → Service / Domain Service → Repositor
 - **기존 수정**: `mapper.toEntity(domain)` → `jpaRepository.save(entity)` → `mapper.toDomain(entity)` (id가 설정되어 있으면 JPA merge 수행)
 - ⚠️ Entity.of(id, ...)는 id를 포함하여 생성할 수 있으므로, 업데이트 시에도 동일하게 save() 호출
 
-### 4.8 DTO 패턴
+### 4.9 DTO 패턴
 
 모든 DTO는 Java `record`로 구현한다.
 

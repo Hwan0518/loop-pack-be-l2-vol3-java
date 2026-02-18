@@ -21,6 +21,53 @@ Project comment conventions derived from actual codebase analysis. Ensures consi
 
 ## Core Rules
 
+### Comment-First Workflow
+
+Comments are **small design** — sketch the logic flow as comments first, then fill in code underneath.
+
+**Class-level workflow:**
+
+1. Write class Javadoc (field listing or method listing)
+2. Write `// N.` method marker comments
+3. Write method body comments (logical steps)
+4. Fill in code under each comment
+
+**Method-level workflow:**
+
+1. List logical steps as `//` comments inside the method body
+2. Write code under each comment
+
+```java
+// Step 1: Sketch comments
+// 1. 브랜드 생성
+public Brand createBrand(BrandCreateInDto inDto) {
+
+	// 브랜드명 중복 검증
+
+	// 브랜드 생성
+
+	// 브랜드 저장
+}
+
+// Step 2: Fill in code
+// 1. 브랜드 생성
+public Brand createBrand(BrandCreateInDto inDto) {
+
+	// 브랜드명 중복 검증
+	brandQueryRepository.existsByName(inDto.name());
+
+	// 브랜드 생성
+	Brand brand = Brand.create(inDto.name());
+
+	// 브랜드 저장
+	return brandCommandRepository.save(brand);
+}
+```
+
+**Key principle:** Comments lead, code follows. Never write code first and add comments after.
+
+---
+
 ### 1. Language Rules
 
 - **Business logic/descriptions**: always Korean / **Structural markers**: always lowercase English
@@ -68,7 +115,7 @@ public class TradeManagementService {
 }
 ```
 
-**Note:** For domain models without dependency fields, place Javadoc above the class declaration.
+**Note:** For domain models without dependency fields, place field-listing Javadoc inside the class body, before fields. For infrastructure classes (Entity, Mapper), place Javadoc above the class declaration.
 
 ### 5. Numbered Method Matching
 
@@ -98,21 +145,40 @@ List fields in Javadoc with `- fieldName: Korean description` format. If self-ex
 - **1-line methods**: `// N.` comment alone is sufficient
 - **2+ line methods**: mandatory `// Korean description` inline comments for each logical step
 
+**Blank line formatting (mandatory):**
+
+- `{` 뒤 빈 줄 1개 (메서드 본문 시작)
+- 각 논리 단계(`// 주석` + 코드 블록) 사이 빈 줄 1개
+
+```java
+// ✅ CORRECT
+public void createTrade(CreateTradeInDto inDto) {
+                                                    // ← blank line after {
+	// 탄소 감소량 계산
+	BigDecimal carbonReduction = calculate(inDto);
+                                                    // ← blank line between steps
+	// 거래 생성
+	Trades trade = Trades.from(command);
+}
+```
+
 > Detailed inline comment examples (Sequential/Conditional): [references/detail.md](references/detail.md)
 
 ---
 
 ## Layer Summary
 
-| Layer           | Class Comment          | Method Comment                | Dependency Injection                |
-|-----------------|------------------------|-------------------------------|-------------------------------------|
-| Domain Model    | Javadoc field listing  | Javadoc logic list + `// N.`  | -                                   |
-| Service/Facade  | Javadoc method listing | `// N.` matching              | `// service`, `// repository`, etc. |
-| Controller      | Javadoc API listing    | `// N.` matching              | `// service`, `// util`, etc.       |
-| Repository Impl | None/brief             | `//` brief description        | `// jpa`, `// util`, etc.           |
-| Event Handler   | Javadoc event desc     | `// N.` matching              | -                                   |
-| Test            | `@DisplayName` Korean  | `// given/when/then`          | -                                   |
-| Fixture         | `//` constant grouping | Javadoc factory description   | -                                   |
+| Layer           | Class Comment          | Javadoc Placement            | Method Comment                | Dependency Injection                |
+|-----------------|------------------------|------------------------------|-------------------------------|-------------------------------------|
+| Domain Model    | Javadoc field listing  | Inside class body, before fields | Javadoc logic list + `// N.`  | -                                   |
+| Service/Facade  | Javadoc method listing | Inside class body, after deps | `// N.` matching              | `// service`, `// repository`, etc. |
+| Controller      | Javadoc API listing    | Inside class body, after deps | `// N.` matching              | `// service`, `// util`, etc.       |
+| Repository Impl | None/brief             | -                            | `//` brief description        | `// jpa`, `// util`, etc.           |
+| Entity          | Javadoc field listing  | Above class declaration      | -                             | -                                   |
+| Mapper          | Javadoc method listing | Above class declaration      | `// N.` matching              | -                                   |
+| Event Handler   | Javadoc event desc     | Inside class body            | `// N.` matching              | -                                   |
+| Test            | `@DisplayName` Korean  | -                            | `// given/when/then`          | -                                   |
+| Fixture         | `//` constant grouping | -                            | Javadoc factory description   | -                                   |
 
 > Full code examples per layer: [references/detail.md](references/detail.md)
 
