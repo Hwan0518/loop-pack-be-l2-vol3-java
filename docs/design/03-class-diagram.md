@@ -81,16 +81,31 @@ classDiagram
         #Long id
         #ZonedDateTime createdAt
         #ZonedDateTime updatedAt
-        #ZonedDateTime deletedAt
         #BaseEntity()
         #BaseEntity(Long id)
         #void guard()
-        +void delete()
-        +void restore()
         +Long getId()
         +ZonedDateTime getCreatedAt()
         +ZonedDateTime getUpdatedAt()
+    }
+
+    class SoftDeleteBaseEntity {
+        <<MappedSuperclass>>
+        #ZonedDateTime deletedAt
+        +void delete()
+        +void restore()
         +ZonedDateTime getDeletedAt()
+    }
+    SoftDeleteBaseEntity --|> BaseEntity
+
+    class LikeCreatedEvent {
+        +LikeTargetType targetType
+        +Long targetId
+    }
+
+    class LikeCancelledEvent {
+        +LikeTargetType targetType
+        +Long targetId
     }
 
     class LikeTargetType {
@@ -119,12 +134,14 @@ classDiagram
         +List~Long~ cartItemIds
     }
 
-    note for BaseEntity "id: @GeneratedValue(IDENTITY)\ndelete/restore는 멱등"
+    note for BaseEntity "id: @GeneratedValue(IDENTITY)"
+    note for SoftDeleteBaseEntity "delete/restore는 멱등"
 ```
 
 **해석**:
 
-- `BaseEntity`는 실제 코드와 동일하게 `ZonedDateTime` 기반 생성/수정/삭제 시간과 `delete()/restore()` 멱등 동작을 가진다.
+- `BaseEntity`는 모든 엔티티의 공통 베이스(`id`, `createdAt`, `updatedAt`)이며, `SoftDeleteBaseEntity`가 Soft Delete 전용 기능(`deletedAt`, `delete()`, `restore()`)을 추가한다.
+- `LikeCreatedEvent`/`LikeCancelledEvent`는 Product의 likeCount 동기화에 사용된다.
 - `LikeTargetType`으로 Like가 Product/Brand 객체에 직접 의존하지 않는다.
 - 이벤트는 후속 정리에 필요한 최소 식별자만 담아 BC 결합을 줄인다.
 
@@ -176,7 +193,7 @@ classDiagram
         +void changeDescription(String description)
         +void delete()
     }
-    Brand --|> BaseEntity
+    Brand --|> SoftDeleteBaseEntity
 
     class BrandCommandFacade {
         <<Facade>>
@@ -187,7 +204,7 @@ classDiagram
 
     class BrandQueryFacade {
         <<Facade>>
-        +Page~Brand~ getBrands(Pageable pageable)
+        +PageResult~Brand~ getBrands(PageCriteria pageCriteria)
         +Brand getBrand(Long brandId)
     }
 
@@ -200,7 +217,7 @@ classDiagram
 
     class BrandQueryService {
         <<Service>>
-        +Page~Brand~ getBrands(Pageable pageable)
+        +PageResult~Brand~ getBrands(PageCriteria pageCriteria)
         +Brand getBrandById(Long brandId)
     }
 
@@ -222,7 +239,7 @@ classDiagram
 
     class BrandQueryRepository {
         <<Repository>>
-        +Page~Brand~ findAll(Pageable pageable)
+        +PageResult~Brand~ findAll(PageCriteria pageCriteria)
         +Optional~Brand~ findById(Long brandId)
     }
 
@@ -271,6 +288,7 @@ classDiagram
         +BigDecimal price
         +Long stock
         +String description
+        +Long likeCount
         +Product create(Long brandId, String name, BigDecimal price, Long stock, String description)
         +void changeName(String name)
         +void changePrice(BigDecimal price)
@@ -278,8 +296,10 @@ classDiagram
         +void changeDescription(String description)
         +void decreaseStock(Long quantity)
         +void delete()
+        +void increaseLikeCount()
+        +void decreaseLikeCount()
     }
-    Product --|> BaseEntity
+    Product --|> SoftDeleteBaseEntity
 
     class ProductCommandFacade {
         <<Facade>>
@@ -290,7 +310,7 @@ classDiagram
 
     class ProductQueryFacade {
         <<Facade>>
-        +Page~Product~ getProducts(Long brandId, ProductSortType sort, Pageable pageable)
+        +PageResult~Product~ getProducts(Long brandId, ProductSortType sort, PageCriteria pageCriteria)
         +Product getProduct(Long productId)
     }
 
@@ -304,7 +324,7 @@ classDiagram
 
     class ProductQueryService {
         <<Service>>
-        +Page~Product~ getProducts(Long brandId, ProductSortType sort, Pageable pageable)
+        +PageResult~Product~ getProducts(Long brandId, ProductSortType sort, PageCriteria pageCriteria)
         +Product getProductById(Long productId)
         +boolean existsActiveByBrandId(Long brandId)
     }
@@ -322,13 +342,18 @@ classDiagram
 
     class ProductQueryRepository {
         <<Repository>>
-        +Page~Product~ findAllByCondition(Long brandId, ProductSortType sort, Pageable pageable)
+        +PageResult~Product~ findAllByCondition(Long brandId, ProductSortType sort, PageCriteria pageCriteria)
         +Optional~Product~ findById(Long productId)
     }
 
     class ProductDeletedEvent {
         <<Event>>
         +Long productId
+    }
+
+    class ProductLikeEventListener {
+        +void onLikeCreated(LikeCreatedEvent event)
+        +void onLikeCancelled(LikeCancelledEvent event)
     }
 
     ProductCommandFacade ..> ProductCommandService : uses
@@ -380,7 +405,7 @@ classDiagram
 
     class LikeQueryFacade {
         <<Facade>>
-        +Page~Like~ getMyLikes(Long userId, String targetFilter, Pageable pageable)
+        +PageResult~Like~ getMyLikes(Long userId, String targetFilter, PageCriteria pageCriteria)
     }
 
     class LikeCommandService {
@@ -392,7 +417,7 @@ classDiagram
 
     class LikeQueryService {
         <<Service>>
-        +Page~Like~ getLikesByUser(Long userId, String targetFilter, Pageable pageable)
+        +PageResult~Like~ getLikesByUser(Long userId, String targetFilter, PageCriteria pageCriteria)
         +Optional~Like~ findByUserAndTarget(Long userId, LikeTargetType targetType, Long targetId)
     }
 
@@ -411,7 +436,7 @@ classDiagram
     class LikeQueryRepository {
         <<Repository>>
         +Optional~Like~ findByUserAndTarget(Long userId, LikeTargetType targetType, Long targetId)
-        +Page~Like~ findByUserIdAndTarget(Long userId, String targetFilter, Pageable pageable)
+        +PageResult~Like~ findByUserIdAndTarget(Long userId, String targetFilter, PageCriteria pageCriteria)
     }
 
     class LikeEventListener {
@@ -605,9 +630,9 @@ classDiagram
 
     class OrderQueryFacade {
         <<Facade>>
-        +Page~Order~ getMyOrders(Long userId, LocalDate startAt, LocalDate endAt, Pageable pageable)
+        +PageResult~Order~ getMyOrders(Long userId, LocalDate startDate, LocalDate endDate, PageCriteria pageCriteria)
         +Order getMyOrderDetail(Long userId, Long orderId)
-        +Page~Order~ getAllOrders(Pageable pageable)
+        +PageResult~Order~ getAllOrders(PageCriteria pageCriteria)
         +Order getAdminOrderDetail(Long orderId)
     }
 
@@ -618,8 +643,8 @@ classDiagram
 
     class OrderQueryService {
         <<Service>>
-        +Page~Order~ getOrdersByUserId(Long userId, LocalDate startAt, LocalDate endAt, Pageable pageable)
-        +Page~Order~ getAllOrders(Pageable pageable)
+        +PageResult~Order~ getOrdersByUserId(Long userId, LocalDate startDate, LocalDate endDate, PageCriteria pageCriteria)
+        +PageResult~Order~ getAllOrders(PageCriteria pageCriteria)
         +Order getOrderById(Long orderId)
     }
 
@@ -656,8 +681,8 @@ classDiagram
 
     class OrderQueryRepository {
         <<Repository>>
-        +Page~Order~ findByUserIdAndDateRange(Long userId, LocalDate startAt, LocalDate endAt, Pageable pageable)
-        +Page~Order~ findAll(Pageable pageable)
+        +PageResult~Order~ findByUserIdAndDateRange(Long userId, LocalDate startDate, LocalDate endDate, PageCriteria pageCriteria)
+        +PageResult~Order~ findAll(PageCriteria pageCriteria)
         +Optional~Order~ findByIdWithItems(Long orderId)
     }
 

@@ -207,7 +207,7 @@ class SomeIntegrationTest {
 #### 인증 패턴
 - 인증 헤더: `X-Loopers-LoginId`, `X-Loopers-LoginPw`
 - Controller: `@RequestHeader(required = false)` → null 허용
-- Facade에서 null/blank 검증 → 단일 `UNAUTHORIZED` 응답 (보안: 실패 사유 미구분)
+- Controller에서 `HeaderValidator.validate()` 또는 `AdminHeaderValidator.validate()` 호출 → 단일 `UNAUTHORIZED` 응답 (보안: 실패 사유 미구분)
 - 비밀번호 검증은 도메인 모델에 위임: `User.authenticate(rawPassword)`
 
 ### 4.6 도메인 모델 패턴
@@ -229,10 +229,13 @@ null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈�
 - `create()` + `fromEncoded()` 팩토리 메서드 패턴 동일 적용
 - 비즈니스 로직(검증, 변환)을 VO 내부에 캡슐화
 
-#### BaseEntity 제약사항
-- `id` 필드는 `final Long id = 0L` + `@GeneratedValue(IDENTITY)` → 엔티티에서 직접 id 설정 불가
-- `createdAt`, `updatedAt`은 `@PrePersist`, `@PreUpdate`로 자동 관리
-- Soft delete: `deletedAt` 필드, `delete()`/`restore()` 메서드 제공
+#### BaseEntity 계층
+- `BaseEntity`: 모든 엔티티의 공통 베이스 (`id`, `createdAt`, `updatedAt`)
+  - `id`: `@GeneratedValue(IDENTITY)` → 엔티티에서 직접 id 설정 불가
+  - `createdAt`, `updatedAt`: `@PrePersist`, `@PreUpdate`로 자동 관리
+  - 상속 대상: Hard Delete(`LikeEntity`, `CartItemEntity`) / 삭제 불가(`OrderEntity`, `OrderItemEntity`, `IdempotencyKeyEntity`)
+- `SoftDeleteBaseEntity extends BaseEntity`: Soft Delete 전용 (`deletedAt`, `delete()`, `restore()`)
+  - 상속 대상: `UserEntity`, `BrandEntity`, `ProductEntity`
 
 #### 필드 가변성
 - 변경 가능 필드: `private` (non-final) → `changeXxx()` 메서드 제공 (예: `password`)
@@ -337,7 +340,7 @@ Controller → Facade(@Transactional) → Service / Domain Service → Repositor
 
 | 유형 | 위치 | 네이밍 | 예시 |
 |------|------|--------|------|
-| Cross-BC (client) | `application/port/out/client/` | `...Port` | `ProductStockPort` |
+| Cross-BC (client) | `application/port/out/client/` | 역할 서술형 네이밍 | `LikeTargetValidator`, `CartProductReader`, `OrderStockManager` |
 | 유스케이스 조회 (query) | `application/port/out/query/` | `...QueryPort` | `ProductQueryPort` |
 | 유틸리티 (util) | `application/port/out/util/` | 기존 네이밍 유지 (`...Port` 미사용) | `PasswordEncoder` |
 

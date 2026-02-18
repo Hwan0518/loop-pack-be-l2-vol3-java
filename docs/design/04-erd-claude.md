@@ -51,14 +51,19 @@
 
 ## 2. 테이블 설계 기준
 
-### 2.1 공통 컬럼 (BaseEntity)
+### 2.1 공통 컬럼 (BaseEntity / SoftDeleteBaseEntity)
 
+#### BaseEntity (모든 테이블 공통)
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
 | `id` | BIGINT | PK, AUTO_INCREMENT | 식별자 |
 | `created_at` | DATETIME(6) | NOT NULL | 생성 시각 (UTC) |
 | `updated_at` | DATETIME(6) | NOT NULL | 수정 시각 (UTC) |
-| `deleted_at` | DATETIME(6) | NULL | Soft Delete 대상에만 존재 |
+
+#### SoftDeleteBaseEntity (Soft Delete 테이블 추가 컬럼)
+| 컬럼 | 타입 | 제약 | 설명 |
+|------|------|------|------|
+| `deleted_at` | DATETIME(6) | NULL | Soft Delete 시각 |
 
 > `deleted_at`은 Soft Delete를 사용하는 테이블(`users`, `brands`, `products`)에만 포함된다.
 > Hard Delete 테이블(`likes`, `cart_items`)과 삭제 불가 테이블(`orders`, `order_items`)에는 포함하지 않는다.
@@ -119,6 +124,7 @@ erDiagram
         decimal price "NOT NULL, DECIMAL(15,2)"
         bigint stock "NOT NULL, default 0"
         varchar(1000) description "NULL"
+        bigint like_count "NOT NULL, default 0"
         datetime created_at "NOT NULL"
         datetime updated_at "NOT NULL"
         datetime deleted_at "NULL, Soft Delete"
@@ -237,6 +243,7 @@ erDiagram
 | `price` | DECIMAL(15,2) | NOT NULL, CHECK(price >= 0) | 가격 |
 | `stock` | BIGINT | NOT NULL, DEFAULT 0, CHECK(stock >= 0) | 재고 수량 |
 | `description` | VARCHAR(1000) | NULL | 상품 설명 |
+| `like_count` | BIGINT | NOT NULL, DEFAULT 0 | 좋아요 수 (이벤트 동기화) |
 | `created_at` | DATETIME(6) | NOT NULL | |
 | `updated_at` | DATETIME(6) | NOT NULL | |
 | `deleted_at` | DATETIME(6) | NULL | Soft Delete |
@@ -377,6 +384,7 @@ erDiagram
 |--------|------|------|
 | `products` | `CHECK(price >= 0)` | 음수 가격 방지 |
 | `products` | `CHECK(stock >= 0)` | 음수 재고 방지 (재고 차감 시 DB 레벨 안전망) |
+| `products` | `CHECK(like_count >= 0)` | 음수 좋아요 수 방지 |
 | `cart_items` | `CHECK(quantity > 0)` | 0 이하 수량 방지 |
 | `order_items` | `CHECK(quantity > 0)` | 0 이하 주문 수량 방지 |
 | `order_items` | `CHECK(snapshot_price >= 0)` | 음수 스냅샷 가격 방지 |

@@ -102,7 +102,7 @@ Use QueryPort when complex queries, Projections, or direct DTO returns are neede
 
 | Type | Location | Naming |
 |------|----------|--------|
-| Cross-BC (client) | `application/port/out/client/` | `...Port` |
+| Cross-BC (client) | `application/port/out/client/` | Descriptive naming (`LikeTargetValidator`, `CartProductReader`, etc.) |
 | Use-case query | `application/port/out/query/` | `...QueryPort` |
 | Utility (util) | `application/port/out/util/` | Keep existing naming (`...Port` suffix not used) |
 

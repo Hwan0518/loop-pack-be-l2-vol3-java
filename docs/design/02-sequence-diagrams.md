@@ -165,18 +165,18 @@ sequenceDiagram
     activate Facade
     Note over Facade: @Transactional(readOnly=true)
     Facade->>Service: getBrands(page, size)
-    Service->>Repository: findAll(pageable)
-    Repository-->>Service: Page<Brand>
-    Service-->>Facade: Page<Brand>
+    Service->>Repository: findAll(pageCriteria)
+    Repository-->>Service: PageResult<Brand>
+    Service-->>Facade: PageResult<Brand>
     deactivate Facade
-    Facade-->>Controller: Page<BrandListOutDto>
-    Controller-->>Client: 200 OK + Page<BrandListResponse>
+    Facade-->>Controller: PageResult<BrandListOutDto>
+    Controller-->>Client: 200 OK + PageResult<BrandListResponse>
 ```
 
 **해석**:
 - 인증 헤더가 불필요하므로 Facade에서 HeaderValidator 호출이 없다.
 - `readOnly=true` 트랜잭션으로 DB 부하를 최소화한다.
-- 페이지네이션은 Repository 레벨에서 `Pageable`로 처리한다.
+- 페이지네이션은 Repository 레벨에서 `PageCriteria`로 처리한다.
 
 ---
 
@@ -393,14 +393,14 @@ sequenceDiagram
     Controller->>Facade: getProducts(brandId, sort, page, size)
     activate Facade
     Note over Facade: @Transactional(readOnly=true)
-    Facade->>Service: getProducts(brandId, sort, pageable)
-    Service->>Repository: findAllByCondition(brandId, sort, pageable)
+    Facade->>Service: getProducts(brandId, sort, pageCriteria)
+    Service->>Repository: findAllByCondition(brandId, sort, pageCriteria)
     Note over Repository: brandId null이면 전체 조회<br/>sort에 따른 정렬 적용
-    Repository-->>Service: Page<Product>
-    Service-->>Facade: Page<Product>
+    Repository-->>Service: PageResult<Product>
+    Service-->>Facade: PageResult<Product>
     deactivate Facade
-    Facade-->>Controller: Page<ProductListOutDto>
-    Controller-->>Client: 200 OK + Page<ProductListResponse>
+    Facade-->>Controller: PageResult<ProductListOutDto>
+    Controller-->>Client: 200 OK + PageResult<ProductListResponse>
 ```
 
 **해석**:
@@ -721,15 +721,15 @@ sequenceDiagram
     activate Facade
     Note over Facade: @Transactional(readOnly=true)
 
-    Facade->>Service: getLikesByUser(userId, target, pageable)
-    Service->>Repository: findByUserIdAndTarget(userId, targetFilter, pageable)
+    Facade->>Service: getLikesByUser(userId, target, pageCriteria)
+    Service->>Repository: findByUserIdAndTarget(userId, targetFilter, pageCriteria)
     Note over Repository: target=all → 전체<br/>target=products → PRODUCT만<br/>target=brands → BRAND만
-    Repository-->>Service: Page<Like>
-    Service-->>Facade: Page<Like>
+    Repository-->>Service: PageResult<Like>
+    Service-->>Facade: PageResult<Like>
 
     deactivate Facade
-    Facade-->>Controller: Page<LikeListOutDto>
-    Controller-->>User: 200 OK + Page<LikeListResponse>
+    Facade-->>Controller: PageResult<LikeListOutDto>
+    Controller-->>User: 200 OK + PageResult<LikeListResponse>
 ```
 
 **해석**:
@@ -1201,18 +1201,18 @@ sequenceDiagram
     participant Service as OrderQueryService
     participant Repository as OrderQueryRepository
 
-    User->>Controller: GET /api/v1/orders<br/>?startAt=2026-01-31&endAt=2026-02-10&page=0&size=20
+    User->>Controller: GET /api/v1/orders<br/>?startDate=2026-01-31&endDate=2026-02-10&page=0&size=20
     Note over Controller: 인증 헤더 추출
-    Controller->>Facade: getMyOrders(userId, startAt, endAt, page, size)
+    Controller->>Facade: getMyOrders(userId, startDate, endDate, page, size)
     activate Facade
     Note over Facade: @Transactional(readOnly=true)
-    Facade->>Service: getOrdersByUserId(userId, startAt, endAt, pageable)
-    Service->>Repository: findByUserIdAndDateRange(userId, startAt, endAt, pageable)
-    Repository-->>Service: Page<Order>
-    Service-->>Facade: Page<Order>
+    Facade->>Service: getOrdersByUserId(userId, startDate, endDate, pageCriteria)
+    Service->>Repository: findByUserIdAndDateRange(userId, startDate, endDate, pageCriteria)
+    Repository-->>Service: PageResult<Order>
+    Service-->>Facade: PageResult<Order>
     deactivate Facade
-    Facade-->>Controller: Page<OrderListOutDto>
-    Controller-->>User: 200 OK + Page<OrderListResponse>
+    Facade-->>Controller: PageResult<OrderListOutDto>
+    Controller-->>User: 200 OK + PageResult<OrderListResponse>
 ```
 
 ---
@@ -1274,13 +1274,13 @@ sequenceDiagram
     Controller->>Facade: getAllOrders(page, size)
     activate Facade
     Note over Facade: @Transactional(readOnly=true)
-    Facade->>Service: getAllOrders(pageable)
-    Service->>Repository: findAll(pageable)
-    Repository-->>Service: Page<Order>
-    Service-->>Facade: Page<Order>
+    Facade->>Service: getAllOrders(pageCriteria)
+    Service->>Repository: findAll(pageCriteria)
+    Repository-->>Service: PageResult<Order>
+    Service-->>Facade: PageResult<Order>
     deactivate Facade
-    Facade-->>Controller: Page<OrderListOutDto>
-    Controller-->>Admin: 200 OK + Page<AdminOrderListResponse>
+    Facade-->>Controller: PageResult<OrderListOutDto>
+    Controller-->>Admin: 200 OK + PageResult<AdminOrderListResponse>
 ```
 
 ---
