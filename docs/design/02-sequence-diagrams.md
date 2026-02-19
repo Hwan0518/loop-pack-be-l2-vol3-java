@@ -14,11 +14,14 @@
 3. [삭제 정책](#3-삭제-정책)
 4. [다이어그램 범례](#4-다이어그램-범례)
 5. [Catalog BC — Brand](#5-catalog-bc--brand)
-    - 5-1. 브랜드 목록 조회 (GUEST/USER)
-    - 5-2. 브랜드 상세 조회 (GUEST/USER)
-    - 5-3. 브랜드 등록 (ADMIN)
-    - 5-4. 브랜드 수정 (ADMIN)
+    - 5-1. 브랜드 목록 조회 (GUEST/USER) — VISIBLE만 조회
+    - 5-2. 브랜드 상세 조회 (GUEST/USER) — VISIBLE만 조회
+    - 5-3. 브랜드 등록 (ADMIN) — 기본 HIDDEN
+    - 5-4. 브랜드 수정 (ADMIN) — visibleStatus 선택적 변경
     - 5-5. 브랜드 삭제 (ADMIN) — 삭제 정책 포함
+    - 5-6. 브랜드 목록 조회 (ADMIN) — visibleStatus 필터
+    - 5-7. 브랜드 상세 조회 (ADMIN) — HIDDEN 포함
+    - 5-8. 브랜드 노출 상태 변경 (ADMIN) — PATCH
 6. [Catalog BC — Product](#6-catalog-bc--product)
     - 6-1. 상품 목록 조회 (GUEST/USER)
     - 6-2. 상품 상세 조회 (GUEST/USER)
@@ -146,10 +149,10 @@
 
 ## 5. Catalog BC — Brand
 
-### 5-1. 브랜드 목록 조회 (GUEST/USER)
+### 5-1. 브랜드 목록 조회 (GUEST/USER) — VISIBLE만 조회
 
-**왜 필요한가**: 비회원도 접근 가능한 조회 API로, 인증 없이 어떤 경로로 데이터가 반환되는지 확인한다.
-**검증 포인트**: 인증 미요구, readOnly 트랜잭션, 페이지네이션 처리 위치.
+**왜 필요한가**: 비회원도 접근 가능한 조회 API로, VISIBLE 상태의 브랜드만 노출되는지 확인한다.
+**검증 포인트**: 인증 미요구, readOnly 트랜잭션, **VISIBLE 필터 고정**, 페이지네이션 처리 위치.
 
 ```mermaid
 sequenceDiagram
@@ -164,26 +167,28 @@ sequenceDiagram
     Controller->>Facade: getBrands(page, size)
     activate Facade
     Note over Facade: @Transactional(readOnly=true)
-    Facade->>Service: getBrands(page, size)
-    Service->>Repository: findAll(pageCriteria)
+    Facade->>Service: getVisibleBrandsAsPage(page, size)
+    Service->>Repository: findAllVisible(pageCriteria)
+    Note over Repository: WHERE visible_status = 'VISIBLE'<br/>AND deleted_at IS NULL
     Repository-->>Service: PageResult<Brand>
-    Service-->>Facade: PageResult<Brand>
+    Service-->>Facade: BrandPageOutDto
     deactivate Facade
-    Facade-->>Controller: PageResult<BrandListOutDto>
-    Controller-->>Client: 200 OK + PageResult<BrandListResponse>
+    Facade-->>Controller: BrandPageOutDto
+    Controller-->>Client: 200 OK + BrandPageResponse
 ```
 
 **해석**:
 - 인증 헤더가 불필요하므로 Facade에서 HeaderValidator 호출이 없다.
 - `readOnly=true` 트랜잭션으로 DB 부하를 최소화한다.
-- 페이지네이션은 Repository 레벨에서 `PageCriteria`로 처리한다.
+- **VISIBLE 상태의 브랜드만 조회**: Repository에서 `visible_status = 'VISIBLE'` 고정 필터를 적용한다.
+- HIDDEN 브랜드는 목록에 노출되지 않는다.
 
 ---
 
-### 5-2. 브랜드 상세 조회 (GUEST/USER)
+### 5-2. 브랜드 상세 조회 (GUEST/USER) — VISIBLE만 조회
 
-**왜 필요한가**: 단건 조회에서 "리소스 없음" 예외 경로가 어디서 발생하는지 확인한다.
-**검증 포인트**: 404 예외 발생 지점, 예외 전파 경로.
+**왜 필요한가**: 단건 조회에서 VISIBLE 상태만 조회 가능하며, HIDDEN 브랜드는 404로 처리되는지 확인한다.
+**검증 포인트**: **VISIBLE 필터 적용**, 404 예외 발생 지점, 예외 전파 경로.
 
 ```mermaid
 sequenceDiagram
@@ -198,17 +203,18 @@ sequenceDiagram
     Controller->>Facade: getBrand(brandId)
     activate Facade
     Note over Facade: @Transactional(readOnly=true)
-    Facade->>Service: getBrandById(brandId)
-    Service->>Repository: findById(brandId)
+    Facade->>Service: getVisibleBrandById(brandId)
+    Service->>Repository: findVisibleById(brandId)
+    Note over Repository: WHERE id = ? AND visible_status = 'VISIBLE'<br/>AND deleted_at IS NULL
 
-    alt 브랜드 존재
+    alt 브랜드 존재 (VISIBLE)
         Repository-->>Service: Brand
         Service-->>Facade: Brand
         Facade-->>Controller: BrandDetailOutDto
         Controller-->>Client: 200 OK + BrandDetailResponse
-    else 브랜드 없음 / 삭제됨
+    else 브랜드 없음 / 삭제됨 / HIDDEN
         Repository-->>Service: Optional.empty()
-        Service-->>Facade: throw CoreException(NOT_FOUND)
+        Service-->>Facade: throw CoreException(BRAND_NOT_FOUND)
         Facade-->>Controller: CoreException 전파
         Controller-->>Client: 404 Not Found
     end
@@ -216,21 +222,22 @@ sequenceDiagram
 ```
 
 **해석**:
-- `NOT_FOUND` 예외는 **Service 레이어**에서 발생한다. Repository는 Optional만 반환하고, 존재 여부 판단은 Service의 책임이다.
+- `BRAND_NOT_FOUND` 예외는 **Service 레이어**에서 발생한다. Repository는 Optional만 반환하고, 존재 여부 판단은 Service의 책임이다.
+- **HIDDEN 브랜드도 404로 처리**한다. User/Guest에게 HIDDEN 브랜드의 존재 여부가 노출되지 않는다.
 - Soft Delete된 브랜드도 동일하게 404로 처리한다.
 
 ---
 
-### 5-3. 브랜드 등록 (ADMIN)
+### 5-3. 브랜드 등록 (ADMIN) — 기본 HIDDEN
 
 **왜 필요한가**: ADMIN 인증 + Command 흐름에서 도메인 모델의 팩토리 메서드 호출과 트랜잭션 경계를 확인한다.
-**검증 포인트**: LDAP 인증 검증 지점, Brand.create() 유효성 검증, 트랜잭션 범위.
+**검증 포인트**: LDAP 인증 검증 지점, Brand.create() 유효성 검증, **기본 visibleStatus = HIDDEN**, 트랜잭션 범위.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Admin as Admin (LDAP)
-    participant Controller as BrandCommandController
+    participant Controller as BrandAdminCommandController
     participant Facade as BrandCommandFacade
     participant Service as BrandCommandService
     participant Brand as Brand (Domain)
@@ -243,41 +250,43 @@ sequenceDiagram
     Note over Facade: @Transactional 시작
     Facade->>Service: createBrand(inDto)
     Service->>Brand: Brand.create(name, description)
-    Note over Brand: 유효성 검증<br/>(null, empty, 길이 등)
-    Brand-->>Service: Brand (id=null)
+    Note over Brand: 유효성 검증<br/>(null, empty, 길이 등)<br/>visibleStatus = HIDDEN (기본값)
+    Brand-->>Service: Brand (id=null, visibleStatus=HIDDEN)
     Service->>Repository: save(Brand)
     Repository-->>Service: Brand (id 할당됨)
     Service-->>Facade: Brand
     Note over Facade: @Transactional 커밋
     deactivate Facade
-    Facade-->>Controller: BrandCreateOutDto
-    Controller-->>Admin: 201 Created + BrandCreateResponse
+    Facade-->>Controller: BrandAdminDetailOutDto
+    Controller-->>Admin: 201 Created + BrandAdminDetailResponse<br/>(visibleStatus: HIDDEN 포함)
 ```
 
 **해석**:
 - LDAP 인증은 Controller(또는 Filter/Interceptor) 레벨에서 선행된다.
-- `Brand.create()`에서 유효성 검증이 수행되며, 실패 시 도메인에서 `CoreException`이 발생한다.
+- `Brand.create()`에서 유효성 검증이 수행되며, **visibleStatus는 기본값 HIDDEN**으로 설정된다.
+- 관리자가 명시적으로 VISIBLE로 변경해야 User/Guest에게 노출된다.
+- 응답에 `visibleStatus` 필드가 포함된다 (Admin 전용 DTO 사용).
 - 트랜잭션 경계는 Facade에서 관리한다.
 
 ---
 
-### 5-4. 브랜드 수정 (ADMIN)
+### 5-4. 브랜드 수정 (ADMIN) — visibleStatus 선택적 변경
 
-**왜 필요한가**: 기존 엔티티 조회 → 도메인 상태 변경 → 저장 흐름에서 JPA dirty checking과 도메인 변경 메서드의 책임을 확인한다.
-**검증 포인트**: "조회 후 수정" 패턴, 동시성 충돌(낙관적 락) 발생 지점.
+**왜 필요한가**: 기존 엔티티 조회 → 도메인 상태 변경 → 저장 흐름에서 visibleStatus 선택적 변경이 어떻게 처리되는지 확인한다.
+**검증 포인트**: "조회 후 수정" 패턴, **visibleStatus null이면 변경 없음**, 동시성 충돌(낙관적 락) 발생 지점.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Admin as Admin (LDAP)
-    participant Controller as BrandCommandController
+    participant Controller as BrandAdminCommandController
     participant Facade as BrandCommandFacade
     participant Service as BrandCommandService
     participant QService as BrandQueryService
     participant Brand as Brand (Domain)
     participant Repository as BrandCommandRepository
 
-    Admin->>Controller: PUT /api-admin/v1/brands/{brandId}<br/>{name, description}
+    Admin->>Controller: PUT /api-admin/v1/brands/{brandId}<br/>{name, description, visibleStatus?}
     Note over Controller: LDAP 인증 확인
     Controller->>Facade: updateBrand(brandId, BrandUpdateInDto)
     activate Facade
@@ -288,19 +297,23 @@ sequenceDiagram
     Facade->>Service: updateBrand(brand, inDto)
     Service->>Brand: brand.changeName(name)
     Service->>Brand: brand.changeDescription(description)
-    Note over Brand: 유효성 검증
+    alt visibleStatus != null
+        Service->>Brand: brand.changeVisibleStatus(visibleStatus)
+        Note over Brand: 유효성 검증<br/>(null → INVALID_BRAND_VISIBLE_STATUS 예외)
+    end
     Service->>Repository: save(Brand)
     Repository-->>Service: Brand (수정됨)
     Service-->>Facade: Brand
     Note over Facade: @Transactional 커밋
     deactivate Facade
-    Facade-->>Controller: BrandDetailOutDto
-    Controller-->>Admin: 200 OK + BrandDetailResponse
+    Facade-->>Controller: BrandAdminDetailOutDto
+    Controller-->>Admin: 200 OK + BrandAdminDetailResponse<br/>(visibleStatus 포함)
 ```
 
 **해석**:
 - 조회(Query)와 수정(Command) Service가 분리되어 있으므로, Facade에서 두 Service를 조합한다.
 - 도메인 모델의 `changeXxx()` 메서드가 유효성 검증을 수행한다.
+- **`visibleStatus`가 null이면 변경하지 않음**: PUT 요청에서 visibleStatus를 생략하면 기존 값 유지.
 - 동시성 충돌 시 409 Conflict가 발생할 수 있다 (낙관적 락 적용 시).
 
 ---
@@ -370,6 +383,135 @@ sequenceDiagram
 - Brand와 Product는 **같은 Catalog BC** 내부이므로, Service 간 직접 호출이 허용된다.
 - Soft Delete로 `deletedAt`을 설정하므로, 이후 조회에서 자동 필터링된다.
 - **BrandDeletedEvent**: 삭제 성공 후 이벤트를 발행하여, Like BC가 해당 브랜드의 좋아요를 정리한다 (최종 일관성).
+
+---
+
+### 5-6. 브랜드 목록 조회 (ADMIN) — visibleStatus 필터
+
+**왜 필요한가**: 관리자는 HIDDEN 포함 모든 브랜드를 조회할 수 있으며, 선택적으로 노출 상태 필터를 적용할 수 있다.
+**검증 포인트**: visibleStatus null이면 전체 조회, 값이 있으면 필터, LDAP 인증 필수.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as Admin (LDAP)
+    participant Controller as BrandAdminQueryController
+    participant Facade as BrandQueryFacade
+    participant Service as BrandQueryService
+    participant Repository as BrandQueryRepository
+
+    Admin->>Controller: GET /api-admin/v1/brands<br/>?visibleStatus=VISIBLE&page=0&size=20
+    Note over Controller: LDAP 인증 확인
+    Controller->>Facade: getAdminBrands(visibleStatus, page, size)
+    activate Facade
+    Note over Facade: @Transactional(readOnly=true)
+    Facade->>Service: getAdminBrandsAsPage(visibleStatus, page, size)
+
+    alt visibleStatus == null (전체 조회)
+        Service->>Repository: findAll(pageCriteria)
+        Repository-->>Service: PageResult<Brand>
+    else visibleStatus != null (VISIBLE 또는 HIDDEN)
+        Service->>Repository: findAllByVisibleStatus(visibleStatus, pageCriteria)
+        Note over Repository: WHERE visible_status = ?<br/>AND deleted_at IS NULL
+        Repository-->>Service: PageResult<Brand>
+    end
+
+    Service-->>Facade: BrandAdminPageOutDto
+    deactivate Facade
+    Facade-->>Controller: BrandAdminPageOutDto
+    Controller-->>Admin: 200 OK + BrandAdminPageResponse<br/>(각 브랜드에 visibleStatus 포함)
+```
+
+**해석**:
+- LDAP 인증은 Controller에서 선행 검증한다.
+- `visibleStatus` 파라미터가 null이면 전체 브랜드를 조회하고, 값이 있으면 해당 상태로 필터링한다.
+- Admin 전용 DTO/Response를 사용하여 `visibleStatus` 필드가 응답에 포함된다.
+
+---
+
+### 5-7. 브랜드 상세 조회 (ADMIN) — HIDDEN 포함
+
+**왜 필요한가**: 관리자는 HIDDEN 상태의 브랜드도 상세 조회할 수 있어야 한다.
+**검증 포인트**: visibleStatus 필터 없이 조회, LDAP 인증 필수.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as Admin (LDAP)
+    participant Controller as BrandAdminQueryController
+    participant Facade as BrandQueryFacade
+    participant Service as BrandQueryService
+    participant Repository as BrandQueryRepository
+
+    Admin->>Controller: GET /api-admin/v1/brands/{brandId}
+    Note over Controller: LDAP 인증 확인
+    Controller->>Facade: getAdminBrand(brandId)
+    activate Facade
+    Note over Facade: @Transactional(readOnly=true)
+    Facade->>Service: getBrandById(brandId)
+    Service->>Repository: findById(brandId)
+    Note over Repository: WHERE id = ? AND deleted_at IS NULL<br/>(visibleStatus 필터 없음)
+
+    alt 브랜드 존재 (VISIBLE 또는 HIDDEN)
+        Repository-->>Service: Brand
+        Service-->>Facade: Brand
+        Facade-->>Controller: BrandAdminDetailOutDto
+        Controller-->>Admin: 200 OK + BrandAdminDetailResponse<br/>(visibleStatus 포함)
+    else 브랜드 없음 / 삭제됨
+        Repository-->>Service: Optional.empty()
+        Service-->>Facade: throw CoreException(BRAND_NOT_FOUND)
+        Facade-->>Controller: CoreException 전파
+        Controller-->>Admin: 404 Not Found
+    end
+    deactivate Facade
+```
+
+**해석**:
+- 관리자는 HIDDEN 브랜드도 조회 가능하므로, `visibleStatus` 필터 없이 `findById()`를 사용한다.
+- Admin 전용 DTO를 사용하여 응답에 `visibleStatus` 정보가 포함된다.
+
+---
+
+### 5-8. 브랜드 노출 상태 변경 (ADMIN) — PATCH
+
+**왜 필요한가**: 브랜드의 노출 상태만 전용으로 변경하는 PATCH 엔드포인트의 흐름을 확인한다.
+**검증 포인트**: LDAP 인증 필수, visibleStatus null → 400, changeVisibleStatus() 도메인 메서드 사용.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as Admin (LDAP)
+    participant Controller as BrandAdminCommandController
+    participant Facade as BrandCommandFacade
+    participant Service as BrandCommandService
+    participant QService as BrandQueryService
+    participant Brand as Brand (Domain)
+    participant Repository as BrandCommandRepository
+
+    Admin->>Controller: PATCH /api-admin/v1/brands/{brandId}/visible-status<br/>{visibleStatus: "VISIBLE"}
+    Note over Controller: LDAP 인증 확인
+    Controller->>Facade: updateVisibleStatus(brandId, BrandVisibleStatusUpdateInDto)
+    activate Facade
+    Note over Facade: @Transactional 시작
+    Facade->>QService: getBrandById(brandId)
+    QService-->>Facade: Brand (기존)
+
+    Facade->>Service: updateVisibleStatus(brand, inDto)
+    Service->>Brand: brand.changeVisibleStatus(visibleStatus)
+    Note over Brand: null → INVALID_BRAND_VISIBLE_STATUS 예외
+    Service->>Repository: save(Brand)
+    Repository-->>Service: Brand (수정됨)
+    Service-->>Facade: Brand
+    Note over Facade: @Transactional 커밋
+    deactivate Facade
+    Facade-->>Controller: BrandAdminDetailOutDto
+    Controller-->>Admin: 200 OK + BrandAdminDetailResponse<br/>(변경된 visibleStatus 포함)
+```
+
+**해석**:
+- PATCH 엔드포인트는 노출 상태만 전용으로 변경한다 (name, description 미변경).
+- `changeVisibleStatus(null)` 시 도메인에서 `INVALID_BRAND_VISIBLE_STATUS` 예외가 발생한다.
+- Request에서 `@NotNull` 검증이 선행되므로, null은 400으로 반환된다.
 
 ---
 

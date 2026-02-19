@@ -112,6 +112,7 @@ erDiagram
         bigint id PK "AUTO_INCREMENT"
         varchar(100) name "NOT NULL"
         varchar(500) description "NULL"
+        varchar(10) visible_status "NOT NULL, VISIBLE/HIDDEN, default HIDDEN"
         datetime created_at "NOT NULL"
         datetime updated_at "NOT NULL"
         datetime deleted_at "NULL, Soft Delete"
@@ -229,6 +230,7 @@ erDiagram
 | `id` | BIGINT | PK, AUTO_INCREMENT | |
 | `name` | VARCHAR(100) | NOT NULL | 브랜드명 |
 | `description` | VARCHAR(500) | NULL | 브랜드 설명 |
+| `visible_status` | VARCHAR(10) | NOT NULL, DEFAULT 'HIDDEN', CHECK(visible_status IN ('VISIBLE','HIDDEN')) | 노출 상태 |
 | `created_at` | DATETIME(6) | NOT NULL | |
 | `updated_at` | DATETIME(6) | NOT NULL | |
 | `deleted_at` | DATETIME(6) | NULL | Soft Delete |
@@ -367,6 +369,7 @@ erDiagram
 
 | 테이블 | 인덱스 | 컬럼 | 용도 (쿼리 패턴) |
 |--------|--------|------|------|
+| `brands` | `idx_brands_visible_deleted_id` | `(visible_status, deleted_at, id DESC)` | 노출상태별 활성 브랜드 목록 조회 |
 | `products` | `idx_products_brand_deleted_id` | `(brand_id, deleted_at, id DESC)` | 브랜드별 활성 상품 목록 (커서 페이징) |
 | `products` | `idx_products_deleted_price_id` | `(deleted_at, price, id DESC)` | 활성 상품 가격순 조회 (커서 페이징) |
 | `products` | `idx_products_deleted_id` | `(deleted_at, id DESC)` | 활성 상품 전체 목록 (커서 페이징) |
@@ -382,6 +385,7 @@ erDiagram
 
 | 테이블 | 제약 | 목적 |
 |--------|------|------|
+| `brands` | `CHECK(visible_status IN ('VISIBLE','HIDDEN'))` | 허용된 노출 상태만 저장 |
 | `products` | `CHECK(price >= 0)` | 음수 가격 방지 |
 | `products` | `CHECK(stock >= 0)` | 음수 재고 방지 (재고 차감 시 DB 레벨 안전망) |
 | `products` | `CHECK(like_count >= 0)` | 음수 좋아요 수 방지 |

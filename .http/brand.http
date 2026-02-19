@@ -1,0 +1,138 @@
+### ===== User/Guest API (VISIBLE 브랜드만 조회) =====
+
+### 브랜드 목록 조회 (VISIBLE만 노출)
+GET http://localhost:8080/api/v1/brands?page=0&size=20
+
+### 브랜드 상세 조회 (VISIBLE만 노출, HIDDEN → 404)
+GET http://localhost:8080/api/v1/brands/1
+
+
+### ===== Admin API (LDAP 인증 필요) =====
+
+### [Admin] 브랜드 등록 (기본 HIDDEN)
+POST http://localhost:8080/api-admin/v1/brands
+Content-Type: application/json
+X-Loopers-Ldap: admin
+
+{
+  "name": "나이키",
+  "description": "글로벌 스포츠 브랜드"
+}
+
+### [Admin] 브랜드 등록 - 설명 없이
+POST http://localhost:8080/api-admin/v1/brands
+Content-Type: application/json
+X-Loopers-Ldap: admin
+
+{
+  "name": "아디다스"
+}
+
+### [Admin] 브랜드 등록 실패 - 이름 누락
+POST http://localhost:8080/api-admin/v1/brands
+Content-Type: application/json
+X-Loopers-Ldap: admin
+
+{
+  "description": "이름 없는 브랜드"
+}
+
+### [Admin] 브랜드 등록 실패 - LDAP 헤더 없음 (401)
+POST http://localhost:8080/api-admin/v1/brands
+Content-Type: application/json
+
+{
+  "name": "테스트 브랜드"
+}
+
+
+### ===== Admin 조회 API =====
+
+### [Admin] 브랜드 목록 조회 (전체 - HIDDEN 포함)
+GET http://localhost:8080/api-admin/v1/brands?page=0&size=20
+X-Loopers-Ldap: admin
+
+### [Admin] 브랜드 목록 조회 (VISIBLE만 필터)
+GET http://localhost:8080/api-admin/v1/brands?visibleStatus=VISIBLE&page=0&size=20
+X-Loopers-Ldap: admin
+
+### [Admin] 브랜드 목록 조회 (HIDDEN만 필터)
+GET http://localhost:8080/api-admin/v1/brands?visibleStatus=HIDDEN&page=0&size=20
+X-Loopers-Ldap: admin
+
+### [Admin] 브랜드 상세 조회 (HIDDEN 포함)
+GET http://localhost:8080/api-admin/v1/brands/1
+X-Loopers-Ldap: admin
+
+
+### ===== Admin 수정 API =====
+
+### [Admin] 브랜드 수정 (이름 + 설명만)
+PUT http://localhost:8080/api-admin/v1/brands/1
+Content-Type: application/json
+X-Loopers-Ldap: admin
+
+{
+  "name": "나이키 코리아",
+  "description": "나이키 한국 법인"
+}
+
+### [Admin] 브랜드 수정 (이름 + 설명 + 노출상태)
+PUT http://localhost:8080/api-admin/v1/brands/1
+Content-Type: application/json
+X-Loopers-Ldap: admin
+
+{
+  "name": "나이키 코리아",
+  "description": "나이키 한국 법인",
+  "visibleStatus": "VISIBLE"
+}
+
+### [Admin] 브랜드 수정 실패 - 이름 누락 (400)
+PUT http://localhost:8080/api-admin/v1/brands/1
+Content-Type: application/json
+X-Loopers-Ldap: admin
+
+{
+  "description": "이름 누락"
+}
+
+
+### ===== Admin 노출 상태 변경 API (PATCH) =====
+
+### [Admin] 브랜드 노출 상태 → VISIBLE
+PATCH http://localhost:8080/api-admin/v1/brands/1/visible-status
+Content-Type: application/json
+X-Loopers-Ldap: admin
+
+{
+  "visibleStatus": "VISIBLE"
+}
+
+### [Admin] 브랜드 노출 상태 → HIDDEN
+PATCH http://localhost:8080/api-admin/v1/brands/1/visible-status
+Content-Type: application/json
+X-Loopers-Ldap: admin
+
+{
+  "visibleStatus": "HIDDEN"
+}
+
+### [Admin] 노출 상태 변경 실패 - visibleStatus 누락 (400)
+PATCH http://localhost:8080/api-admin/v1/brands/1/visible-status
+Content-Type: application/json
+X-Loopers-Ldap: admin
+
+{
+}
+
+
+### ===== Admin 삭제 API =====
+
+### [Admin] 브랜드 삭제 (활성 상품 0개일 때만 가능)
+DELETE http://localhost:8080/api-admin/v1/brands/1
+X-Loopers-Ldap: admin
+
+### [Admin] 브랜드 삭제 실패 - 존재하지 않는 브랜드 (404)
+DELETE http://localhost:8080/api-admin/v1/brands/99999
+X-Loopers-Ldap: admin

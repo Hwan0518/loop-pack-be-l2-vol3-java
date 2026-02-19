@@ -114,6 +114,12 @@ classDiagram
         BRAND
     }
 
+    class VisibleStatus {
+        <<enumeration>>
+        VISIBLE
+        HIDDEN
+    }
+
     class ProductSortType {
         <<enumeration>>
         LATEST
@@ -188,30 +194,37 @@ classDiagram
     class Brand {
         +String name
         +String description
+        +VisibleStatus visibleStatus
         +Brand create(String name, String description)
         +void changeName(String name)
         +void changeDescription(String description)
+        +void changeVisibleStatus(VisibleStatus visibleStatus)
+        +boolean isVisible()
         +void delete()
     }
     Brand --|> SoftDeleteBaseEntity
 
     class BrandCommandFacade {
         <<Facade>>
-        +Brand createBrand(BrandCreateInDto inDto)
-        +Brand updateBrand(Long brandId, BrandUpdateInDto inDto)
+        +BrandAdminDetailOutDto createBrand(BrandCreateInDto inDto)
+        +BrandAdminDetailOutDto updateBrand(Long brandId, BrandUpdateInDto inDto)
+        +BrandAdminDetailOutDto updateVisibleStatus(Long brandId, BrandVisibleStatusUpdateInDto inDto)
         +void deleteBrand(Long brandId)
     }
 
     class BrandQueryFacade {
         <<Facade>>
-        +PageResult~Brand~ getBrands(PageCriteria pageCriteria)
-        +Brand getBrand(Long brandId)
+        +BrandPageOutDto getBrands(int page, int size)
+        +BrandDetailOutDto getBrand(Long brandId)
+        +BrandAdminPageOutDto getAdminBrands(VisibleStatus visibleStatus, int page, int size)
+        +BrandAdminDetailOutDto getAdminBrand(Long brandId)
     }
 
     class BrandCommandService {
         <<Service>>
         +Brand createBrand(BrandCreateInDto inDto)
         +Brand updateBrand(Brand brand, BrandUpdateInDto inDto)
+        +Brand updateVisibleStatus(Brand brand, BrandVisibleStatusUpdateInDto inDto)
         +void deleteBrand(Long brandId)
     }
 
@@ -219,6 +232,9 @@ classDiagram
         <<Service>>
         +PageResult~Brand~ getBrands(PageCriteria pageCriteria)
         +Brand getBrandById(Long brandId)
+        +Brand getVisibleBrandById(Long brandId)
+        +BrandPageOutDto getVisibleBrandsAsPage(int page, int size)
+        +BrandAdminPageOutDto getAdminBrandsAsPage(VisibleStatus visibleStatus, int page, int size)
     }
 
     class ProductQueryService {
@@ -241,6 +257,9 @@ classDiagram
         <<Repository>>
         +PageResult~Brand~ findAll(PageCriteria pageCriteria)
         +Optional~Brand~ findById(Long brandId)
+        +Optional~Brand~ findVisibleById(Long brandId)
+        +PageResult~Brand~ findAllVisible(PageCriteria pageCriteria)
+        +PageResult~Brand~ findAllByVisibleStatus(VisibleStatus visibleStatus, PageCriteria pageCriteria)
     }
 
     class BrandDeletedEvent {
@@ -268,8 +287,11 @@ classDiagram
 - 브랜드 삭제 정책 검증은 `BrandDeleteValidator`가 담당하고, 필요한 조회는 `BrandCommandService`가 수행한다.
 - `updateBrand`는 Facade가 `BrandQueryService`로 대상을 선조회한 뒤, `BrandCommandService.updateBrand(brand, inDto)`를 호출하는 계약으로
   고정했다.
+- **`visibleStatus`**: 브랜드 생성 시 기본값 `HIDDEN`. User/Guest API는 `VISIBLE`만 조회, Admin API는 전체 조회 + 필터 옵션.
+- **`changeVisibleStatus()`**: null 입력 시 `INVALID_BRAND_VISIBLE_STATUS` 예외. PATCH 전용 엔드포인트 및 PUT 수정에서 선택적 변경.
+- **Admin 전용 DTO**: `BrandAdminDetailOutDto`, `BrandAdminPageOutDto` 등 Admin 응답에만 `visibleStatus` 필드 포함.
 - Facade는 Service만 사용하며 정책/저장 로직은 Service로 내려간다.
-- Brand는 생성/수정/삭제 불변식을 가진 Aggregate Root로 유지한다.
+- Brand는 생성/수정/삭제/노출상태 불변식을 가진 Aggregate Root로 유지한다.
 
 ### 4.2 Product
 
