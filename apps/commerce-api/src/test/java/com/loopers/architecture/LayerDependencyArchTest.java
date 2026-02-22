@@ -21,6 +21,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * 5. Repository interface purity
  * 6. Domain service purity
  * 7. Cross-BC boundary
+ * 8. Service -> Service prohibition
  */
 @DisplayName("아키텍처 의존성 규칙 검증")
 class LayerDependencyArchTest {
@@ -216,6 +217,23 @@ class LayerDependencyArchTest {
 	}
 
 
+	// 8. Service -> Service prohibition
+	@Nested
+	@DisplayName("Service 의존 규칙")
+	class ServiceDependency {
+
+		@Test
+		@DisplayName("[service] Service는 다른 Service를 직접 호출하지 않는다")
+		void serviceShouldNotDependOnOtherServices() {
+			noClasses()
+				.that().resideInAnyPackage("..application.service..")
+				.should().dependOnClassesThat()
+				.resideInAnyPackage("..application.service..")
+				.check(importedClasses);
+		}
+	}
+
+
 	// 7. Cross-BC boundary
 	@Nested
 	@DisplayName("Bounded Context 경계 규칙")
@@ -227,8 +245,8 @@ class LayerDependencyArchTest {
 			noClasses()
 				.that().resideInAnyPackage("com.loopers.user.domain..")
 				.should().dependOnClassesThat().resideInAnyPackage(
-					"com.loopers.brand.domain..",
-					"com.loopers.product.domain..",
+					"com.loopers.catalog.brand.domain..",
+					"com.loopers.catalog.product.domain..",
 					"com.loopers.like.domain..",
 					"com.loopers.cart.domain..",
 					"com.loopers.order.domain.."
@@ -240,7 +258,7 @@ class LayerDependencyArchTest {
 		@DisplayName("[Cross-BC] catalog(brand) domain은 다른 BC의 domain을 참조하지 않는다")
 		void brandDomainShouldNotDependOnOtherBcDomains() {
 			noClasses()
-				.that().resideInAnyPackage("com.loopers.brand.domain..")
+				.that().resideInAnyPackage("com.loopers.catalog.brand.domain..")
 				.should().dependOnClassesThat().resideInAnyPackage(
 					"com.loopers.user.domain..",
 					"com.loopers.like.domain..",
@@ -255,7 +273,7 @@ class LayerDependencyArchTest {
 		@DisplayName("[Cross-BC] catalog(product) domain은 다른 BC의 domain을 참조하지 않는다")
 		void productDomainShouldNotDependOnOtherBcDomains() {
 			noClasses()
-				.that().resideInAnyPackage("com.loopers.product.domain..")
+				.that().resideInAnyPackage("com.loopers.catalog.product.domain..")
 				.should().dependOnClassesThat().resideInAnyPackage(
 					"com.loopers.user.domain..",
 					"com.loopers.like.domain..",
@@ -273,8 +291,8 @@ class LayerDependencyArchTest {
 				.that().resideInAnyPackage("com.loopers.like.domain..")
 				.should().dependOnClassesThat().resideInAnyPackage(
 					"com.loopers.user.domain..",
-					"com.loopers.brand.domain..",
-					"com.loopers.product.domain..",
+					"com.loopers.catalog.brand.domain..",
+					"com.loopers.catalog.product.domain..",
 					"com.loopers.cart.domain..",
 					"com.loopers.order.domain.."
 				)
@@ -289,8 +307,8 @@ class LayerDependencyArchTest {
 				.that().resideInAnyPackage("com.loopers.cart.domain..")
 				.should().dependOnClassesThat().resideInAnyPackage(
 					"com.loopers.user.domain..",
-					"com.loopers.brand.domain..",
-					"com.loopers.product.domain..",
+					"com.loopers.catalog.brand.domain..",
+					"com.loopers.catalog.product.domain..",
 					"com.loopers.like.domain..",
 					"com.loopers.order.domain.."
 				)
@@ -305,8 +323,8 @@ class LayerDependencyArchTest {
 				.that().resideInAnyPackage("com.loopers.order.domain..")
 				.should().dependOnClassesThat().resideInAnyPackage(
 					"com.loopers.user.domain..",
-					"com.loopers.brand.domain..",
-					"com.loopers.product.domain..",
+					"com.loopers.catalog.brand.domain..",
+					"com.loopers.catalog.product.domain..",
 					"com.loopers.like.domain..",
 					"com.loopers.cart.domain.."
 				)

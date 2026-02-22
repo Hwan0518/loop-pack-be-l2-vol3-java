@@ -33,6 +33,8 @@ public enum ErrorType {
 	BRAND_NOT_FOUND(HttpStatus.NOT_FOUND, "BRAND_NOT_FOUND", "브랜드가 존재하지 않습니다."),
 	BRAND_HAS_ACTIVE_PRODUCTS(HttpStatus.CONFLICT, "BRAND_HAS_ACTIVE_PRODUCTS", "해당 브랜드에 활성 상품이 존재하여 삭제할 수 없습니다."),
 	INVALID_BRAND_NAME(HttpStatus.BAD_REQUEST, "INVALID_BRAND_NAME", "올바른 브랜드명을 입력해주세요."),
+	INVALID_BRAND_DESCRIPTION(HttpStatus.BAD_REQUEST, "INVALID_BRAND_DESCRIPTION", "올바른 브랜드 설명을 입력해주세요."),
+	INVALID_BRAND_VISIBLE_STATUS(HttpStatus.BAD_REQUEST, "INVALID_BRAND_VISIBLE_STATUS", "올바른 노출 상태를 입력해주세요."),
 
 	/** Catalog - Product 에러 */
 	PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "PRODUCT_NOT_FOUND", "상품이 존재하지 않습니다."),

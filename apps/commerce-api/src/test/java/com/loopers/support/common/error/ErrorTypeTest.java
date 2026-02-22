@@ -67,6 +67,10 @@ class ErrorTypeTest {
 				"BRAND_HAS_ACTIVE_PRODUCTS", "해당 브랜드에 활성 상품이 존재하여 삭제할 수 없습니다."),
 			Arguments.of(ErrorType.INVALID_BRAND_NAME, HttpStatus.BAD_REQUEST,
 				"INVALID_BRAND_NAME", "올바른 브랜드명을 입력해주세요."),
+			Arguments.of(ErrorType.INVALID_BRAND_DESCRIPTION, HttpStatus.BAD_REQUEST,
+				"INVALID_BRAND_DESCRIPTION", "올바른 브랜드 설명을 입력해주세요."),
+			Arguments.of(ErrorType.INVALID_BRAND_VISIBLE_STATUS, HttpStatus.BAD_REQUEST,
+				"INVALID_BRAND_VISIBLE_STATUS", "올바른 노출 상태를 입력해주세요."),
 
 			// Catalog - Product
 			Arguments.of(ErrorType.PRODUCT_NOT_FOUND, HttpStatus.NOT_FOUND,
@@ -107,7 +111,7 @@ class ErrorTypeTest {
 	@DisplayName("[ErrorType] enum 상수 개수가 28개임을 보장")
 	void enumConstantCount() {
 		// Assert
-		assertThat(ErrorType.values()).hasSize(28);
+		assertThat(ErrorType.values()).hasSize(30);
 	}
 
 
