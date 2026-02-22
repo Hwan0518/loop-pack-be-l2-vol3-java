@@ -42,6 +42,7 @@ subprojects {
     dependencyManagement {
         imports {
             mavenBom("org.springframework.cloud:spring-cloud-dependencies:${project.properties["springCloudDependenciesVersion"]}")
+            mavenBom("org.testcontainers:testcontainers-bom:${project.properties["testcontainersVersion"]}")
         }
     }
 
@@ -97,7 +98,10 @@ subprojects {
             classDirectories.setFrom(
                 files(
                     classDirectories.files.map {
-                        fileTree(it)
+                        fileTree(it) {
+                            exclude("**/Q*.class")
+                            exclude("**/*Application.class")
+                        }
                     },
                 ),
             )
