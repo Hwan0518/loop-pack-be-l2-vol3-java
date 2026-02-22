@@ -83,7 +83,7 @@ public Brand createBrand(BrandCreateInDto inDto) {
 | Style            | Use For                                |
 |------------------|----------------------------------------|
 | `/** */` Javadoc | Class documentation, complex method/field descriptions, test fixture factories |
-| `//` Single-line | Inline descriptions, structural markers, numbered matching, given/when/then |
+| `//` Single-line | Inline descriptions, structural markers, numbered matching, Arrange/Act/Assert |
 | `/* */` Block    | **Do not use**                         |
 
 ### 3. No Over-Commenting
@@ -177,7 +177,7 @@ public void createTrade(CreateTradeInDto inDto) {
 | Entity          | Javadoc field listing  | Above class declaration      | -                             | -                                   |
 | Mapper          | Javadoc method listing | Above class declaration      | `// N.` matching              | -                                   |
 | Event Handler   | Javadoc event desc     | Inside class body            | `// N.` matching              | -                                   |
-| Test            | `@DisplayName` Korean  | -                            | `// given/when/then`          | -                                   |
+| Test            | `@DisplayName` Korean  | -                            | `// Arrange/Act/Assert`       | -                                   |
 | Fixture         | `//` constant grouping | -                            | Javadoc factory description   | -                                   |
 
 > Full code examples per layer: [references/detail.md](references/detail.md)
@@ -203,7 +203,7 @@ public void createTrade(CreateTradeInDto inDto) {
 2. **Structural markers** — dependency injection field grouping (when applicable)
 3. **`// N.` numbered comments** — matching class Javadoc list
 4. **Korean** — all business descriptions / **English** — all structural markers
-5. Tests: `// given` / `// when` / `// then` + `@DisplayName` in Korean
+5. Tests: `// Arrange` / `// Act` / `// Assert` + `@DisplayName` in Korean
 6. Inline comments for each logical step in 2+ line methods
 
 **Before writing code:** Check architecture layer + adjacent file comment style
@@ -224,6 +224,6 @@ public void createTrade(CreateTradeInDto inDto) {
 - [ ] **Class-Level**: Javadoc exists + placed inside class body + domain field list or service method list
 - [ ] **Method-Level**: `// N.` numbered matching + inline comments for 2+ lines
 - [ ] **Dependencies**: Structural marker grouping (lowercase English)
-- [ ] **Tests**: `@DisplayName` Korean + `// given/when/then` + fixture Javadoc
+- [ ] **Tests**: `@DisplayName` Korean + `// Arrange/Act/Assert` + fixture Javadoc
 
 > Anti-patterns and detailed examples: [references/detail.md](references/detail.md)

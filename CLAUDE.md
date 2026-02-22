@@ -251,7 +251,9 @@ null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈�
 #### 도메인 서비스 (Domain Service)
 - **순수 Java 클래스** — Spring 어노테이션 없음 (Domain Model과 일관성 유지)
 - **상태 없이(stateless)** 설계: 동일한 도메인 경계(BC) 내의 도메인 객체 협력을 중재
-- 비즈니스 불변식(invariant) 검증에 사용 (예: 브랜드 삭제 시 활성 상품 존재 여부 검증)
+- 비즈니스 불변식(invariant) 검증에 사용 (예: 여러 도메인 객체 간 협력이 필요한 복합 검증)
+- **Domain Service 사용 기준**: 여러 도메인 객체 간 협력 중재가 필요한 경우에만 사용. 단일 도메인 모델의 단순 검증(boolean 분기 등)은 Domain Model 메서드로 구현
+- **점진적 분리**: 처음엔 Domain Model에 두고, 복잡도가 증가하면 Domain Service로 분리
 - **Service가 필요한 데이터를 조회하여 DomainService에 전달한다.** DomainService는 Repository/Port를 직접 호출하지 않는다.
 - `support/config/DomainServiceConfig.java`에서 `@Configuration` + `@Bean`으로 등록
 
@@ -262,9 +264,15 @@ null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈�
 - Domain Layer가 중심, Application과 Infrastructure가 Domain에 의존
 - Repository Interface는 Domain Layer에 정의, 구현체는 Infrastructure에 위치
 
-Controller → Facade(@Transactional) → Service / Domain Service → Repository(interface) → RepositoryImpl → JpaRepository + Entity ↔ Domain
+Controller → Facade → Service / Domain Service → Repository(interface) → RepositoryImpl → JpaRepository + Entity ↔ Domain
 
 #### 레이어 규칙
+
+##### @Transactional 사용 규칙
+- **메서드 레벨에서만 사용** (DO): 각 메서드의 트랜잭션 범위를 명시적으로 선언
+- **클래스 레벨 사용 금지** (Do Not): 암묵적 트랜잭션 적용 방지
+- Command: `@Transactional`
+- Query: `@Transactional(readOnly = true)`
 
 ##### 호출 순서 및 책임
 
@@ -273,6 +281,7 @@ Controller → Facade(@Transactional) → Service / Domain Service → Repositor
 3. **호출 순서**: Controller → Facade → Service → (Repository / Port / DomainService). 계층 건너뛰기 금지.
 4. **DomainService는 Repository/Port를 호출하지 않는다.** Service가 데이터를 조회하여 DomainService에 전달한다.
 5. **Domain Model은 순수 비즈니스 로직만 포함한다.** 외부 의존(Repository, Port, Spring 등) 없음.
+6. **Service는 다른 Service를 호출하지 않는다.** Service의 의존 대상은 Repository, Port(Cross-BC), DomainService, EventPublisher로 한정한다. 여러 Service 간 오케스트레이션은 Facade에서 수행한다.
 
 ##### 비즈니스 로직 분리
 - 비즈니스 로직(도메인 규칙, 검증, 계산)은 Domain Model 또는 Domain Service에서 작성한다.
@@ -306,9 +315,9 @@ Controller → Facade(@Transactional) → Service / Domain Service → Repositor
 | 레이어 | 클래스 | 어노테이션 | 역할 |
 |--------|--------|-----------|------|
 | Controller | `{Domain}Controller` | `@RestController` | 요청 수신, Facade 호출 |
-| Facade | `{Domain}CommandFacade` | `@Service`, `@Transactional` | 명령 유스케이스 오케스트레이션, 트랜잭션 경계, **Service만 호출** |
-| Facade | `{Domain}QueryFacade` | `@Service`, `@Transactional(readOnly = true)` | 조회 유스케이스 오케스트레이션 |
-| Service | `{Domain}CommandService` | `@Service`, `@Transactional` | 단일 도메인 비즈니스 로직 |
+| Facade | `{Domain}CommandFacade` | `@Service`, method-level `@Transactional` | 명령 유스케이스 오케스트레이션, 트랜잭션 경계, **Service만 호출** |
+| Facade | `{Domain}QueryFacade` | `@Service`, method-level `@Transactional(readOnly = true)` | 조회 유스케이스 오케스트레이션 |
+| Service | `{Domain}CommandService` | `@Service`, method-level `@Transactional` | 단일 도메인 비즈니스 로직 실행 **(다른 Service 호출 금지)** |
 | Domain Service | `{Domain}XxxValidator` 등 | (순수 Java, `@Bean` 등록) | 비즈니스 불변식 검증 **(Repository/Port 호출 금지, Service가 데이터 전달)** |
 | Repository(I) | `{Domain}Command/QueryRepository` | (인터페이스, `domain/repository/`) | 명령(save,delete) / 조회(find,exists) 계약 |
 | RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain 변환 후 JPA 호출 |
@@ -325,6 +334,11 @@ Controller → Facade(@Transactional) → Service / Domain Service → Repositor
 | 시그니처 | 도메인 언어만 (Spring/JPA 타입 금지) | 유스케이스 DTO, criteria 사용 가능 |
 | 용도 | 단일 엔티티 CRUD, 존재 여부 확인 | 복잡 조회, 다중 조인, 집계, Projection |
 | 페이지네이션 | `PageCriteria`/`PageResult` (domain/repository/vo/) | `PageCriteria`/`PageResult` 또는 Spring Page 래핑 |
+
+#### QueryDSL 사용 기준
+- **Domain Repository**: Spring Data 파생 쿼리 사용 (단순 WHERE 조건, 고정 필터)
+- **QueryPort**: QueryDSL 사용 (DTO Projection, 동적 필터, 다중 조인, 집계)
+- QueryDSL 의존성 및 Q-class는 이미 설정 완료 (`modules/jpa/build.gradle.kts`)
 
 #### 도메인 리포지토리 규칙
 
@@ -383,6 +397,8 @@ Controller → Facade(@Transactional) → Service / Domain Service → Repositor
 
 - Request에 `@NotBlank`, `@NotNull` 등 Jakarta Validation 적용
 - Response에 민감정보(password) 포함 금지
+- ⚠️ Controller에서 `Map<String, Object>` 반환 금지 — 페이지네이션 포함 모든 응답은 전용 Response record 사용
+  - 페이지네이션 응답: `{Domain}PageResponse` record + `from({Domain}PageOutDto)` 팩토리 메서드
 
 ## 5. 주의사항
 

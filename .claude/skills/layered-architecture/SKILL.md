@@ -27,9 +27,9 @@ Client Request
 | Layer | Class Pattern | Annotation | Role |
 |-------|--------------|-----------|------|
 | Controller | `{Domain}Controller` | `@RestController` | Receive requests, return responses, call Facade |
-| Facade (Command) | `{Domain}CommandFacade` | `@Service`, `@Transactional` | Command use-case orchestration, transaction boundary |
-| Facade (Query) | `{Domain}QueryFacade` | `@Service`, `@Transactional(readOnly=true)` | Query use-case orchestration |
-| Service | `{Domain}CommandService` | `@Service`, `@Transactional` | Single domain business logic execution |
+| Facade (Command) | `{Domain}CommandFacade` | `@Service`, method-level `@Transactional` | Command use-case orchestration, transaction boundary |
+| Facade (Query) | `{Domain}QueryFacade` | `@Service`, method-level `@Transactional(readOnly=true)` | Query use-case orchestration |
+| Service | `{Domain}CommandService` | `@Service`, method-level `@Transactional` | Single domain business logic execution **(MUST NOT call other Services)** |
 | Domain Service | `{Domain}XxxValidator`, etc. | Pure class (`@Bean` registration) | Stateless, mediates domain object collaboration within same BC, business invariant verification |
 | Repository (I) | `{Domain}CommandRepository` | Interface | Command contract (save, delete) |
 | Repository (I) | `{Domain}QueryRepository` | Interface | Query contract (find, exists) |
@@ -54,6 +54,12 @@ Controller → Facade → Service → Repository
 
 - **Absolutely no layer skipping** (e.g., Controller → Service direct call prohibited)
 - Controller must access business logic only through Facade
+
+### 3.1.1 Service Dependency Rules
+
+- **Service MUST NOT call other Services** (including QueryService, CommandService within same/different domain)
+- Service dependency targets limited to: Repository, Port (Cross-BC), DomainService, EventPublisher
+- Cross-Service orchestration is Facade's responsibility
 
 ### 3.2 Business vs Service Logic Separation
 
@@ -109,14 +115,14 @@ Use QueryPort when complex queries, Projections, or direct DTO returns are neede
 ## 4. Data Conversion Flow (DTO Pattern)
 
 ```
-Request → toInDto() → [Facade] → Domain → OutDto.from(domain) → [Controller] → Response.from(outDto)
+Request → [Controller] create InDto → [Facade] → Domain → OutDto.from(domain) → [Controller] → Response.from(outDto)
 ```
 
 ### 4.1 DTO Type Rules
 
 | DTO | Location | Conversion Method | Role |
 |-----|----------|------------------|------|
-| Request | `interfaces/controller/request/` | `toInDto()` | Receive external input, apply Jakarta Validation |
+| Request | `interfaces/controller/request/` | None (Controller maps explicitly) | Receive external input, apply Jakarta Validation |
 | InDto | `application/dto/in/` | None (immutable record) | Pass input between layers |
 | OutDto | `application/dto/out/` | `from(Domain)` static factory | Domain → output conversion |
 | Response | `interfaces/controller/response/` | `from(OutDto)` static factory | Final response (masking possible) |
@@ -133,17 +139,18 @@ Request → toInDto() → [Facade] → Domain → OutDto.from(domain) → [Contr
 ### 5.1 New Creation
 
 ```
-Entity.from(domain) → jpaRepository.save(entity) → entity.toDomain()
+mapper.toEntity(domain) → jpaRepository.save(entity) → mapper.toDomain(entity)
 ```
 
 ### 5.2 Existing Update
 
 ```
-jpaRepository.findById(id) → existingEntity.updateXxx(...) → JPA dirty checking → entity.toDomain()
+mapper.toEntity(domain with id) → jpaRepository.save(entity) → mapper.toDomain(entity) (JPA merge)
 ```
 
-- `Entity.from(domain)` always creates a **new entity (no id)**
-- **Absolutely prohibited** to use `Entity.from(domain)` for updates — query existing entity and modify
+- Update strategy is standardized to **merge via save()**
+- **Do not use dirty checking update flow** (`findById` + mutate entity) in this project
+- Repository implementation is responsible for Domain ↔ Entity conversion
 
 ## 6. Package Structure
 
@@ -188,6 +195,8 @@ jpaRepository.findById(id) → existingEntity.updateXxx(...) → JPA dirty check
 
 - Controller directly calling Repository
 - Input normalization in Facade/Service (domain model responsibility)
-- Using `Entity.from()` for Entity updates
+- Using dirty checking (`findById` + mutate + flush) as the default update strategy
 - Writing business logic in Controller/Facade
 - Using framework annotations on domain models
+- Class-level `@Transactional` annotation (must be method-level)
+- Service calling another Service (orchestration belongs in Facade)
