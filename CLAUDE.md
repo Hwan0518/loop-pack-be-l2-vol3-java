@@ -87,6 +87,7 @@ com.loopers
     │   └── query/                 # QueryPort 구현체
     │       └── {Domain}QueryPortImpl
     │   └── entity/                # JPA 엔티티
+    │   └── mapper/                # Entity ↔ Domain 변환 매퍼
     ├── interfaces/                # 프레젠테이션 레이어 (Controller)
     │   └── event/                 # 이벤트 리스너
     │   └── controller/            # REST 컨트롤러
@@ -212,10 +213,11 @@ class SomeIntegrationTest {
 - `@Valid` 검증 실패 → `MethodArgumentNotValidException` → BAD_REQUEST 자동 반환
 
 #### 인증 패턴
-- 인증 헤더: `X-Loopers-LoginId`, `X-Loopers-LoginPw`
-- Controller: `@RequestHeader(required = false)` → null 허용
-- Controller에서 `HeaderValidator.validate()` 또는 `AdminHeaderValidator.validate()` 호출 → 단일 `UNAUTHORIZED` 응답 (보안: 실패 사유 미구분)
+- 사용자 인증 헤더: `X-Loopers-LoginId`, `X-Loopers-LoginPw` → `HeaderValidator.validate()`
+- 관리자 인증 헤더: `X-Loopers-Ldap` → `AdminHeaderValidator.validate()`
+- Controller: `@RequestHeader(required = false)` → null 허용 → 단일 `UNAUTHORIZED` 응답 (보안: 실패 사유 미구분)
 - 비밀번호 검증은 도메인 모델에 위임: `User.authenticate(rawPassword)`
+- URL 패턴: 사용자 `/api/v1/{resource}`, 관리자 `/api-admin/v1/{resource}`
 
 ### 4.7 도메인 모델 패턴
 
@@ -233,7 +235,8 @@ null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈�
 
 #### Value Object
 - Java `record`로 구현 (예: `Password`)
-- `create()` + `fromEncoded()` 팩토리 메서드 패턴 동일 적용
+- `create()` + `from()` / `fromEncoded()` 팩토리 메서드 패턴 적용
+- `from()`: DB 복원 (검증 생략), `fromEncoded()`: 인코딩된 값 복원 (Password 등)
 - 비즈니스 로직(검증, 변환)을 VO 내부에 캡슐화
 
 #### BaseEntity 계층
@@ -314,14 +317,16 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 
 | 레이어 | 클래스 | 어노테이션 | 역할 |
 |--------|--------|-----------|------|
-| Controller | `{Domain}Controller` | `@RestController` | 요청 수신, Facade 호출 |
+| Controller | `{Domain}Controller` / `{Domain}CommandController` | `@RestController` | 사용자 요청 수신 (`/api/v1/`), Facade 호출 |
+| Controller | `{Domain}AdminCommandController` / `{Domain}AdminQueryController` | `@RestController` | 관리자 요청 수신 (`/api-admin/v1/`), Facade 호출 |
 | Facade | `{Domain}CommandFacade` | `@Service`, method-level `@Transactional` | 명령 유스케이스 오케스트레이션, 트랜잭션 경계, **Service만 호출** |
 | Facade | `{Domain}QueryFacade` | `@Service`, method-level `@Transactional(readOnly = true)` | 조회 유스케이스 오케스트레이션 |
 | Service | `{Domain}CommandService` | `@Service`, method-level `@Transactional` | 단일 도메인 비즈니스 로직 실행 **(다른 Service 호출 금지)** |
 | Domain Service | `{Domain}XxxValidator` 등 | (순수 Java, `@Bean` 등록) | 비즈니스 불변식 검증 **(Repository/Port 호출 금지, Service가 데이터 전달)** |
 | Repository(I) | `{Domain}Command/QueryRepository` | (인터페이스, `domain/repository/`) | 명령(save,delete) / 조회(find,exists) 계약 |
 | RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain 변환 후 JPA 호출 |
-| Entity | `{Domain}Entity` | `@Entity` | `from(Domain)` + `toDomain()` 변환 |
+| Entity | `{Domain}Entity` | `@Entity` | `of(...)` 팩토리 메서드 |
+| EntityMapper | `{Domain}EntityMapper` | `@Component` | `toEntity(Domain)` + `toDomain(Entity)` 변환 |
 | QueryPort(I) | `{Domain}QueryPort` | (인터페이스, `application/port/out/query/`) | 유스케이스 전용 복잡 조회 계약 |
 | QueryPortImpl | `{Domain}QueryPortImpl` | `@Repository` | QueryPort 구현 (JPA/QueryDSL) |
 
@@ -388,7 +393,8 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 | InDto | `application/dto/in/` | 불변 record, 변환 없음 |
 | OutDto | `application/dto/out/` | `from(Domain)` static 팩토리 |
 | Response | `interfaces/web/response/` | `from(OutDto)` static 팩토리 |
-| Entity | `infrastructure/entity/` | `from(Domain)` + `toDomain()` 양방향 |
+| Entity | `infrastructure/entity/` | `of(...)` 팩토리 메서드 |
+| EntityMapper | `infrastructure/mapper/` | `toEntity(Domain)` + `toDomain(Entity)` |
 
 #### 데이터 변환 흐름
 `Request` → **Controller에서 InDto 직접 생성** → **Facade** → Domain → `OutDto.from(domain)` → **Controller** → `Response.from(outDto)`
@@ -399,6 +405,11 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 - Response에 민감정보(password) 포함 금지
 - ⚠️ Controller에서 `Map<String, Object>` 반환 금지 — 페이지네이션 포함 모든 응답은 전용 Response record 사용
   - 페이지네이션 응답: `{Domain}PageResponse` record + `from({Domain}PageOutDto)` 팩토리 메서드
+
+#### 관리자/사용자 DTO 분리
+- 관리자 전용 DTO: `Admin` 접두사 (예: `AdminBrandCreateInDto`, `AdminBrandOutDto`, `AdminBrandCreateRequest`)
+- 사용자 전용 DTO: 접두사 없음 (예: `BrandOutDto`, `BrandResponse`)
+- 관리자/사용자 응답 필드가 다를 수 있으므로 별도 DTO 정의 (예: 관리자는 `deletedAt` 포함)
 
 ## 5. 주의사항
 
