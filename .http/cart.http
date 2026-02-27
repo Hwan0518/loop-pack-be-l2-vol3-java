@@ -1,0 +1,118 @@
+### ===== 장바구니 항목 추가 =====
+
+### 장바구니 항목 추가
+POST http://localhost:8080/api/v1/cart/items
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!
+
+{
+  "productId": 1,
+  "quantity": 2
+}
+
+### 장바구니 항목 추가 - 다른 상품
+POST http://localhost:8080/api/v1/cart/items
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!
+
+{
+  "productId": 2,
+  "quantity": 1
+}
+
+### 장바구니 항목 추가 실패 - 수량 0 (400)
+POST http://localhost:8080/api/v1/cart/items
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!
+
+{
+  "productId": 1,
+  "quantity": 0
+}
+
+### 장바구니 항목 추가 실패 - 인증 헤더 없음 (401)
+POST http://localhost:8080/api/v1/cart/items
+Content-Type: application/json
+
+{
+  "productId": 1,
+  "quantity": 1
+}
+
+
+### ===== 장바구니 항목 수량 변경 =====
+
+### 수량 변경
+PUT http://localhost:8080/api/v1/cart/items/1
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!
+
+{
+  "quantity": 5
+}
+
+### 수량 변경 실패 - 존재하지 않는 항목 (404)
+PUT http://localhost:8080/api/v1/cart/items/99999
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!
+
+{
+  "quantity": 3
+}
+
+
+### ===== 장바구니 항목 삭제 =====
+
+### 항목 삭제
+DELETE http://localhost:8080/api/v1/cart/items/1
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!
+
+### 항목 삭제 실패 - 존재하지 않는 항목 (404)
+DELETE http://localhost:8080/api/v1/cart/items/99999
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!
+
+
+### ===== 장바구니 항목 선택 상태 변경 =====
+
+### 선택 상태 변경 (항목 1만 선택)
+PUT http://localhost:8080/api/v1/cart/items/selection
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!
+
+{
+  "selectedCartItemIds": [1]
+}
+
+### 선택 상태 변경 (전체 선택)
+PUT http://localhost:8080/api/v1/cart/items/selection
+Content-Type: application/json
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!
+
+{
+  "selectedCartItemIds": [1, 2]
+}
+
+
+### ===== 장바구니 조회 =====
+
+### 장바구니 조회
+GET http://localhost:8080/api/v1/cart
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!
+
+### 장바구니 상태 조회
+GET http://localhost:8080/api/v1/cart/status
+X-Loopers-LoginId: testuser01
+X-Loopers-LoginPw: Test1234!
+
+### 장바구니 조회 실패 - 인증 헤더 없음 (401)
+GET http://localhost:8080/api/v1/cart

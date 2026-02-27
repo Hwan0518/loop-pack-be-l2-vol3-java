@@ -1,6 +1,7 @@
 package com.loopers.architecture;
 
 
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -22,6 +23,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * 6. Domain service purity
  * 7. Cross-BC boundary
  * 8. Service -> Service prohibition
+ * 9. ACL thin adapter (Facade-only, no Service/Repository/Entity direct access, no error mapping)
  */
 @DisplayName("아키텍처 의존성 규칙 검증")
 class LayerDependencyArchTest {
@@ -86,11 +88,17 @@ class LayerDependencyArchTest {
 		}
 
 		@Test
-		@DisplayName("[facade] facade는 port를 직접 호출하지 않는다")
+		@DisplayName("[facade] facade는 port 인터페이스를 직접 호출하지 않는다. DTO record 참조는 허용")
 		void facadeShouldNotDependOnPort() {
+			// Facade는 Port 인터페이스(Cross-BC 계약)를 직접 호출하지 않는다
+			// Port 패키지 내 DTO record(OrderCartItemInfo 등)는 서비스 간 데이터 전달용이므로 허용
+			// infrastructure.acl 의존은 facadeShouldNotDependOnInfrastructure()에서 이미 검증
 			noClasses()
 				.that().resideInAnyPackage("..application.facade..")
-				.should().dependOnClassesThat().resideInAnyPackage("..application.port..", "..infrastructure.acl..")
+				.should().dependOnClassesThat(
+					JavaClass.Predicates.INTERFACES
+						.and(JavaClass.Predicates.resideInAnyPackage("..application.port.."))
+				)
 				.check(importedClasses);
 		}
 
@@ -234,6 +242,49 @@ class LayerDependencyArchTest {
 	}
 
 
+	// 9. ACL thin adapter
+	@Nested
+	@DisplayName("ACL 의존 규칙")
+	class AclDependency {
+
+		@Test
+		@DisplayName("[acl] ACL은 Provider Service를 직접 참조하지 않는다 (Provider Facade만 호출)")
+		void aclShouldNotDependOnService() {
+			noClasses()
+				.that().resideInAnyPackage("..infrastructure.acl..")
+				.should().dependOnClassesThat().resideInAnyPackage("..application.service..")
+				.check(importedClasses);
+		}
+
+		@Test
+		@DisplayName("[acl] ACL은 repository/jpa를 직접 참조하지 않는다")
+		void aclShouldNotDependOnRepository() {
+			noClasses()
+				.that().resideInAnyPackage("..infrastructure.acl..")
+				.should().dependOnClassesThat().resideInAnyPackage("..domain.repository..", "..infrastructure.repository..", "..infrastructure.jpa..", "..infrastructure.querydsl..")
+				.check(importedClasses);
+		}
+
+		@Test
+		@DisplayName("[acl] ACL은 infrastructure.entity를 직접 참조하지 않는다")
+		void aclShouldNotDependOnEntity() {
+			noClasses()
+				.that().resideInAnyPackage("..infrastructure.acl..")
+				.should().dependOnClassesThat().resideInAnyPackage("..infrastructure.entity..")
+				.check(importedClasses);
+		}
+
+		@Test
+		@DisplayName("[acl] ACL은 에러 매핑을 하지 않는다 (support.common.error 직접 참조 금지)")
+		void aclShouldNotDependOnErrorPackage() {
+			noClasses()
+				.that().resideInAnyPackage("..infrastructure.acl..")
+				.should().dependOnClassesThat().resideInAnyPackage("..support.common.error..")
+				.check(importedClasses);
+		}
+	}
+
+
 	// 7. Cross-BC boundary
 	@Nested
 	@DisplayName("Bounded Context 경계 규칙")
@@ -243,13 +294,13 @@ class LayerDependencyArchTest {
 		@DisplayName("[Cross-BC] user domain은 다른 BC의 domain을 참조하지 않는다")
 		void userDomainShouldNotDependOnOtherBcDomains() {
 			noClasses()
-				.that().resideInAnyPackage("com.loopers.user.domain..")
+				.that().resideInAnyPackage("com.loopers.user.user.domain..")
 				.should().dependOnClassesThat().resideInAnyPackage(
 					"com.loopers.catalog.brand.domain..",
 					"com.loopers.catalog.product.domain..",
-					"com.loopers.like.domain..",
-					"com.loopers.cart.domain..",
-					"com.loopers.order.domain.."
+					"com.loopers.engagement.productlike.domain..", "com.loopers.engagement.brandlike.domain..",
+					"com.loopers.cart.cart.domain..",
+					"com.loopers.ordering.order.domain.."
 				)
 				.check(importedClasses);
 		}
@@ -260,12 +311,11 @@ class LayerDependencyArchTest {
 			noClasses()
 				.that().resideInAnyPackage("com.loopers.catalog.brand.domain..")
 				.should().dependOnClassesThat().resideInAnyPackage(
-					"com.loopers.user.domain..",
-					"com.loopers.like.domain..",
-					"com.loopers.cart.domain..",
-					"com.loopers.order.domain.."
+					"com.loopers.user.user.domain..",
+					"com.loopers.engagement.productlike.domain..", "com.loopers.engagement.brandlike.domain..",
+					"com.loopers.cart.cart.domain..",
+					"com.loopers.ordering.order.domain.."
 				)
-				.allowEmptyShould(true)
 				.check(importedClasses);
 		}
 
@@ -275,28 +325,43 @@ class LayerDependencyArchTest {
 			noClasses()
 				.that().resideInAnyPackage("com.loopers.catalog.product.domain..")
 				.should().dependOnClassesThat().resideInAnyPackage(
-					"com.loopers.user.domain..",
-					"com.loopers.like.domain..",
-					"com.loopers.cart.domain..",
-					"com.loopers.order.domain.."
+					"com.loopers.user.user.domain..",
+					"com.loopers.engagement.productlike.domain..", "com.loopers.engagement.brandlike.domain..",
+					"com.loopers.cart.cart.domain..",
+					"com.loopers.ordering.order.domain.."
 				)
-				.allowEmptyShould(true)
 				.check(importedClasses);
 		}
 
 		@Test
-		@DisplayName("[Cross-BC] like domain은 다른 BC의 domain을 참조하지 않는다")
-		void likeDomainShouldNotDependOnOtherBcDomains() {
+		@DisplayName("[Cross-BC] productlike domain은 다른 BC의 domain을 참조하지 않는다")
+		void productLikeDomainShouldNotDependOnOtherBcDomains() {
 			noClasses()
-				.that().resideInAnyPackage("com.loopers.like.domain..")
+				.that().resideInAnyPackage("com.loopers.engagement.productlike.domain..")
 				.should().dependOnClassesThat().resideInAnyPackage(
-					"com.loopers.user.domain..",
+					"com.loopers.user.user.domain..",
 					"com.loopers.catalog.brand.domain..",
 					"com.loopers.catalog.product.domain..",
-					"com.loopers.cart.domain..",
-					"com.loopers.order.domain.."
+					"com.loopers.cart.cart.domain..",
+					"com.loopers.ordering.order.domain..",
+					"com.loopers.engagement.brandlike.domain.."
 				)
-				.allowEmptyShould(true)
+				.check(importedClasses);
+		}
+
+		@Test
+		@DisplayName("[Cross-BC] brandlike domain은 다른 BC의 domain을 참조하지 않는다")
+		void brandLikeDomainShouldNotDependOnOtherBcDomains() {
+			noClasses()
+				.that().resideInAnyPackage("com.loopers.engagement.brandlike.domain..")
+				.should().dependOnClassesThat().resideInAnyPackage(
+					"com.loopers.user.user.domain..",
+					"com.loopers.catalog.brand.domain..",
+					"com.loopers.catalog.product.domain..",
+					"com.loopers.cart.cart.domain..",
+					"com.loopers.ordering.order.domain..",
+					"com.loopers.engagement.productlike.domain.."
+				)
 				.check(importedClasses);
 		}
 
@@ -304,15 +369,14 @@ class LayerDependencyArchTest {
 		@DisplayName("[Cross-BC] cart domain은 다른 BC의 domain을 참조하지 않는다")
 		void cartDomainShouldNotDependOnOtherBcDomains() {
 			noClasses()
-				.that().resideInAnyPackage("com.loopers.cart.domain..")
+				.that().resideInAnyPackage("com.loopers.cart.cart.domain..")
 				.should().dependOnClassesThat().resideInAnyPackage(
-					"com.loopers.user.domain..",
+					"com.loopers.user.user.domain..",
 					"com.loopers.catalog.brand.domain..",
 					"com.loopers.catalog.product.domain..",
-					"com.loopers.like.domain..",
-					"com.loopers.order.domain.."
+					"com.loopers.engagement.productlike.domain..", "com.loopers.engagement.brandlike.domain..",
+					"com.loopers.ordering.order.domain.."
 				)
-				.allowEmptyShould(true)
 				.check(importedClasses);
 		}
 
@@ -320,15 +384,14 @@ class LayerDependencyArchTest {
 		@DisplayName("[Cross-BC] order domain은 다른 BC의 domain을 참조하지 않는다")
 		void orderDomainShouldNotDependOnOtherBcDomains() {
 			noClasses()
-				.that().resideInAnyPackage("com.loopers.order.domain..")
+				.that().resideInAnyPackage("com.loopers.ordering.order.domain..")
 				.should().dependOnClassesThat().resideInAnyPackage(
-					"com.loopers.user.domain..",
+					"com.loopers.user.user.domain..",
 					"com.loopers.catalog.brand.domain..",
 					"com.loopers.catalog.product.domain..",
-					"com.loopers.like.domain..",
-					"com.loopers.cart.domain.."
+					"com.loopers.engagement.productlike.domain..", "com.loopers.engagement.brandlike.domain..",
+					"com.loopers.cart.cart.domain.."
 				)
-				.allowEmptyShould(true)
 				.check(importedClasses);
 		}
 	}
