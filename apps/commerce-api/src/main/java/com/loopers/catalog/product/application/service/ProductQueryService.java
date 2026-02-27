@@ -13,6 +13,7 @@ import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 
 @Service
@@ -35,6 +36,7 @@ public class ProductQueryService {
 	 */
 
 	// 1. ID로 활성 상품 조회
+	@Transactional(readOnly = true)
 	public Product findActiveById(Long id) {
 		return productQueryRepository.findActiveById(id)
 			.orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
@@ -42,12 +44,14 @@ public class ProductQueryService {
 
 
 	// 2. 브랜드의 활성 상품 존재 여부 확인
+	@Transactional(readOnly = true)
 	public boolean existsActiveByBrandId(Long brandId) {
 		return productQueryRepository.existsActiveByBrandId(brandId);
 	}
 
 
 	// 3. ID로 상품 조회 (삭제 포함, 관리자용)
+	@Transactional(readOnly = true)
 	public Product findById(Long id) {
 		return productQueryRepository.findById(id)
 			.orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
@@ -55,6 +59,7 @@ public class ProductQueryService {
 
 
 	// 4. 사용자 상품 목록 검색 (QueryPort, 페이지네이션)
+	@Transactional(readOnly = true)
 	public ProductPageOutDto searchProducts(Long brandId, ProductSortType sortType, int page, int size) {
 
 		// 검색 조건 생성
@@ -69,6 +74,7 @@ public class ProductQueryService {
 
 
 	// 5. 관리자 상품 목록 검색 (QueryPort, 페이지네이션)
+	@Transactional(readOnly = true)
 	public AdminProductPageOutDto searchAdminProducts(Long brandId, ProductSortType sortType, int page, int size) {
 
 		// 검색 조건 생성

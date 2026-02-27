@@ -3,8 +3,8 @@ package com.loopers.catalog.product.interfaces;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.catalog.brand.domain.model.enums.VisibleStatus;
-import com.loopers.catalog.brand.interfaces.web.request.BrandCreateRequest;
-import com.loopers.catalog.brand.interfaces.web.request.BrandVisibleStatusUpdateRequest;
+import com.loopers.catalog.brand.interfaces.web.request.AdminBrandCreateRequest;
+
 import com.loopers.catalog.product.interfaces.web.request.AdminProductCreateRequest;
 import com.loopers.catalog.product.interfaces.web.request.AdminProductUpdateRequest;
 import com.loopers.support.common.error.ErrorType;
@@ -145,7 +145,7 @@ class ProductControllerE2ETest {
 
 
 		@Test
-		@DisplayName("[GET /api/v1/products] sortType=PRICE_ASC -> 200 OK. 가격 오름차순 정렬")
+		@DisplayName("[GET /api/v1/products] sort=PRICE_ASC -> 200 OK. 가격 오름차순 정렬")
 		void getProductsSortByPriceAsc() throws Exception {
 			// Arrange
 			Long brandId = createBrandAndGetId("나이키", "스포츠 브랜드");
@@ -154,7 +154,7 @@ class ProductControllerE2ETest {
 
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/products")
-					.param("sortType", "PRICE_ASC"))
+					.param("sort", "PRICE_ASC"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content", hasSize(2)))
 				.andExpect(jsonPath("$.content[0].name").value("에어맥스"))
@@ -812,7 +812,7 @@ class ProductControllerE2ETest {
 	 */
 
 	private Long createBrandAndGetId(String name, String description) throws Exception {
-		BrandCreateRequest request = new BrandCreateRequest(name, description);
+		AdminBrandCreateRequest request = new AdminBrandCreateRequest(name, description);
 		MvcResult result = mockMvc.perform(post("/api-admin/v1/brands")
 				.header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE)
 				.contentType(MediaType.APPLICATION_JSON)

@@ -33,7 +33,7 @@ public class ProductAdminQueryController {
 	public ResponseEntity<AdminProductPageResponse> getAdminProducts(
 		@RequestHeader(value = "X-Loopers-Ldap", required = false) String ldapHeader,
 		@RequestParam(required = false) Long brandId,
-		@RequestParam(required = false) ProductSortType sortType,
+		@RequestParam(value = "sort", required = false) ProductSortType sort,
 		@RequestParam(defaultValue = "0") int page,
 		@RequestParam(defaultValue = "20") int size
 	) {
@@ -42,7 +42,7 @@ public class ProductAdminQueryController {
 		AdminHeaderValidator.validate(ldapHeader);
 
 		// 관리자 상품 목록 조회
-		AdminProductPageOutDto result = productQueryFacade.getAdminProducts(brandId, sortType, page, size);
+		AdminProductPageOutDto result = productQueryFacade.getAdminProducts(brandId, sort, page, size);
 
 		// 응답 변환
 		AdminProductPageResponse response = AdminProductPageResponse.from(result);

@@ -29,6 +29,9 @@ public class ProductCommandFacade {
 	 * 1. 상품 생성
 	 * 2. 상품 수정
 	 * 3. 상품 삭제
+	 * 4. 좋아요 수 증가
+	 * 5. 좋아요 수 감소
+	 * 6. 상품 재고 차감 (Cross-BC 전용 — ACL에서 호출)
 	 */
 
 	// 1. 상품 생성
@@ -73,6 +76,37 @@ public class ProductCommandFacade {
 
 		// 상품 삭제
 		productCommandService.deleteProduct(product);
+	}
+
+
+	// 4. 좋아요 수 증가
+	@Transactional
+	public void increaseLikeCount(Long productId) {
+
+		// 활성 상품 조회
+		Product product = productQueryService.findActiveById(productId);
+
+		// 좋아요 수 증가
+		productCommandService.increaseLikeCount(product);
+	}
+
+
+	// 5. 좋아요 수 감소
+	@Transactional
+	public void decreaseLikeCount(Long productId) {
+
+		// 활성 상품 조회
+		Product product = productQueryService.findActiveById(productId);
+
+		// 좋아요 수 감소
+		productCommandService.decreaseLikeCount(product);
+	}
+
+
+	// 6. 상품 재고 차감 (Cross-BC 전용 — ACL에서 호출)
+	@Transactional
+	public void decreaseStock(Long productId, Long quantity) {
+		productCommandService.decreaseStock(productId, quantity);
 	}
 
 }

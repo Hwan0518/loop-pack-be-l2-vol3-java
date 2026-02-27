@@ -30,6 +30,7 @@ public class ProductQueryFacade {
 	 * 2. 사용자 상품 목록 검색 (브랜드 필터, 정렬, 페이지네이션)
 	 * 3. 관리자 상품 상세 조회 (삭제 포함, 브랜드명 포함)
 	 * 4. 관리자 상품 목록 검색 (전체 상품)
+	 * 5. 활성 상품 조회 (Cross-BC 전용 — ACL에서 호출)
 	 */
 
 	// 1. 사용자 상품 상세 조회
@@ -73,6 +74,13 @@ public class ProductQueryFacade {
 	@Transactional(readOnly = true)
 	public AdminProductPageOutDto getAdminProducts(Long brandId, ProductSortType sortType, int page, int size) {
 		return productQueryService.searchAdminProducts(brandId, sortType, page, size);
+	}
+
+
+	// 5. 활성 상품 조회 (Cross-BC 전용 — ACL에서 호출)
+	@Transactional(readOnly = true)
+	public Product findActiveById(Long productId) {
+		return productQueryService.findActiveById(productId);
 	}
 
 }

@@ -31,13 +31,13 @@ public class ProductQueryController {
 	@GetMapping
 	public ResponseEntity<ProductPageResponse> getProducts(
 		@RequestParam(required = false) Long brandId,
-		@RequestParam(required = false) ProductSortType sortType,
+		@RequestParam(value = "sort", required = false) ProductSortType sort,
 		@RequestParam(defaultValue = "0") int page,
 		@RequestParam(defaultValue = "20") int size
 	) {
 
 		// 상품 목록 검색
-		ProductPageOutDto result = productQueryFacade.getProducts(brandId, sortType, page, size);
+		ProductPageOutDto result = productQueryFacade.getProducts(brandId, sort, page, size);
 
 		// 응답 변환
 		ProductPageResponse response = ProductPageResponse.from(result);

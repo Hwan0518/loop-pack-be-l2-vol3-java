@@ -9,6 +9,7 @@ import com.loopers.catalog.product.domain.model.vo.Money;
 import com.loopers.catalog.product.domain.model.vo.ProductName;
 import com.loopers.catalog.product.domain.model.vo.Stock;
 import com.loopers.catalog.product.domain.repository.ProductCommandRepository;
+import com.loopers.catalog.product.domain.repository.ProductQueryRepository;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,8 +28,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.Mockito.verify;
+
+import java.util.Optional;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -38,6 +40,8 @@ class ProductCommandServiceTest {
 	@Mock
 	private ProductCommandRepository productCommandRepository;
 	@Mock
+	private ProductQueryRepository productQueryRepository;
+	@Mock
 	private ApplicationEventPublisher eventPublisher;
 
 	private ProductCommandService productCommandService;
@@ -45,7 +49,9 @@ class ProductCommandServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		productCommandService = new ProductCommandService(productCommandRepository, eventPublisher);
+		productCommandService = new ProductCommandService(
+			productCommandRepository, productQueryRepository, eventPublisher
+		);
 	}
 
 
@@ -199,6 +205,74 @@ class ProductCommandServiceTest {
 			);
 		}
 
+	}
+
+
+	@Nested
+	@DisplayName("decreaseStock()")
+	class DecreaseStockTest {
+
+		@Test
+		@DisplayName("[decreaseStock()] 활성 상품 재고 차감 -> 차감 후 저장. 비관적 쓰기 락으로 조회")
+		void decreaseStockSuccess() {
+			// Arrange
+			Product product = Product.reconstruct(1L, 1L,
+				ProductName.from("상품"),
+				Money.from(BigDecimal.TEN),
+				Stock.from(100L),
+				null, 0L, null);
+			given(productQueryRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(product));
+			given(productCommandRepository.save(any(Product.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+			// Act
+			productCommandService.decreaseStock(1L, 10L);
+
+			// Assert
+			assertAll(
+				() -> assertThat(product.getStock().value()).isEqualTo(90L),
+				() -> verify(productQueryRepository).findActiveByIdForUpdate(1L),
+				() -> verify(productCommandRepository).save(product)
+			);
+		}
+
+		@Test
+		@DisplayName("[decreaseStock()] 존재하지 않는 상품 -> PRODUCT_NOT_FOUND 예외")
+		void decreaseStockProductNotFound() {
+			// Arrange
+			given(productQueryRepository.findActiveByIdForUpdate(999L)).willReturn(Optional.empty());
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> productCommandService.decreaseStock(999L, 10L));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND.getMessage())
+			);
+		}
+
+		@Test
+		@DisplayName("[decreaseStock()] 재고 부족 -> PRODUCT_OUT_OF_STOCK 예외")
+		void decreaseStockOutOfStock() {
+			// Arrange
+			Product product = Product.reconstruct(1L, 1L,
+				ProductName.from("상품"),
+				Money.from(BigDecimal.TEN),
+				Stock.from(5L),
+				null, 0L, null);
+			given(productQueryRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(product));
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> productCommandService.decreaseStock(1L, 100L));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.PRODUCT_OUT_OF_STOCK),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.PRODUCT_OUT_OF_STOCK.getMessage())
+			);
+		}
 	}
 
 }

@@ -6,6 +6,9 @@ import com.loopers.catalog.product.application.dto.in.AdminProductUpdateInDto;
 import com.loopers.catalog.product.domain.event.ProductDeletedEvent;
 import com.loopers.catalog.product.domain.model.Product;
 import com.loopers.catalog.product.domain.repository.ProductCommandRepository;
+import com.loopers.catalog.product.domain.repository.ProductQueryRepository;
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,7 @@ public class ProductCommandService {
 
 	// repository
 	private final ProductCommandRepository productCommandRepository;
+	private final ProductQueryRepository productQueryRepository;
 	// event
 	private final ApplicationEventPublisher eventPublisher;
 
@@ -29,6 +33,7 @@ public class ProductCommandService {
 	 * 3. 상품 삭제
 	 * 4. 좋아요 수 증가
 	 * 5. 좋아요 수 감소
+	 * 6. 상품 재고 차감 (비관적 쓰기 락)
 	 */
 
 	// 1. 상품 생성
@@ -99,6 +104,22 @@ public class ProductCommandService {
 		product.decreaseLikeCount();
 
 		// 저장
+		productCommandRepository.save(product);
+	}
+
+
+	// 6. 상품 재고 차감 (비관적 쓰기 락)
+	@Transactional
+	public void decreaseStock(Long productId, Long quantity) {
+
+		// 활성 상품 조회 (비관적 쓰기 락 — 동시 재고 차감 경합 방지)
+		Product product = productQueryRepository.findActiveByIdForUpdate(productId)
+			.orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+
+		// 재고 차감 (도메인 로직 — 재고 부족 시 PRODUCT_OUT_OF_STOCK 예외)
+		product.decreaseStock(quantity);
+
+		// 재고가 차감된 상품 저장
 		productCommandRepository.save(product);
 	}
 
