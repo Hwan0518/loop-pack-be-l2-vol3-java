@@ -8,5 +8,5 @@ import com.loopers.catalog.brand.domain.model.enums.VisibleStatus;
  * 브랜드 노출 상태 변경 요청 DTO
  * - visibleStatus: 노출 상태
  */
-public record BrandVisibleStatusUpdateInDto(VisibleStatus visibleStatus) {
+public record AdminBrandVisibleStatusUpdateInDto(VisibleStatus visibleStatus) {
 }

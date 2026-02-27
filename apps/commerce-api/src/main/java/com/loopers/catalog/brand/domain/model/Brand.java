@@ -24,7 +24,7 @@ public class Brand {
 	 * - deletedAt: 삭제 일시 (soft delete)
 	 */
 
-	private Long id;
+	private final Long id;
 	private BrandName name;
 	private BrandDescription description;
 	private VisibleStatus visibleStatus;
@@ -102,6 +102,11 @@ public class Brand {
 
 	// 7. 삭제 가능 여부 검증
 	public void validateDeletable(boolean hasActiveProducts) {
+
+		// 노출 중인 브랜드는 삭제 불가
+		if (isVisible()) {
+			throw new CoreException(ErrorType.BRAND_IS_VISIBLE);
+		}
 
 		// 활성 상품 존재 시 삭제 불가
 		if (hasActiveProducts) {

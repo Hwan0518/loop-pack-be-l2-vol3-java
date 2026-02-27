@@ -1,9 +1,9 @@
 package com.loopers.catalog.brand.application.service;
 
 
-import com.loopers.catalog.brand.application.dto.in.BrandCreateInDto;
-import com.loopers.catalog.brand.application.dto.in.BrandUpdateInDto;
-import com.loopers.catalog.brand.application.dto.in.BrandVisibleStatusUpdateInDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandCreateInDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandUpdateInDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandVisibleStatusUpdateInDto;
 import com.loopers.catalog.brand.domain.event.BrandDeletedEvent;
 import com.loopers.catalog.brand.domain.model.Brand;
 import com.loopers.catalog.brand.domain.model.enums.VisibleStatus;
@@ -59,7 +59,7 @@ class BrandCommandServiceTest {
 		@DisplayName("[BrandCommandService.createBrand()] 유효한 입력 -> Brand 생성 후 저장. ID 할당, visibleStatus=HIDDEN")
 		void createBrandSuccess() {
 			// Arrange
-			BrandCreateInDto inDto = new BrandCreateInDto("나이키", "스포츠 브랜드");
+			AdminBrandCreateInDto inDto = new AdminBrandCreateInDto("나이키", "스포츠 브랜드");
 			given(brandCommandRepository.save(any(Brand.class))).willAnswer(invocation -> {
 				Brand saved = invocation.getArgument(0);
 				return Brand.reconstruct(1L, saved.getName(), saved.getDescription(),
@@ -86,7 +86,7 @@ class BrandCommandServiceTest {
 		@DisplayName("[BrandCommandService.createBrand()] description이 null -> Brand 생성. description=null")
 		void createBrandWithNullDescription() {
 			// Arrange
-			BrandCreateInDto inDto = new BrandCreateInDto("나이키", null);
+			AdminBrandCreateInDto inDto = new AdminBrandCreateInDto("나이키", null);
 			given(brandCommandRepository.save(any(Brand.class))).willAnswer(invocation -> {
 				Brand saved = invocation.getArgument(0);
 				return Brand.reconstruct(1L, saved.getName(), saved.getDescription(),
@@ -116,7 +116,7 @@ class BrandCommandServiceTest {
 			// Arrange
 			Brand brand = Brand.reconstruct(1L, BrandName.from("나이키"),
 				BrandDescription.from("스포츠 브랜드"), VisibleStatus.HIDDEN, null);
-			BrandUpdateInDto inDto = new BrandUpdateInDto("아디다스", "독일 스포츠 브랜드", null);
+			AdminBrandUpdateInDto inDto = new AdminBrandUpdateInDto("아디다스", "독일 스포츠 브랜드", null);
 			given(brandCommandRepository.save(any(Brand.class))).willAnswer(invocation ->
 				invocation.getArgument(0)
 			);
@@ -140,7 +140,7 @@ class BrandCommandServiceTest {
 			// Arrange
 			Brand brand = Brand.reconstruct(1L, BrandName.from("나이키"),
 				BrandDescription.from("스포츠 브랜드"), VisibleStatus.HIDDEN, null);
-			BrandUpdateInDto inDto = new BrandUpdateInDto("나이키", "스포츠 브랜드", VisibleStatus.VISIBLE);
+			AdminBrandUpdateInDto inDto = new AdminBrandUpdateInDto("나이키", "스포츠 브랜드", VisibleStatus.VISIBLE);
 			given(brandCommandRepository.save(any(Brand.class))).willAnswer(invocation ->
 				invocation.getArgument(0)
 			);
@@ -212,7 +212,7 @@ class BrandCommandServiceTest {
 			// Arrange
 			Brand brand = Brand.reconstruct(1L, BrandName.from("나이키"),
 				BrandDescription.from("스포츠 브랜드"), VisibleStatus.HIDDEN, null);
-			BrandVisibleStatusUpdateInDto inDto = new BrandVisibleStatusUpdateInDto(VisibleStatus.VISIBLE);
+			AdminBrandVisibleStatusUpdateInDto inDto = new AdminBrandVisibleStatusUpdateInDto(VisibleStatus.VISIBLE);
 			given(brandCommandRepository.save(any(Brand.class))).willAnswer(invocation ->
 				invocation.getArgument(0)
 			);
@@ -232,7 +232,7 @@ class BrandCommandServiceTest {
 			// Arrange
 			Brand brand = Brand.reconstruct(1L, BrandName.from("나이키"),
 				BrandDescription.from("스포츠 브랜드"), VisibleStatus.HIDDEN, null);
-			BrandVisibleStatusUpdateInDto inDto = new BrandVisibleStatusUpdateInDto(null);
+			AdminBrandVisibleStatusUpdateInDto inDto = new AdminBrandVisibleStatusUpdateInDto(null);
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,

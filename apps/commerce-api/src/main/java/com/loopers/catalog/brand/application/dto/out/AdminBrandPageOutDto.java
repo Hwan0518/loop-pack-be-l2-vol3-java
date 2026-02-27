@@ -11,5 +11,5 @@ import java.util.List;
  * - size: 페이지 크기
  * - totalElements: 전체 요소 수
  */
-public record BrandAdminPageOutDto(List<BrandAdminOutDto> content, int page, int size, long totalElements) {
+public record AdminBrandPageOutDto(List<AdminBrandOutDto> content, int page, int size, long totalElements) {
 }

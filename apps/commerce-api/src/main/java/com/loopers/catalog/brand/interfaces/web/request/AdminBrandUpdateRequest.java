@@ -11,7 +11,7 @@ import jakarta.validation.constraints.NotBlank;
  * - description: 브랜드 설명 (선택)
  * - visibleStatus: 노출 상태 (선택, null이면 변경하지 않음)
  */
-public record BrandUpdateRequest(
+public record AdminBrandUpdateRequest(
 	@NotBlank(message = "브랜드명은 필수입니다.")
 	String name,
 

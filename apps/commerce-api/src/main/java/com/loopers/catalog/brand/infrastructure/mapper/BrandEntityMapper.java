@@ -18,15 +18,20 @@ public class BrandEntityMapper {
 
 	// 1. Domain -> Entity 변환
 	public BrandEntity toEntity(Brand brand) {
+
+		// 엔티티 생성
 		BrandEntity entity = BrandEntity.of(
 			brand.getId(),
 			brand.getName().value(),
 			brand.getDescription() != null ? brand.getDescription().value() : null,
 			brand.getVisibleStatus()
 		);
+
+		// 소프트 삭제 상태 반영
 		if (brand.getDeletedAt() != null) {
 			entity.delete();
 		}
+
 		return entity;
 	}
 

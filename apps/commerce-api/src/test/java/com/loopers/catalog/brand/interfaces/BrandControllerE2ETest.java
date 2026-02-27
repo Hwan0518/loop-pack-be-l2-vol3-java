@@ -2,9 +2,9 @@ package com.loopers.catalog.brand.interfaces;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.catalog.brand.interfaces.web.request.BrandCreateRequest;
-import com.loopers.catalog.brand.interfaces.web.request.BrandUpdateRequest;
-import com.loopers.catalog.brand.interfaces.web.request.BrandVisibleStatusUpdateRequest;
+import com.loopers.catalog.brand.interfaces.web.request.AdminBrandCreateRequest;
+import com.loopers.catalog.brand.interfaces.web.request.AdminBrandUpdateRequest;
+import com.loopers.catalog.brand.interfaces.web.request.AdminBrandVisibleStatusUpdateRequest;
 import com.loopers.catalog.brand.domain.model.enums.VisibleStatus;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
@@ -183,7 +183,7 @@ class BrandControllerE2ETest {
 		void getBrandSoftDeleted() throws Exception {
 			// Arrange
 			Long brandId = createBrandAndGetId("나이키", "스포츠 브랜드");
-			updateVisibleStatus(brandId, VisibleStatus.VISIBLE);
+			updateVisibleStatus(brandId, VisibleStatus.HIDDEN);
 			deleteBrand(brandId);
 
 			// Act & Assert
@@ -336,7 +336,7 @@ class BrandControllerE2ETest {
 		@DisplayName("[POST /api-admin/v1/brands] 유효한 요청 -> 201 Created. visibleStatus=HIDDEN, id, name, description 포함")
 		void createBrandSuccess() throws Exception {
 			// Arrange
-			BrandCreateRequest request = new BrandCreateRequest("나이키", "스포츠 브랜드");
+			AdminBrandCreateRequest request = new AdminBrandCreateRequest("나이키", "스포츠 브랜드");
 
 			// Act & Assert
 			mockMvc.perform(post("/api-admin/v1/brands")
@@ -355,7 +355,7 @@ class BrandControllerE2ETest {
 		@DisplayName("[POST /api-admin/v1/brands] LDAP 헤더 누락 -> 401 Unauthorized")
 		void createBrandUnauthorized() throws Exception {
 			// Arrange
-			BrandCreateRequest request = new BrandCreateRequest("나이키", "스포츠 브랜드");
+			AdminBrandCreateRequest request = new AdminBrandCreateRequest("나이키", "스포츠 브랜드");
 
 			// Act & Assert
 			mockMvc.perform(post("/api-admin/v1/brands")
@@ -390,7 +390,7 @@ class BrandControllerE2ETest {
 		void createBrandFailNameTooLong() throws Exception {
 			// Arrange
 			String longName = "가".repeat(101);
-			BrandCreateRequest request = new BrandCreateRequest(longName, "설명");
+			AdminBrandCreateRequest request = new AdminBrandCreateRequest(longName, "설명");
 
 			// Act & Assert
 			mockMvc.perform(post("/api-admin/v1/brands")
@@ -406,7 +406,7 @@ class BrandControllerE2ETest {
 		@DisplayName("[POST /api-admin/v1/brands] description null -> 201 Created. description=null")
 		void createBrandWithNullDescription() throws Exception {
 			// Arrange
-			BrandCreateRequest request = new BrandCreateRequest("나이키", null);
+			AdminBrandCreateRequest request = new AdminBrandCreateRequest("나이키", null);
 
 			// Act & Assert
 			mockMvc.perform(post("/api-admin/v1/brands")
@@ -424,7 +424,7 @@ class BrandControllerE2ETest {
 		@DisplayName("[POST /api-admin/v1/brands] name 앞뒤 공백 -> trim 처리 후 201 Created")
 		void createBrandTrimsName() throws Exception {
 			// Arrange
-			BrandCreateRequest request = new BrandCreateRequest("  나이키  ", "스포츠 브랜드");
+			AdminBrandCreateRequest request = new AdminBrandCreateRequest("  나이키  ", "스포츠 브랜드");
 
 			// Act & Assert
 			mockMvc.perform(post("/api-admin/v1/brands")
@@ -447,7 +447,7 @@ class BrandControllerE2ETest {
 		void updateBrandSuccess() throws Exception {
 			// Arrange
 			Long brandId = createBrandAndGetId("나이키", "스포츠 브랜드");
-			BrandUpdateRequest request = new BrandUpdateRequest("아디다스", "독일 스포츠 브랜드", null);
+			AdminBrandUpdateRequest request = new AdminBrandUpdateRequest("아디다스", "독일 스포츠 브랜드", null);
 
 			// Act & Assert
 			mockMvc.perform(put("/api-admin/v1/brands/{brandId}", brandId)
@@ -467,7 +467,7 @@ class BrandControllerE2ETest {
 		void updateBrandWithVisibleStatus() throws Exception {
 			// Arrange
 			Long brandId = createBrandAndGetId("나이키", "스포츠 브랜드");
-			BrandUpdateRequest request = new BrandUpdateRequest("나이키", "스포츠 브랜드", VisibleStatus.VISIBLE);
+			AdminBrandUpdateRequest request = new AdminBrandUpdateRequest("나이키", "스포츠 브랜드", VisibleStatus.VISIBLE);
 
 			// Act & Assert
 			mockMvc.perform(put("/api-admin/v1/brands/{brandId}", brandId)
@@ -483,7 +483,7 @@ class BrandControllerE2ETest {
 		@DisplayName("[PUT /api-admin/v1/brands/{brandId}] LDAP 헤더 누락 -> 401 Unauthorized")
 		void updateBrandUnauthorized() throws Exception {
 			// Arrange
-			BrandUpdateRequest request = new BrandUpdateRequest("아디다스", "독일 스포츠 브랜드", null);
+			AdminBrandUpdateRequest request = new AdminBrandUpdateRequest("아디다스", "독일 스포츠 브랜드", null);
 
 			// Act & Assert
 			mockMvc.perform(put("/api-admin/v1/brands/{brandId}", 1L)
@@ -498,7 +498,7 @@ class BrandControllerE2ETest {
 		@DisplayName("[PUT /api-admin/v1/brands/{brandId}] 존재하지 않는 ID -> 404 Not Found. BRAND_NOT_FOUND")
 		void updateBrandNotFound() throws Exception {
 			// Arrange
-			BrandUpdateRequest request = new BrandUpdateRequest("아디다스", "독일 스포츠 브랜드", null);
+			AdminBrandUpdateRequest request = new AdminBrandUpdateRequest("아디다스", "독일 스포츠 브랜드", null);
 
 			// Act & Assert
 			mockMvc.perform(put("/api-admin/v1/brands/{brandId}", 999L)
@@ -541,7 +541,7 @@ class BrandControllerE2ETest {
 		void updateVisibleStatusToVisible() throws Exception {
 			// Arrange
 			Long brandId = createBrandAndGetId("나이키", "스포츠 브랜드");
-			BrandVisibleStatusUpdateRequest request = new BrandVisibleStatusUpdateRequest(VisibleStatus.VISIBLE);
+			AdminBrandVisibleStatusUpdateRequest request = new AdminBrandVisibleStatusUpdateRequest(VisibleStatus.VISIBLE);
 
 			// Act & Assert
 			mockMvc.perform(patch("/api-admin/v1/brands/{brandId}/visible-status", brandId)
@@ -561,7 +561,7 @@ class BrandControllerE2ETest {
 			// Arrange
 			Long brandId = createBrandAndGetId("나이키", "스포츠 브랜드");
 			updateVisibleStatus(brandId, VisibleStatus.VISIBLE);
-			BrandVisibleStatusUpdateRequest request = new BrandVisibleStatusUpdateRequest(VisibleStatus.HIDDEN);
+			AdminBrandVisibleStatusUpdateRequest request = new AdminBrandVisibleStatusUpdateRequest(VisibleStatus.HIDDEN);
 
 			// Act & Assert
 			mockMvc.perform(patch("/api-admin/v1/brands/{brandId}/visible-status", brandId)
@@ -597,7 +597,7 @@ class BrandControllerE2ETest {
 		@DisplayName("[PATCH /api-admin/v1/brands/{brandId}/visible-status] LDAP 헤더 누락 -> 401 Unauthorized")
 		void updateVisibleStatusUnauthorized() throws Exception {
 			// Arrange
-			BrandVisibleStatusUpdateRequest request = new BrandVisibleStatusUpdateRequest(VisibleStatus.VISIBLE);
+			AdminBrandVisibleStatusUpdateRequest request = new AdminBrandVisibleStatusUpdateRequest(VisibleStatus.VISIBLE);
 
 			// Act & Assert
 			mockMvc.perform(patch("/api-admin/v1/brands/{brandId}/visible-status", 1L)
@@ -612,7 +612,7 @@ class BrandControllerE2ETest {
 		@DisplayName("[PATCH /api-admin/v1/brands/{brandId}/visible-status] 존재하지 않는 ID -> 404 Not Found")
 		void updateVisibleStatusNotFound() throws Exception {
 			// Arrange
-			BrandVisibleStatusUpdateRequest request = new BrandVisibleStatusUpdateRequest(VisibleStatus.VISIBLE);
+			AdminBrandVisibleStatusUpdateRequest request = new AdminBrandVisibleStatusUpdateRequest(VisibleStatus.VISIBLE);
 
 			// Act & Assert
 			mockMvc.perform(patch("/api-admin/v1/brands/{brandId}/visible-status", 999L)
@@ -648,7 +648,7 @@ class BrandControllerE2ETest {
 		void deleteBrandThenGetReturns404() throws Exception {
 			// Arrange
 			Long brandId = createBrandAndGetId("나이키", "스포츠 브랜드");
-			updateVisibleStatus(brandId, VisibleStatus.VISIBLE);
+			updateVisibleStatus(brandId, VisibleStatus.HIDDEN);
 			deleteBrand(brandId);
 
 			// Act & Assert
@@ -665,6 +665,21 @@ class BrandControllerE2ETest {
 			mockMvc.perform(delete("/api-admin/v1/brands/{brandId}", 1L))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value(ErrorType.AUTHENTICATION_FAILED.getCode()));
+		}
+
+
+		@Test
+		@DisplayName("[DELETE /api-admin/v1/brands/{brandId}] VISIBLE 브랜드 삭제 -> 409 Conflict. BRAND_IS_VISIBLE")
+		void deleteBrandFailWhenVisible() throws Exception {
+			// Arrange
+			Long brandId = createBrandAndGetId("나이키", "스포츠 브랜드");
+			updateVisibleStatus(brandId, VisibleStatus.VISIBLE);
+
+			// Act & Assert
+			mockMvc.perform(delete("/api-admin/v1/brands/{brandId}", brandId)
+					.header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value(ErrorType.BRAND_IS_VISIBLE.getCode()));
 		}
 
 
@@ -686,7 +701,7 @@ class BrandControllerE2ETest {
 	 */
 
 	private void createBrand(String name, String description) throws Exception {
-		BrandCreateRequest request = new BrandCreateRequest(name, description);
+		AdminBrandCreateRequest request = new AdminBrandCreateRequest(name, description);
 		mockMvc.perform(post("/api-admin/v1/brands")
 				.header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE)
 				.contentType(MediaType.APPLICATION_JSON)
@@ -696,7 +711,7 @@ class BrandControllerE2ETest {
 
 
 	private Long createBrandAndGetId(String name, String description) throws Exception {
-		BrandCreateRequest request = new BrandCreateRequest(name, description);
+		AdminBrandCreateRequest request = new AdminBrandCreateRequest(name, description);
 		MvcResult result = mockMvc.perform(post("/api-admin/v1/brands")
 				.header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE)
 				.contentType(MediaType.APPLICATION_JSON)
@@ -708,7 +723,7 @@ class BrandControllerE2ETest {
 
 
 	private void updateVisibleStatus(Long brandId, VisibleStatus visibleStatus) throws Exception {
-		BrandVisibleStatusUpdateRequest request = new BrandVisibleStatusUpdateRequest(visibleStatus);
+		AdminBrandVisibleStatusUpdateRequest request = new AdminBrandVisibleStatusUpdateRequest(visibleStatus);
 		mockMvc.perform(patch("/api-admin/v1/brands/{brandId}/visible-status", brandId)
 				.header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE)
 				.contentType(MediaType.APPLICATION_JSON)

@@ -1,15 +1,15 @@
 package com.loopers.catalog.brand.interfaces.web.controller;
 
 
-import com.loopers.catalog.brand.application.dto.in.BrandCreateInDto;
-import com.loopers.catalog.brand.application.dto.in.BrandUpdateInDto;
-import com.loopers.catalog.brand.application.dto.in.BrandVisibleStatusUpdateInDto;
-import com.loopers.catalog.brand.application.dto.out.BrandAdminDetailOutDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandCreateInDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandUpdateInDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandVisibleStatusUpdateInDto;
+import com.loopers.catalog.brand.application.dto.out.AdminBrandDetailOutDto;
 import com.loopers.catalog.brand.application.facade.BrandCommandFacade;
-import com.loopers.catalog.brand.interfaces.web.request.BrandCreateRequest;
-import com.loopers.catalog.brand.interfaces.web.request.BrandUpdateRequest;
-import com.loopers.catalog.brand.interfaces.web.request.BrandVisibleStatusUpdateRequest;
-import com.loopers.catalog.brand.interfaces.web.response.BrandAdminDetailResponse;
+import com.loopers.catalog.brand.interfaces.web.request.AdminBrandCreateRequest;
+import com.loopers.catalog.brand.interfaces.web.request.AdminBrandUpdateRequest;
+import com.loopers.catalog.brand.interfaces.web.request.AdminBrandVisibleStatusUpdateRequest;
+import com.loopers.catalog.brand.interfaces.web.response.AdminBrandDetailResponse;
 import com.loopers.support.common.AdminHeaderValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -37,22 +37,22 @@ public class BrandAdminCommandController {
 
 	// 1. 브랜드 생성
 	@PostMapping
-	public ResponseEntity<BrandAdminDetailResponse> createBrand(
+	public ResponseEntity<AdminBrandDetailResponse> createBrand(
 		@RequestHeader(value = "X-Loopers-Ldap", required = false) String ldapHeader,
-		@Valid @RequestBody BrandCreateRequest request
+		@Valid @RequestBody AdminBrandCreateRequest request
 	) {
 
 		// LDAP 인증
 		AdminHeaderValidator.validate(ldapHeader);
 
 		// InDto 생성
-		BrandCreateInDto inDto = new BrandCreateInDto(request.name(), request.description());
+		AdminBrandCreateInDto inDto = new AdminBrandCreateInDto(request.name(), request.description());
 
 		// 브랜드 생성
-		BrandAdminDetailOutDto outDto = brandCommandFacade.createBrand(inDto);
+		AdminBrandDetailOutDto outDto = brandCommandFacade.createBrand(inDto);
 
 		// 응답 변환
-		BrandAdminDetailResponse response = BrandAdminDetailResponse.from(outDto);
+		AdminBrandDetailResponse response = AdminBrandDetailResponse.from(outDto);
 
 		// 201 Created 반환
 		return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -61,25 +61,25 @@ public class BrandAdminCommandController {
 
 	// 2. 브랜드 수정
 	@PutMapping("/{brandId}")
-	public ResponseEntity<BrandAdminDetailResponse> updateBrand(
+	public ResponseEntity<AdminBrandDetailResponse> updateBrand(
 		@RequestHeader(value = "X-Loopers-Ldap", required = false) String ldapHeader,
 		@PathVariable Long brandId,
-		@Valid @RequestBody BrandUpdateRequest request
+		@Valid @RequestBody AdminBrandUpdateRequest request
 	) {
 
 		// LDAP 인증
 		AdminHeaderValidator.validate(ldapHeader);
 
 		// InDto 생성
-		BrandUpdateInDto inDto = new BrandUpdateInDto(
+		AdminBrandUpdateInDto inDto = new AdminBrandUpdateInDto(
 			request.name(), request.description(), request.visibleStatus()
 		);
 
 		// 브랜드 수정
-		BrandAdminDetailOutDto outDto = brandCommandFacade.updateBrand(brandId, inDto);
+		AdminBrandDetailOutDto outDto = brandCommandFacade.updateBrand(brandId, inDto);
 
 		// 응답 변환
-		BrandAdminDetailResponse response = BrandAdminDetailResponse.from(outDto);
+		AdminBrandDetailResponse response = AdminBrandDetailResponse.from(outDto);
 
 		// 200 OK 반환
 		return ResponseEntity.ok(response);
@@ -106,23 +106,23 @@ public class BrandAdminCommandController {
 
 	// 4. 브랜드 노출 상태 변경
 	@PatchMapping("/{brandId}/visible-status")
-	public ResponseEntity<BrandAdminDetailResponse> updateVisibleStatus(
+	public ResponseEntity<AdminBrandDetailResponse> updateVisibleStatus(
 		@RequestHeader(value = "X-Loopers-Ldap", required = false) String ldapHeader,
 		@PathVariable Long brandId,
-		@Valid @RequestBody BrandVisibleStatusUpdateRequest request
+		@Valid @RequestBody AdminBrandVisibleStatusUpdateRequest request
 	) {
 
 		// LDAP 인증
 		AdminHeaderValidator.validate(ldapHeader);
 
 		// InDto 생성
-		BrandVisibleStatusUpdateInDto inDto = new BrandVisibleStatusUpdateInDto(request.visibleStatus());
+		AdminBrandVisibleStatusUpdateInDto inDto = new AdminBrandVisibleStatusUpdateInDto(request.visibleStatus());
 
 		// 노출 상태 변경
-		BrandAdminDetailOutDto outDto = brandCommandFacade.updateVisibleStatus(brandId, inDto);
+		AdminBrandDetailOutDto outDto = brandCommandFacade.updateVisibleStatus(brandId, inDto);
 
 		// 응답 변환
-		BrandAdminDetailResponse response = BrandAdminDetailResponse.from(outDto);
+		AdminBrandDetailResponse response = AdminBrandDetailResponse.from(outDto);
 
 		// 200 OK 반환
 		return ResponseEntity.ok(response);

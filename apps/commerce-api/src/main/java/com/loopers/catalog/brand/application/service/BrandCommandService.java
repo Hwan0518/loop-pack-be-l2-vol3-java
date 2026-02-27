@@ -1,9 +1,9 @@
 package com.loopers.catalog.brand.application.service;
 
 
-import com.loopers.catalog.brand.application.dto.in.BrandCreateInDto;
-import com.loopers.catalog.brand.application.dto.in.BrandUpdateInDto;
-import com.loopers.catalog.brand.application.dto.in.BrandVisibleStatusUpdateInDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandCreateInDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandUpdateInDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandVisibleStatusUpdateInDto;
 import com.loopers.catalog.brand.domain.event.BrandDeletedEvent;
 import com.loopers.catalog.brand.domain.model.Brand;
 import com.loopers.catalog.brand.domain.model.vo.BrandDescription;
@@ -35,7 +35,7 @@ public class BrandCommandService {
 
 	// 1. 브랜드 생성
 	@Transactional
-	public Brand createBrand(BrandCreateInDto inDto) {
+	public Brand createBrand(AdminBrandCreateInDto inDto) {
 
 		// InDto → VO 생성
 		BrandName name = BrandName.create(inDto.name());
@@ -51,7 +51,7 @@ public class BrandCommandService {
 
 	// 2. 브랜드 수정
 	@Transactional
-	public Brand updateBrand(Brand brand, BrandUpdateInDto inDto) {
+	public Brand updateBrand(Brand brand, AdminBrandUpdateInDto inDto) {
 
 		// 브랜드명 변경
 		brand.changeName(BrandName.create(inDto.name()));
@@ -86,7 +86,7 @@ public class BrandCommandService {
 
 	// 4. 노출 상태 변경
 	@Transactional
-	public Brand updateVisibleStatus(Brand brand, BrandVisibleStatusUpdateInDto inDto) {
+	public Brand updateVisibleStatus(Brand brand, AdminBrandVisibleStatusUpdateInDto inDto) {
 
 		// 노출 상태 변경
 		brand.changeVisibleStatus(inDto.visibleStatus());

@@ -10,5 +10,5 @@ import com.loopers.catalog.brand.domain.model.enums.VisibleStatus;
  * - description: 브랜드 설명
  * - visibleStatus: 노출 상태 (nullable, null이면 변경하지 않음)
  */
-public record BrandUpdateInDto(String name, String description, VisibleStatus visibleStatus) {
+public record AdminBrandUpdateInDto(String name, String description, VisibleStatus visibleStatus) {
 }

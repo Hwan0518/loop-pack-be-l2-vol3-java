@@ -1,10 +1,10 @@
 package com.loopers.catalog.brand.application.facade;
 
 
-import com.loopers.catalog.brand.application.dto.in.BrandCreateInDto;
-import com.loopers.catalog.brand.application.dto.in.BrandUpdateInDto;
-import com.loopers.catalog.brand.application.dto.in.BrandVisibleStatusUpdateInDto;
-import com.loopers.catalog.brand.application.dto.out.BrandAdminDetailOutDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandCreateInDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandUpdateInDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandVisibleStatusUpdateInDto;
+import com.loopers.catalog.brand.application.dto.out.AdminBrandDetailOutDto;
 import com.loopers.catalog.brand.application.service.BrandCommandService;
 import com.loopers.catalog.brand.application.service.BrandQueryService;
 import com.loopers.catalog.brand.domain.model.Brand;
@@ -34,19 +34,19 @@ public class BrandCommandFacade {
 
 	// 1. 브랜드 생성
 	@Transactional
-	public BrandAdminDetailOutDto createBrand(BrandCreateInDto inDto) {
+	public AdminBrandDetailOutDto createBrand(AdminBrandCreateInDto inDto) {
 
 		// 브랜드 생성
 		Brand savedBrand = brandCommandService.createBrand(inDto);
 
 		// DTO 변환
-		return BrandAdminDetailOutDto.from(savedBrand);
+		return AdminBrandDetailOutDto.from(savedBrand);
 	}
 
 
 	// 2. 브랜드 수정
 	@Transactional
-	public BrandAdminDetailOutDto updateBrand(Long id, BrandUpdateInDto inDto) {
+	public AdminBrandDetailOutDto updateBrand(Long id, AdminBrandUpdateInDto inDto) {
 
 		// 브랜드 조회
 		Brand brand = brandQueryService.getBrandById(id);
@@ -55,7 +55,7 @@ public class BrandCommandFacade {
 		Brand updatedBrand = brandCommandService.updateBrand(brand, inDto);
 
 		// DTO 변환
-		return BrandAdminDetailOutDto.from(updatedBrand);
+		return AdminBrandDetailOutDto.from(updatedBrand);
 	}
 
 
@@ -76,7 +76,7 @@ public class BrandCommandFacade {
 
 	// 4. 브랜드 노출 상태 변경
 	@Transactional
-	public BrandAdminDetailOutDto updateVisibleStatus(Long id, BrandVisibleStatusUpdateInDto inDto) {
+	public AdminBrandDetailOutDto updateVisibleStatus(Long id, AdminBrandVisibleStatusUpdateInDto inDto) {
 
 		// 브랜드 조회
 		Brand brand = brandQueryService.getBrandById(id);
@@ -85,7 +85,7 @@ public class BrandCommandFacade {
 		Brand updatedBrand = brandCommandService.updateVisibleStatus(brand, inDto);
 
 		// DTO 변환
-		return BrandAdminDetailOutDto.from(updatedBrand);
+		return AdminBrandDetailOutDto.from(updatedBrand);
 	}
 
 }

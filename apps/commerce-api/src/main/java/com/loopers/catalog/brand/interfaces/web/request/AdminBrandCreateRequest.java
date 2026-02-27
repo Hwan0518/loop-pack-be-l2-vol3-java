@@ -9,7 +9,7 @@ import jakarta.validation.constraints.NotBlank;
  * - name: 브랜드명 (필수)
  * - description: 브랜드 설명 (선택)
  */
-public record BrandCreateRequest(
+public record AdminBrandCreateRequest(
 	@NotBlank(message = "브랜드명은 필수입니다.")
 	String name,
 

@@ -1,10 +1,10 @@
 package com.loopers.catalog.brand.application.facade;
 
 
-import com.loopers.catalog.brand.application.dto.in.BrandCreateInDto;
-import com.loopers.catalog.brand.application.dto.in.BrandUpdateInDto;
-import com.loopers.catalog.brand.application.dto.in.BrandVisibleStatusUpdateInDto;
-import com.loopers.catalog.brand.application.dto.out.BrandAdminDetailOutDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandCreateInDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandUpdateInDto;
+import com.loopers.catalog.brand.application.dto.in.AdminBrandVisibleStatusUpdateInDto;
+import com.loopers.catalog.brand.application.dto.out.AdminBrandDetailOutDto;
 import com.loopers.catalog.brand.application.service.BrandCommandService;
 import com.loopers.catalog.brand.application.service.BrandQueryService;
 import com.loopers.catalog.brand.domain.model.Brand;
@@ -60,16 +60,16 @@ class BrandCommandFacadeTest {
 	class CreateBrandTest {
 
 		@Test
-		@DisplayName("[BrandCommandFacade.createBrand()] 유효한 입력 -> BrandAdminDetailOutDto 반환. visibleStatus=HIDDEN")
+		@DisplayName("[BrandCommandFacade.createBrand()] 유효한 입력 -> AdminBrandDetailOutDto 반환. visibleStatus=HIDDEN")
 		void createBrandSuccess() {
 			// Arrange
-			BrandCreateInDto inDto = new BrandCreateInDto("나이키", "스포츠 브랜드");
+			AdminBrandCreateInDto inDto = new AdminBrandCreateInDto("나이키", "스포츠 브랜드");
 			Brand savedBrand = Brand.reconstruct(1L, BrandName.from("나이키"),
 				BrandDescription.from("스포츠 브랜드"), VisibleStatus.HIDDEN, null);
 			given(brandCommandService.createBrand(inDto)).willReturn(savedBrand);
 
 			// Act
-			BrandAdminDetailOutDto result = brandCommandFacade.createBrand(inDto);
+			AdminBrandDetailOutDto result = brandCommandFacade.createBrand(inDto);
 
 			// Assert
 			assertAll(
@@ -89,12 +89,12 @@ class BrandCommandFacadeTest {
 	class UpdateBrandTest {
 
 		@Test
-		@DisplayName("[BrandCommandFacade.updateBrand()] 유효한 입력 -> 조회 후 수정. BrandAdminDetailOutDto 반환")
+		@DisplayName("[BrandCommandFacade.updateBrand()] 유효한 입력 -> 조회 후 수정. AdminBrandDetailOutDto 반환")
 		void updateBrandSuccess() {
 			// Arrange
 			Brand brand = Brand.reconstruct(1L, BrandName.from("나이키"),
 				BrandDescription.from("스포츠 브랜드"), VisibleStatus.HIDDEN, null);
-			BrandUpdateInDto inDto = new BrandUpdateInDto("아디다스", "독일 스포츠 브랜드", null);
+			AdminBrandUpdateInDto inDto = new AdminBrandUpdateInDto("아디다스", "독일 스포츠 브랜드", null);
 			Brand updatedBrand = Brand.reconstruct(1L, BrandName.from("아디다스"),
 				BrandDescription.from("독일 스포츠 브랜드"), VisibleStatus.HIDDEN, null);
 
@@ -102,7 +102,7 @@ class BrandCommandFacadeTest {
 			given(brandCommandService.updateBrand(brand, inDto)).willReturn(updatedBrand);
 
 			// Act
-			BrandAdminDetailOutDto result = brandCommandFacade.updateBrand(1L, inDto);
+			AdminBrandDetailOutDto result = brandCommandFacade.updateBrand(1L, inDto);
 
 			// Assert
 			assertAll(
@@ -120,7 +120,7 @@ class BrandCommandFacadeTest {
 		@DisplayName("[BrandCommandFacade.updateBrand()] 존재하지 않는 ID -> BRAND_NOT_FOUND 예외 전파")
 		void updateBrandNotFound() {
 			// Arrange
-			BrandUpdateInDto inDto = new BrandUpdateInDto("아디다스", "독일 스포츠 브랜드", null);
+			AdminBrandUpdateInDto inDto = new AdminBrandUpdateInDto("아디다스", "독일 스포츠 브랜드", null);
 			given(brandQueryService.getBrandById(999L))
 				.willThrow(new CoreException(ErrorType.BRAND_NOT_FOUND));
 
@@ -210,12 +210,12 @@ class BrandCommandFacadeTest {
 	class UpdateVisibleStatusTest {
 
 		@Test
-		@DisplayName("[BrandCommandFacade.updateVisibleStatus()] VISIBLE -> 조회 후 노출 상태 변경. BrandAdminDetailOutDto 반환")
+		@DisplayName("[BrandCommandFacade.updateVisibleStatus()] VISIBLE -> 조회 후 노출 상태 변경. AdminBrandDetailOutDto 반환")
 		void updateVisibleStatusSuccess() {
 			// Arrange
 			Brand brand = Brand.reconstruct(1L, BrandName.from("나이키"),
 				BrandDescription.from("스포츠 브랜드"), VisibleStatus.HIDDEN, null);
-			BrandVisibleStatusUpdateInDto inDto = new BrandVisibleStatusUpdateInDto(VisibleStatus.VISIBLE);
+			AdminBrandVisibleStatusUpdateInDto inDto = new AdminBrandVisibleStatusUpdateInDto(VisibleStatus.VISIBLE);
 			Brand updatedBrand = Brand.reconstruct(1L, BrandName.from("나이키"),
 				BrandDescription.from("스포츠 브랜드"), VisibleStatus.VISIBLE, null);
 
@@ -223,7 +223,7 @@ class BrandCommandFacadeTest {
 			given(brandCommandService.updateVisibleStatus(brand, inDto)).willReturn(updatedBrand);
 
 			// Act
-			BrandAdminDetailOutDto result = brandCommandFacade.updateVisibleStatus(1L, inDto);
+			AdminBrandDetailOutDto result = brandCommandFacade.updateVisibleStatus(1L, inDto);
 
 			// Assert
 			assertAll(
@@ -239,7 +239,7 @@ class BrandCommandFacadeTest {
 		@DisplayName("[BrandCommandFacade.updateVisibleStatus()] 존재하지 않는 ID -> BRAND_NOT_FOUND 예외 전파")
 		void updateVisibleStatusNotFound() {
 			// Arrange
-			BrandVisibleStatusUpdateInDto inDto = new BrandVisibleStatusUpdateInDto(VisibleStatus.VISIBLE);
+			AdminBrandVisibleStatusUpdateInDto inDto = new AdminBrandVisibleStatusUpdateInDto(VisibleStatus.VISIBLE);
 			given(brandQueryService.getBrandById(999L))
 				.willThrow(new CoreException(ErrorType.BRAND_NOT_FOUND));
 

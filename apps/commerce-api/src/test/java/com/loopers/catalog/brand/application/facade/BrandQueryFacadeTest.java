@@ -120,18 +120,18 @@ class BrandQueryFacadeTest {
 	class GetAdminBrandsTest {
 
 		@Test
-		@DisplayName("[BrandQueryFacade.getAdminBrands()] visibleStatus=null -> 전체 조회. BrandAdminPageOutDto 반환")
+		@DisplayName("[BrandQueryFacade.getAdminBrands()] visibleStatus=null -> 전체 조회. AdminBrandPageOutDto 반환")
 		void getAdminBrandsAll() {
 			// Arrange
-			List<BrandAdminOutDto> content = List.of(
-				new BrandAdminOutDto(1L, "나이키", VisibleStatus.HIDDEN),
-				new BrandAdminOutDto(2L, "아디다스", VisibleStatus.VISIBLE)
+			List<AdminBrandOutDto> content = List.of(
+				new AdminBrandOutDto(1L, "나이키", VisibleStatus.HIDDEN),
+				new AdminBrandOutDto(2L, "아디다스", VisibleStatus.VISIBLE)
 			);
-			BrandAdminPageOutDto pageOutDto = new BrandAdminPageOutDto(content, 0, 10, 2);
+			AdminBrandPageOutDto pageOutDto = new AdminBrandPageOutDto(content, 0, 10, 2);
 			given(brandQueryService.getAdminBrandsAsPage(null, 0, 10)).willReturn(pageOutDto);
 
 			// Act
-			BrandAdminPageOutDto result = brandQueryFacade.getAdminBrands(null, 0, 10);
+			AdminBrandPageOutDto result = brandQueryFacade.getAdminBrands(null, 0, 10);
 
 			// Assert
 			assertAll(
@@ -146,14 +146,14 @@ class BrandQueryFacadeTest {
 		@DisplayName("[BrandQueryFacade.getAdminBrands()] visibleStatus=VISIBLE -> VISIBLE 필터 조회")
 		void getAdminBrandsVisible() {
 			// Arrange
-			List<BrandAdminOutDto> content = List.of(
-				new BrandAdminOutDto(2L, "아디다스", VisibleStatus.VISIBLE)
+			List<AdminBrandOutDto> content = List.of(
+				new AdminBrandOutDto(2L, "아디다스", VisibleStatus.VISIBLE)
 			);
-			BrandAdminPageOutDto pageOutDto = new BrandAdminPageOutDto(content, 0, 10, 1);
+			AdminBrandPageOutDto pageOutDto = new AdminBrandPageOutDto(content, 0, 10, 1);
 			given(brandQueryService.getAdminBrandsAsPage(VisibleStatus.VISIBLE, 0, 10)).willReturn(pageOutDto);
 
 			// Act
-			BrandAdminPageOutDto result = brandQueryFacade.getAdminBrands(VisibleStatus.VISIBLE, 0, 10);
+			AdminBrandPageOutDto result = brandQueryFacade.getAdminBrands(VisibleStatus.VISIBLE, 0, 10);
 
 			// Assert
 			assertAll(
@@ -171,7 +171,7 @@ class BrandQueryFacadeTest {
 	class GetAdminBrandTest {
 
 		@Test
-		@DisplayName("[BrandQueryFacade.getAdminBrand()] HIDDEN 브랜드도 조회 가능 -> BrandAdminDetailOutDto 반환")
+		@DisplayName("[BrandQueryFacade.getAdminBrand()] HIDDEN 브랜드도 조회 가능 -> AdminBrandDetailOutDto 반환")
 		void getAdminBrandSuccess() {
 			// Arrange
 			Brand brand = Brand.reconstruct(1L, BrandName.from("나이키"),
@@ -179,7 +179,7 @@ class BrandQueryFacadeTest {
 			given(brandQueryService.getBrandById(1L)).willReturn(brand);
 
 			// Act
-			BrandAdminDetailOutDto result = brandQueryFacade.getAdminBrand(1L);
+			AdminBrandDetailOutDto result = brandQueryFacade.getAdminBrand(1L);
 
 			// Assert
 			assertAll(

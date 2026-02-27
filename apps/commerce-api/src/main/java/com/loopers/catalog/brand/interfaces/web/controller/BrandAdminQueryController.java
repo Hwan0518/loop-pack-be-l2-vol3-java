@@ -1,12 +1,12 @@
 package com.loopers.catalog.brand.interfaces.web.controller;
 
 
-import com.loopers.catalog.brand.application.dto.out.BrandAdminDetailOutDto;
-import com.loopers.catalog.brand.application.dto.out.BrandAdminPageOutDto;
+import com.loopers.catalog.brand.application.dto.out.AdminBrandDetailOutDto;
+import com.loopers.catalog.brand.application.dto.out.AdminBrandPageOutDto;
 import com.loopers.catalog.brand.application.facade.BrandQueryFacade;
 import com.loopers.catalog.brand.domain.model.enums.VisibleStatus;
-import com.loopers.catalog.brand.interfaces.web.response.BrandAdminDetailResponse;
-import com.loopers.catalog.brand.interfaces.web.response.BrandAdminPageResponse;
+import com.loopers.catalog.brand.interfaces.web.response.AdminBrandDetailResponse;
+import com.loopers.catalog.brand.interfaces.web.response.AdminBrandPageResponse;
 import com.loopers.support.common.AdminHeaderValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -30,7 +30,7 @@ public class BrandAdminQueryController {
 
 	// 1. 브랜드 목록 조회 (관리자, 노출상태 필터 옵션)
 	@GetMapping
-	public ResponseEntity<BrandAdminPageResponse> getBrands(
+	public ResponseEntity<AdminBrandPageResponse> getBrands(
 		@RequestHeader(value = "X-Loopers-Ldap", required = false) String ldapHeader,
 		@RequestParam(required = false) VisibleStatus visibleStatus,
 		@RequestParam(defaultValue = "0") int page,
@@ -41,10 +41,10 @@ public class BrandAdminQueryController {
 		AdminHeaderValidator.validate(ldapHeader);
 
 		// 브랜드 목록 조회
-		BrandAdminPageOutDto result = brandQueryFacade.getAdminBrands(visibleStatus, page, size);
+		AdminBrandPageOutDto result = brandQueryFacade.getAdminBrands(visibleStatus, page, size);
 
 		// 응답 변환
-		BrandAdminPageResponse response = BrandAdminPageResponse.from(result);
+		AdminBrandPageResponse response = AdminBrandPageResponse.from(result);
 
 		// 200 OK 반환
 		return ResponseEntity.ok(response);
@@ -53,7 +53,7 @@ public class BrandAdminQueryController {
 
 	// 2. 브랜드 상세 조회 (관리자, HIDDEN 포함)
 	@GetMapping("/{brandId}")
-	public ResponseEntity<BrandAdminDetailResponse> getBrand(
+	public ResponseEntity<AdminBrandDetailResponse> getBrand(
 		@RequestHeader(value = "X-Loopers-Ldap", required = false) String ldapHeader,
 		@PathVariable Long brandId
 	) {
@@ -62,10 +62,10 @@ public class BrandAdminQueryController {
 		AdminHeaderValidator.validate(ldapHeader);
 
 		// 브랜드 상세 조회
-		BrandAdminDetailOutDto outDto = brandQueryFacade.getAdminBrand(brandId);
+		AdminBrandDetailOutDto outDto = brandQueryFacade.getAdminBrand(brandId);
 
 		// 응답 변환
-		BrandAdminDetailResponse response = BrandAdminDetailResponse.from(outDto);
+		AdminBrandDetailResponse response = AdminBrandDetailResponse.from(outDto);
 
 		// 200 OK 반환
 		return ResponseEntity.ok(response);

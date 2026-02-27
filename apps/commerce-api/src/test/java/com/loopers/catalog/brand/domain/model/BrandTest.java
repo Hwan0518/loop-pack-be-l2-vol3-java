@@ -285,6 +285,25 @@ class BrandTest {
 
 
 		@Test
+		@DisplayName("[Brand.validateDeletable()] VISIBLE 브랜드 -> BRAND_IS_VISIBLE 예외. 노출 중인 브랜드는 삭제 불가")
+		void validateDeletableFailWhenVisible() {
+			// Arrange
+			Brand brand = Brand.reconstruct(1L, BrandName.from("나이키"),
+				BrandDescription.from("스포츠 브랜드"), VisibleStatus.VISIBLE, null);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> brand.validateDeletable(false));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BRAND_IS_VISIBLE),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.BRAND_IS_VISIBLE.getMessage())
+			);
+		}
+
+
+		@Test
 		@DisplayName("[Brand.validateDeletable()] 활성 상품 존재 (true) -> BRAND_HAS_ACTIVE_PRODUCTS 예외")
 		void validateDeletableFailWhenHasActiveProducts() {
 			// Arrange

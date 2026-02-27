@@ -1,7 +1,7 @@
 package com.loopers.catalog.brand.application.service;
 
 
-import com.loopers.catalog.brand.application.dto.out.BrandAdminPageOutDto;
+import com.loopers.catalog.brand.application.dto.out.AdminBrandPageOutDto;
 import com.loopers.catalog.brand.application.dto.out.BrandPageOutDto;
 import com.loopers.catalog.brand.domain.model.Brand;
 import com.loopers.catalog.brand.domain.model.enums.VisibleStatus;
@@ -239,7 +239,7 @@ class BrandQueryServiceTest {
 	class GetAdminBrandsAsPageTest {
 
 		@Test
-		@DisplayName("[BrandQueryService.getAdminBrandsAsPage()] visibleStatus=null -> 전체 브랜드 조회. BrandAdminPageOutDto 반환")
+		@DisplayName("[BrandQueryService.getAdminBrandsAsPage()] visibleStatus=null -> 전체 브랜드 조회. AdminBrandPageOutDto 반환")
 		void getAdminBrandsAsPageAll() {
 			// Arrange
 			PageCriteria expectedCriteria = new PageCriteria(0, 10);
@@ -253,7 +253,7 @@ class BrandQueryServiceTest {
 			given(brandQueryRepository.findAll(expectedCriteria)).willReturn(pageResult);
 
 			// Act
-			BrandAdminPageOutDto result = brandQueryService.getAdminBrandsAsPage(null, 0, 10);
+			AdminBrandPageOutDto result = brandQueryService.getAdminBrandsAsPage(null, 0, 10);
 
 			// Assert
 			assertAll(
@@ -280,7 +280,7 @@ class BrandQueryServiceTest {
 				.willReturn(pageResult);
 
 			// Act
-			BrandAdminPageOutDto result = brandQueryService.getAdminBrandsAsPage(VisibleStatus.VISIBLE, 0, 10);
+			AdminBrandPageOutDto result = brandQueryService.getAdminBrandsAsPage(VisibleStatus.VISIBLE, 0, 10);
 
 			// Assert
 			assertAll(
@@ -306,7 +306,7 @@ class BrandQueryServiceTest {
 				.willReturn(pageResult);
 
 			// Act
-			BrandAdminPageOutDto result = brandQueryService.getAdminBrandsAsPage(VisibleStatus.HIDDEN, 0, 10);
+			AdminBrandPageOutDto result = brandQueryService.getAdminBrandsAsPage(VisibleStatus.HIDDEN, 0, 10);
 
 			// Assert
 			assertAll(
