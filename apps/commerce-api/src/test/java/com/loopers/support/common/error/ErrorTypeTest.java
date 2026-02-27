@@ -65,6 +65,8 @@ class ErrorTypeTest {
 				"BRAND_NOT_FOUND", "브랜드가 존재하지 않습니다."),
 			Arguments.of(ErrorType.BRAND_HAS_ACTIVE_PRODUCTS, HttpStatus.CONFLICT,
 				"BRAND_HAS_ACTIVE_PRODUCTS", "해당 브랜드에 활성 상품이 존재하여 삭제할 수 없습니다."),
+			Arguments.of(ErrorType.BRAND_IS_VISIBLE, HttpStatus.CONFLICT,
+				"BRAND_IS_VISIBLE", "노출 중인 브랜드는 삭제할 수 없습니다. 먼저 숨김 처리하세요."),
 			Arguments.of(ErrorType.INVALID_BRAND_NAME, HttpStatus.BAD_REQUEST,
 				"INVALID_BRAND_NAME", "올바른 브랜드명을 입력해주세요."),
 			Arguments.of(ErrorType.INVALID_BRAND_DESCRIPTION, HttpStatus.BAD_REQUEST,
@@ -88,32 +90,52 @@ class ErrorTypeTest {
 
 			// Like
 			Arguments.of(ErrorType.LIKE_NOT_FOUND, HttpStatus.NOT_FOUND,
-				"LIKE_NOT_FOUND", "좋아요가 존재하지 않습니다."),
+				"LIKE_NOT_FOUND", "좋아요를 찾을 수 없습니다."),
 			Arguments.of(ErrorType.LIKE_TARGET_NOT_FOUND, HttpStatus.NOT_FOUND,
-				"LIKE_TARGET_NOT_FOUND", "좋아요 대상이 존재하지 않습니다."),
+				"LIKE_TARGET_NOT_FOUND", "좋아요 대상을 찾을 수 없습니다."),
+			Arguments.of(ErrorType.INVALID_LIKE_TARGET, HttpStatus.BAD_REQUEST,
+				"INVALID_LIKE_TARGET", "유효하지 않은 좋아요 대상입니다."),
 
 			// Cart
 			Arguments.of(ErrorType.CART_ITEM_NOT_FOUND, HttpStatus.NOT_FOUND,
-				"CART_ITEM_NOT_FOUND", "장바구니 항목이 존재하지 않습니다."),
-			Arguments.of(ErrorType.INVALID_CART_QUANTITY, HttpStatus.BAD_REQUEST,
-				"INVALID_CART_QUANTITY", "수량은 1 이상이어야 합니다."),
+				"CART_ITEM_NOT_FOUND", "장바구니 항목을 찾을 수 없습니다."),
+			Arguments.of(ErrorType.INVALID_QUANTITY, HttpStatus.BAD_REQUEST,
+				"INVALID_QUANTITY", "유효하지 않은 수량입니다."),
+			Arguments.of(ErrorType.CART_PRODUCT_NOT_FOUND, HttpStatus.NOT_FOUND,
+				"CART_PRODUCT_NOT_FOUND", "장바구니에 담을 상품을 찾을 수 없습니다."),
 
 			// Order
 			Arguments.of(ErrorType.ORDER_NOT_FOUND, HttpStatus.NOT_FOUND,
-				"ORDER_NOT_FOUND", "주문이 존재하지 않습니다."),
+				"ORDER_NOT_FOUND", "주문을 찾을 수 없습니다."),
+			Arguments.of(ErrorType.EMPTY_CART, HttpStatus.BAD_REQUEST,
+				"EMPTY_CART", "장바구니가 비어있습니다."),
+			Arguments.of(ErrorType.INVALID_SNAPSHOT_NAME, HttpStatus.BAD_REQUEST,
+				"INVALID_SNAPSHOT_NAME", "유효하지 않은 상품명 스냅샷입니다."),
+			Arguments.of(ErrorType.INVALID_SNAPSHOT_PRICE, HttpStatus.BAD_REQUEST,
+				"INVALID_SNAPSHOT_PRICE", "유효하지 않은 가격 스냅샷입니다."),
+			Arguments.of(ErrorType.INVALID_ORDER_QUANTITY, HttpStatus.BAD_REQUEST,
+				"INVALID_ORDER_QUANTITY", "유효하지 않은 주문 수량입니다."),
+			Arguments.of(ErrorType.INVALID_ORDER_TOTAL_PRICE, HttpStatus.BAD_REQUEST,
+				"INVALID_ORDER_TOTAL_PRICE", "유효하지 않은 주문 총액입니다."),
+			Arguments.of(ErrorType.INVALID_REQUEST_ID, HttpStatus.BAD_REQUEST,
+				"INVALID_REQUEST_ID", "유효하지 않은 요청 ID입니다."),
 			Arguments.of(ErrorType.ORDER_EMPTY_ITEMS, HttpStatus.BAD_REQUEST,
 				"ORDER_EMPTY_ITEMS", "주문 항목이 비어있습니다."),
 			Arguments.of(ErrorType.ORDER_OUT_OF_STOCK, HttpStatus.CONFLICT,
-				"ORDER_OUT_OF_STOCK", "재고가 부족하여 주문할 수 없습니다.")
+				"ORDER_OUT_OF_STOCK", "재고가 부족하여 주문할 수 없습니다."),
+
+			// 동시성
+			Arguments.of(ErrorType.LOCK_CONFLICT, HttpStatus.CONFLICT,
+				"LOCK_CONFLICT", "다른 요청과 충돌이 발생했습니다. 잠시 후 다시 시도해주세요.")
 		);
 	}
 
 
 	@Test
-	@DisplayName("[ErrorType] enum 상수 개수가 28개임을 보장")
+	@DisplayName("[ErrorType] enum 상수 개수가 40개임을 보장")
 	void enumConstantCount() {
 		// Assert
-		assertThat(ErrorType.values()).hasSize(31);
+		assertThat(ErrorType.values()).hasSize(41);
 	}
 
 

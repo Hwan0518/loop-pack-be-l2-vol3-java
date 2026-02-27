@@ -1,5 +1,6 @@
 package com.loopers.support.common.error;
 
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -24,5 +25,13 @@ public class GlobalExceptionHandler {
 
 		ErrorResponse response = ErrorResponse.of(ErrorType.BAD_REQUEST.getCode(), message);
 		return ResponseEntity.status(ErrorType.BAD_REQUEST.getStatus()).body(response);
+	}
+
+	// 비관적 락 충돌 → 409 Conflict
+	@ExceptionHandler(PessimisticLockingFailureException.class)
+	public ResponseEntity<ErrorResponse> handleLockException(PessimisticLockingFailureException e) {
+		ErrorType errorType = ErrorType.LOCK_CONFLICT;
+		ErrorResponse response = ErrorResponse.from(errorType);
+		return ResponseEntity.status(errorType.getStatus()).body(response);
 	}
 }
