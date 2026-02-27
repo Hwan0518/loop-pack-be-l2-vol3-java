@@ -12,12 +12,15 @@ Client Request
   → Controller (interfaces/)
     → Facade (application/facade/)
       → Service (application/service/)
+        → Repository Interface (domain/repository/)
+          → RepositoryImpl (infrastructure/repository/)
+            → JPA Repository (infrastructure/jpa/)
+              → Entity (infrastructure/entity/) ↔ Domain Model
+        → Port (application/port/out/client/)
+          → ACL Adapter (infrastructure/acl/)
+            → Provider Facade (other BC)
         → Domain Service (domain/service/)
         → Domain Model (domain/model/)
-      → Repository Interface (domain/repository/)
-        → RepositoryImpl (infrastructure/repository/)
-          → JPA Repository (infrastructure/jpa/)
-            → Entity (infrastructure/entity/) ↔ Domain Model
   → Controller
 → Client Response
 ```
@@ -30,11 +33,13 @@ Client Request
 | Facade (Command) | `{Domain}CommandFacade` | `@Service`, method-level `@Transactional` | Command use-case orchestration, transaction boundary |
 | Facade (Query) | `{Domain}QueryFacade` | `@Service`, method-level `@Transactional(readOnly=true)` | Query use-case orchestration |
 | Service | `{Domain}CommandService` | `@Service`, method-level `@Transactional` | Single domain business logic execution **(MUST NOT call other Services)** |
+| ACL Adapter | `{OtherDomain}PortImpl` | `@Component` | Cross-BC sync adapter. **Only call provider Facade**, do mapping/delegation only (error mapping must be handled in caller Service) |
 | Domain Service | `{Domain}XxxValidator`, etc. | Pure class (`@Bean` registration) | Stateless, mediates domain object collaboration within same BC, business invariant verification |
 | Repository (I) | `{Domain}CommandRepository` | Interface | Command contract (save, delete) |
 | Repository (I) | `{Domain}QueryRepository` | Interface | Query contract (find, exists) |
 | RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain conversion then JPA call |
-| Entity | `{Domain}Entity` | `@Entity` | DB mapping, `from(Domain)` + `toDomain()` |
+| Entity | `{Domain}Entity` | `@Entity` | `of(...)` 팩토리 메서드 |
+| EntityMapper | `{Domain}EntityMapper` | `@Component` | `toEntity(Domain)` + `toDomain(Entity)` 변환 |
 | QueryPort (I) | `{Domain}QueryPort` | Interface (`application/port/out/query/`) | Use-case specific complex query contract |
 | QueryPortImpl | `{Domain}QueryPortImpl` | `@Repository` | QueryPort implementation (JPA/QueryDSL) |
 
@@ -60,6 +65,7 @@ Controller → Facade → Service → Repository
 - **Service MUST NOT call other Services** (including QueryService, CommandService within same/different domain)
 - Service dependency targets limited to: Repository, Port (Cross-BC), DomainService, EventPublisher
 - Cross-Service orchestration is Facade's responsibility
+- Service public methods should expose use-case contracts and reusable orchestration steps for Facade/EventListener; class-internal helpers should be `private`
 
 ### 3.2 Business vs Service Logic Separation
 
@@ -79,12 +85,18 @@ Controller → Facade → Service → Repository
 | BC | Included Domains | Description |
 |----|-----------------|-------------|
 | `catalog` | Brand, Product | Product catalog |
-| `engagement` | Like | User engagement |
+| `engagement` | ProductLike, BrandLike | User engagement |
+| `cart` | CartItem | Cart |
 | `ordering` | Order, OrderItem | Orders |
 | `user` | User | Users |
 
 - **Same BC**: Facade can directly call another domain's Service within the same BC
 - **Cross-BC (sync)**: Port interface (`application/port/out/client/`) + ACL implementation (`infrastructure/acl/`) pattern
+- ACL implementation must call **provider Facade (or facade-style dedicated API)** only
+- ACL implementation must stay thin (mapping/delegation only), with no business/orchestration/error-mapping logic
+- Error mapping must be handled in the Service that calls the ACL
+- ACL must not directly call provider `Service/Repository/JPA/QueryDSL/Entity`
+- **Provider Facade Cross-BC 전용 메서드**: ACL에서 필요한 기능이 Provider Facade에 없으면, Provider Facade에 Cross-BC 전용 메서드를 추가한다. Javadoc 번호 목록에 포함하고, 메서드 주석에 `(Cross-BC 전용 — ACL에서 호출)` 표기
 - **Cross-BC (async)**: Domain events + `@TransactionalEventListener` (eventual consistency)
 
 ### 3.5 Domain Repository Rules
@@ -100,8 +112,9 @@ Use QueryPort when complex queries, Projections, or direct DTO returns are neede
 
 - Interface: `{domain}/application/port/out/query/{Domain}QueryPort`
 - Criteria: `{domain}/application/port/out/query/criteria/{Domain}SearchCriteria`
-- Implementation: `{domain}/infrastructure/query/{Domain}QueryPortImpl`
-- **"Repository" naming prohibited** — must use `QueryPort`
+- QueryDSL queries: `{domain}/infrastructure/querydsl/{Domain}QuerydslRepository`
+- Implementation: `{domain}/infrastructure/query/{Domain}QueryPortImpl` (delegates to QuerydslRepository)
+- **"Repository" naming prohibited** — must use `QueryPort` (except QuerydslRepository)
 - Service calls through QueryPort interface
 
 ### 3.7 Port Naming Rules
@@ -122,10 +135,10 @@ Request → [Controller] create InDto → [Facade] → Domain → OutDto.from(do
 
 | DTO | Location | Conversion Method | Role |
 |-----|----------|------------------|------|
-| Request | `interfaces/controller/request/` | None (Controller maps explicitly) | Receive external input, apply Jakarta Validation |
+| Request | `interfaces/web/request/` | None (Controller maps explicitly) | Receive external input, apply Jakarta Validation |
 | InDto | `application/dto/in/` | None (immutable record) | Pass input between layers |
 | OutDto | `application/dto/out/` | `from(Domain)` static factory | Domain → output conversion |
-| Response | `interfaces/controller/response/` | `from(OutDto)` static factory | Final response (masking possible) |
+| Response | `interfaces/web/response/` | `from(OutDto)` static factory | Final response (masking possible) |
 
 ### 4.2 DTO Rules
 
@@ -182,9 +195,14 @@ mapper.toEntity(domain with id) → jpaRepository.save(entity) → mapper.toDoma
 │   │   └── {other-domain}/{OtherDomain}PortImpl
 │   ├── query/         # QueryPort implementations
 │   │   └── {Domain}QueryPortImpl
+│   ├── querydsl/      # QueryDSL query implementations
+│   │   └── {Domain}QuerydslRepository
 │   └── entity/        # JPA entities
 ├── interfaces/
-│   ├── controller/    # REST controllers + request/ + response/
+│   ├── web/               # REST API
+│   │   ├── controller/    # REST controllers
+│   │   ├── request/       # Request objects
+│   │   └── response/      # Response objects
 │   └── event/         # Event listeners
 └── support/
     ├── common/        # Common utilities + error/
@@ -200,3 +218,4 @@ mapper.toEntity(domain with id) → jpaRepository.save(entity) → mapper.toDoma
 - Using framework annotations on domain models
 - Class-level `@Transactional` annotation (must be method-level)
 - Service calling another Service (orchestration belongs in Facade)
+- ACL directly calling provider Service/Repository/JPA/QueryDSL/Entity (must call provider **Facade** only)

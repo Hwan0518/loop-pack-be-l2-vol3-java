@@ -51,52 +51,56 @@ supports/
 ```
 com.loopers
 ├── CommerceApiApplication.java    # Spring Boot 진입점
-└── {domain}/                      # 도메인별 패키지 (예: user, product, order)
-    ├── application/               # 애플리케이션 서비스 레이어
-    │   └── service/               # 애플리케이션 서비스
-    │   └── facade/                # 퍼사드 서비스
-    │   └── port/out/              # 아웃바운드 포트
-    │       └── client/            # Cross-BC 접근 인터페이스
-    │           └── {other-domain}/
-    │               └── {OtherDomain}Port
-    │       └── query/             # 유스케이스 전용 복잡 조회
-    │           └── {Domain}QueryPort
-    │           └── criteria/      # 조회 조건 객체
-    │       └── util/              # 유틸리티 포트 (PasswordEncoder 등)
-    │   └── dto/                   # DTO (InDto/OutDto)
-    │       └── in/                # 입력 DTO (Request → InDto)
-    │       └── out/               # 출력 DTO (Domain → OutDto → Response)
-    ├── domain/
-    │   └── model/                 # 도메인 모델
-    │       └── enum/              # 도메인 내 공통 Enum
-    │       └── vo/                # Value Object (예: Password)
-    │   └── repository/            # 리포지토리 인터페이스 (CQRS)
-    │       └── {Domain}CommandRepository  # 명령 (save, delete)
-    │       └── {Domain}QueryRepository    # 조회 (find, exists)
-    │       └── vo/                # 페이지네이션 VO (PageCriteria, PageResult)
-    │   └── event/                 # 도메인 이벤트
-    │   └── service/               # 도메인 서비스
-    ├── infrastructure/            # 인프라 레이어 (Repository 구현 등)
-    │   └── jpa/                   # JPA 레포지토리
-    │   └── repository/            # 리포지토리 구현체 (CQRS)
-    │       └── {Domain}CommandRepositoryImpl  # 명령 구현체
-    │       └── {Domain}QueryRepositoryImpl    # 조회 구현체
-    │   └── acl/                   # Cross-BC 접근 구현체
-    │       └── {other-domain}/
-    │           └── {OtherDomain}PortImpl
-    │   └── query/                 # QueryPort 구현체
-    │       └── {Domain}QueryPortImpl
-    │   └── entity/                # JPA 엔티티
-    │   └── mapper/                # Entity ↔ Domain 변환 매퍼
-    ├── interfaces/                # 프레젠테이션 레이어 (Controller)
-    │   └── event/                 # 이벤트 리스너
-    │   └── controller/            # REST 컨트롤러
-    │       └── request/           # 요청 객체
-    │       └── response/          # 응답 객체
-    └── support/                   # 도메인 내 공통 모듈
-        └── common/                # 공통 유틸리티 (예: Mapper, Validator, PasswordEncoder 등)
-            └── error/             # 에러 핸들링 (CoreException, ErrorType)
-        └── config/                # 도메인별 설정 관련 (예: Kafka Producer/Consumer 설정 등)
+└── {bc}/                          # Bounded Context (예: catalog, engagement, ordering, cart, user)
+    └── {domain}/                  # 도메인별 패키지 (예: brand, product, like, order, cart, user)
+        ├── application/               # 애플리케이션 서비스 레이어
+        │   └── service/               # 애플리케이션 서비스
+        │   └── facade/                # 퍼사드 서비스
+        │   └── port/out/              # 아웃바운드 포트
+        │       └── client/            # Cross-BC 접근 인터페이스
+        │           └── {other-domain}/
+        │               └── {OtherDomain}Port
+        │       └── query/             # 유스케이스 전용 복잡 조회
+        │           └── {Domain}QueryPort
+        │           └── criteria/      # 조회 조건 객체
+        │       └── util/              # 유틸리티 포트 (PasswordEncoder 등)
+        │   └── dto/                   # DTO (InDto/OutDto)
+        │       └── in/                # 입력 DTO (Request → InDto)
+        │       └── out/               # 출력 DTO (Domain → OutDto → Response)
+        ├── domain/
+        │   └── model/                 # 도메인 모델
+        │       └── enums/             # 도메인 내 공통 Enum
+        │       └── vo/                # Value Object (예: Password)
+        │   └── repository/            # 리포지토리 인터페이스 (CQRS)
+        │       └── {Domain}CommandRepository  # 명령 (save, delete)
+        │       └── {Domain}QueryRepository    # 조회 (find, exists)
+        │       └── vo/                # 페이지네이션 VO (PageCriteria, PageResult)
+        │   └── event/                 # 도메인 이벤트
+        │   └── service/               # 도메인 서비스
+        ├── infrastructure/            # 인프라 레이어 (Repository 구현 등)
+        │   └── jpa/                   # JPA 레포지토리
+        │   └── repository/            # 리포지토리 구현체 (CQRS)
+        │       └── {Domain}CommandRepositoryImpl  # 명령 구현체
+        │       └── {Domain}QueryRepositoryImpl    # 조회 구현체
+        │   └── acl/                   # Cross-BC 접근 구현체
+        │       └── {other-domain}/
+        │           └── {OtherDomain}PortImpl
+        │   └── query/                 # QueryPort 구현체
+        │       └── {Domain}QueryPortImpl
+        │   └── querydsl/             # QueryDSL 쿼리 구현체
+        │       └── {Domain}QuerydslRepository
+        │   └── entity/                # JPA 엔티티
+        │   └── mapper/                # Entity ↔ Domain 변환 매퍼
+        ├── interfaces/                # 프레젠테이션 레이어 (Controller)
+        │   └── web/                   # REST API
+        │       └── controller/        # REST 컨트롤러
+        │       └── request/           # 요청 객체
+        │       └── response/          # 응답 객체
+        │   └── event/                 # 이벤트 리스너
+        └── support/                   # 도메인 내 공통 모듈
+            └── common/                # 공통 유틸리티 (예: Mapper, Validator, PasswordEncoder 등)
+                └── error/             # 에러 핸들링 (CoreException, ErrorType)
+            └── config/                # 도메인별 설정 관련 (예: Kafka Producer/Consumer 설정 등)
 ```
 
 ## 4. 개발규칙
@@ -216,7 +220,7 @@ class SomeIntegrationTest {
 - 사용자 인증 헤더: `X-Loopers-LoginId`, `X-Loopers-LoginPw` → `HeaderValidator.validate()`
 - 관리자 인증 헤더: `X-Loopers-Ldap` → `AdminHeaderValidator.validate()`
 - Controller: `@RequestHeader(required = false)` → null 허용 → 단일 `UNAUTHORIZED` 응답 (보안: 실패 사유 미구분)
-- 비밀번호 검증은 도메인 모델에 위임: `User.authenticate(rawPassword)`
+- 비밀번호 일치 검증은 `AuthenticationManager` 포트(현재 `CustomAuthenticationManager`)에 위임하고, 비밀번호 정책 검증은 도메인 VO(`Password.validatePasswordPolicy`)가 담당
 - URL 패턴: 사용자 `/api/v1/{resource}`, 관리자 `/api-admin/v1/{resource}`
 
 ### 4.7 도메인 모델 패턴
@@ -230,8 +234,9 @@ class SomeIntegrationTest {
 null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈니스 규칙
 
 #### 입력값 정규화 (Normalization)
-- `create()` 팩토리 메서드에서만 수행: `loginId` → `trim().toLowerCase()`, `name`/`email` → `trim()`
-- Facade/Service에서 중복 정규화 금지 (도메인 모델이 단일 책임)
+- 신규 생성 입력은 `create()` 팩토리 메서드에서 정규화: `loginId` → `trim().toLowerCase()`, `name`/`email` → `trim()`
+- 조회/인증 경로의 조회 키 생성 목적 정규화(`LoginId.normalize`)는 Service에서 1회 수행 가능
+- 동일 요청 경로에서 중복 정규화는 금지
 
 #### Value Object
 - Java `record`로 구현 (예: `Password`)
@@ -258,7 +263,7 @@ null 체크 → empty 체크 → 길이 제한 → 포맷(정규식) → 비즈�
 - **Domain Service 사용 기준**: 여러 도메인 객체 간 협력 중재가 필요한 경우에만 사용. 단일 도메인 모델의 단순 검증(boolean 분기 등)은 Domain Model 메서드로 구현
 - **점진적 분리**: 처음엔 Domain Model에 두고, 복잡도가 증가하면 Domain Service로 분리
 - **Service가 필요한 데이터를 조회하여 DomainService에 전달한다.** DomainService는 Repository/Port를 직접 호출하지 않는다.
-- `support/config/DomainServiceConfig.java`에서 `@Configuration` + `@Bean`으로 등록
+- 필요 시 `support/config/` 하위에 `@Configuration` + `@Bean`으로 등록
 
 ### 4.8 CQRS 레이어 흐름
 
@@ -285,6 +290,7 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 4. **DomainService는 Repository/Port를 호출하지 않는다.** Service가 데이터를 조회하여 DomainService에 전달한다.
 5. **Domain Model은 순수 비즈니스 로직만 포함한다.** 외부 의존(Repository, Port, Spring 등) 없음.
 6. **Service는 다른 Service를 호출하지 않는다.** Service의 의존 대상은 Repository, Port(Cross-BC), DomainService, EventPublisher로 한정한다. 여러 Service 간 오케스트레이션은 Facade에서 수행한다.
+7. **Service의 public 메서드는 유스케이스 계약과 Facade/EventListener가 조합하는 단계를 노출한다.** 클래스 내부 전용 helper는 `private`로 감춘다.
 
 ##### 비즈니스 로직 분리
 - 비즈니스 로직(도메인 규칙, 검증, 계산)은 Domain Model 또는 Domain Service에서 작성한다.
@@ -295,7 +301,8 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 | BC | 포함 도메인 | 설명 |
 |----|-----------|------|
 | `catalog` | Brand, Product | 상품 카탈로그 |
-| `engagement` | Like | 사용자 참여 |
+| `engagement` | ProductLike, BrandLike | 사용자 참여 |
+| `cart` | CartItem | 장바구니 |
 | `ordering` | Order, OrderItem | 주문 |
 | `user` | User | 사용자 |
 
@@ -307,8 +314,12 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 - Port 인터페이스 + ACL 구현체 패턴
 - 인터페이스: `{domain}/application/port/out/client/{other-domain}/{OtherDomain}Port`
 - 구현체: `{domain}/infrastructure/acl/{other-domain}/{OtherDomain}PortImpl`
-- 구현체에서만 다른 도메인의 domain model, JPA 직접 참조 허용
-- 예: 주문 시 재고 차감 → `ProductStockPort` + `ProductStockPortImpl`
+- ACL 구현체는 **Provider BC의 Facade(또는 Facade 성격 전용 API)** 만 호출한다.
+- ACL 구현체는 **thin adapter** 로 유지한다: 요청/응답 변환, 단순 위임만 담당.
+- ACL 구현체에 비즈니스 로직/오케스트레이션 로직/에러 매핑을 두지 않는다.
+- **에러 매핑은 ACL을 호출하는 Service에서 처리한다.** Provider 예외를 Consumer BC 예외로 변환.
+- ACL 구현체에서 Provider BC의 `Service/Repository/JpaRepository/Querydsl/Entity` 직접 참조를 금지한다. (Provider **Facade**만 호출)
+- 예: 주문 시 재고 차감 → `OrderStockManager` + `OrderStockManagerImpl` → Catalog `ProductCommandFacade.decreaseStock()` 위임
 
 ##### 다른 BC 간 통신 (비동기)
 - 도메인 이벤트 + `@TransactionalEventListener`
@@ -321,14 +332,16 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 | Controller | `{Domain}AdminCommandController` / `{Domain}AdminQueryController` | `@RestController` | 관리자 요청 수신 (`/api-admin/v1/`), Facade 호출 |
 | Facade | `{Domain}CommandFacade` | `@Service`, method-level `@Transactional` | 명령 유스케이스 오케스트레이션, 트랜잭션 경계, **Service만 호출** |
 | Facade | `{Domain}QueryFacade` | `@Service`, method-level `@Transactional(readOnly = true)` | 조회 유스케이스 오케스트레이션 |
-| Service | `{Domain}CommandService` | `@Service`, method-level `@Transactional` | 단일 도메인 비즈니스 로직 실행 **(다른 Service 호출 금지)** |
+| Service | `{Domain}CommandService` | `@Service`, method-level `@Transactional` | 단일 도메인 비즈니스 로직 실행 **(다른 Service 호출 금지, public은 유스케이스 계약만 노출)** |
 | Domain Service | `{Domain}XxxValidator` 등 | (순수 Java, `@Bean` 등록) | 비즈니스 불변식 검증 **(Repository/Port 호출 금지, Service가 데이터 전달)** |
 | Repository(I) | `{Domain}Command/QueryRepository` | (인터페이스, `domain/repository/`) | 명령(save,delete) / 조회(find,exists) 계약 |
 | RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain 변환 후 JPA 호출 |
+| ACL Adapter | `{OtherDomain}PortImpl` | `@Component` | Cross-BC 동기 통신 어댑터. **Provider Facade(또는 Facade 성격 전용 API) 호출만 허용, 변환/위임만 수행 (에러 매핑 금지)** |
 | Entity | `{Domain}Entity` | `@Entity` | `of(...)` 팩토리 메서드 |
 | EntityMapper | `{Domain}EntityMapper` | `@Component` | `toEntity(Domain)` + `toDomain(Entity)` 변환 |
 | QueryPort(I) | `{Domain}QueryPort` | (인터페이스, `application/port/out/query/`) | 유스케이스 전용 복잡 조회 계약 |
-| QueryPortImpl | `{Domain}QueryPortImpl` | `@Repository` | QueryPort 구현 (JPA/QueryDSL) |
+| QueryPortImpl | `{Domain}QueryPortImpl` | `@Repository` | QueryPort 구현 (QuerydslRepository에 위임) |
+| QuerydslRepository | `{Domain}QuerydslRepository` | `@Repository` | QueryDSL 쿼리 로직 구현 (JPAQueryFactory 사용) |
 
 #### 조회 방식 판단 가이드
 
@@ -343,6 +356,7 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 #### QueryDSL 사용 기준
 - **Domain Repository**: Spring Data 파생 쿼리 사용 (단순 WHERE 조건, 고정 필터)
 - **QueryPort**: QueryDSL 사용 (DTO Projection, 동적 필터, 다중 조인, 집계)
+- QueryDSL 쿼리 로직은 `infrastructure/querydsl/{Domain}QuerydslRepository`에 구현, `QueryPortImpl`은 thin adapter로 위임
 - QueryDSL 의존성 및 Q-class는 이미 설정 완료 (`modules/jpa/build.gradle.kts`)
 
 #### 도메인 리포지토리 규칙
@@ -358,8 +372,9 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 
 - 인터페이스: `{domain}/application/port/out/query/{Domain}QueryPort`
 - 조건 객체: `{domain}/application/port/out/query/criteria/{Domain}SearchCriteria`
-- 구현체: `{domain}/infrastructure/query/{Domain}QueryPortImpl`
-- **"Repository" 네이밍 사용 금지** — 반드시 `QueryPort` 사용
+- QueryDSL 쿼리: `{domain}/infrastructure/querydsl/{Domain}QuerydslRepository`
+- 구현체: `{domain}/infrastructure/query/{Domain}QueryPortImpl` (QuerydslRepository에 위임)
+- **"Repository" 네이밍 사용 금지** — 반드시 `QueryPort` 사용 (단, QuerydslRepository는 예외)
 - Service에서 QueryPort 인터페이스를 통해 호출
 
 #### Port 네이밍 규칙

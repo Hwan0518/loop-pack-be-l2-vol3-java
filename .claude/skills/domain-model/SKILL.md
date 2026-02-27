@@ -112,7 +112,7 @@ public class LoginIdDuplicateValidator {
 
 ## 7. BaseEntity Constraints
 
-- `id`: `final Long id = 0L` + `@GeneratedValue(IDENTITY)` → cannot set id directly
+- `id`: `private Long id` + `@GeneratedValue(IDENTITY)` → 엔티티에서 직접 id 설정 불가
 - `createdAt`, `updatedAt`: auto-managed via `@PrePersist`, `@PreUpdate`
 - Soft delete: `deletedAt` field, `delete()`/`restore()` methods provided
 

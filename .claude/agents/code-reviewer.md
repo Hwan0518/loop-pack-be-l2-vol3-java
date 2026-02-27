@@ -25,7 +25,7 @@ Default: review unstaged changes from `git diff`. User may specify a different s
 - [ ] Only direct calls within same BC (catalog: Brand+Product / engagement: Like / ordering: Order+OrderItem / user: User)
 - [ ] Cross-BC communication uses Port/ACL pattern (`application/port/out/client/` + `infrastructure/acl/`)
 - [ ] No direct references to other BC's Service/Repository without Port/ACL
-- [ ] Only ACL implementations directly reference other domain's domain model and JPA
+- [ ] ACL does not directly reference other BC's domain model/JPA/Repository (must call provider Facade via Port/ACL)
 
 ### 1.7. Port & Repository Violations (Critical)
 - [ ] Domain Repository signatures do not expose Spring/JPA types (Page, Pageable, etc.)

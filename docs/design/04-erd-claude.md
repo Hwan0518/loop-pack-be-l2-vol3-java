@@ -442,6 +442,9 @@ UPDATE products SET stock = stock - ?, updated_at = NOW() WHERE id = ?;
 
 - All-or-Nothing: 한 주문 내 모든 상품의 재고 차감이 단일 트랜잭션에서 수행된다.
 - 재고 부족 시 전체 롤백, 부분 차감 없음.
+- 데드락 완화: 주문 내 재고 차감 대상은 `product_id` 오름차순으로 정렬해 락 획득 순서를 고정한다.
+- 중복 상품 완화: 동일 주문 내 동일 `product_id`는 수량 합산 후 1회 차감한다.
+- DB deadlock/lock timeout 발생 시 409 반환 후 제한적 재시도 정책을 적용할 수 있다.
 
 ### 6.4 트랜잭션 정합성 체크
 
@@ -525,5 +528,5 @@ Soft Delete 테이블은 조회 시 `WHERE deleted_at IS NULL` 조건을 기본 
 | `order_idempotency_keys` 무한 증가 | 디스크 사용량 증가 | TTL 기반 배치 정리 (P1). 30일 경과 레코드 삭제 |
 | 다형적 참조 (`likes.target_type + target_id`) | FK 불가, 타입 안전성 낮음 | 애플리케이션 레벨 `LikeTargetType` enum으로 제한. `LikeTargetValidator` Port로 존재 검증 |
 | Soft Delete 누적 | 조회 성능 저하 | `deleted_at IS NULL` 조건 인덱스(partial index) 또는 아카이빙 정책 (P2) |
-| 재고 비관적 락 대기 | 동시 주문 급증 시 락 타임아웃 | 타임아웃 409 반환 + 클라이언트 재시도. P2에서 분산 락(Redis) 고려 |
+| 재고 비관적 락 대기/데드락 | 동시 주문 급증 시 락 타임아웃/교착 | `product_id` 정렬 고정 + 중복 상품 수량 합산 + 타임아웃/데드락 409 반환 + 제한적 재시도. P2에서 분산 락(Redis) 고려 |
 | `order_items.product_id` 참조 불일치 | 상품 Hard Delete 시 참조 끊김 | 상품은 Soft Delete이므로 물리 삭제 없음. 스냅샷 필드로 조회 독립 보장 |

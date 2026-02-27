@@ -95,16 +95,20 @@
 ### 2.2 레이어 규칙
 
 1. **Facade는 Service만 호출한다.** Port, Repository, DomainService 등을 직접 호출하지 않는다.
-2. **Service가 모든 외부 호출의 주체다.** Repository, Port(Cross-BC), DomainService를 Service에서 호출한다.
-3. **호출 순서**: Controller → Facade → Service → (Repository / Port / DomainService). 계층 건너뛰기 금지.
-4. **DomainService는 Repository/Port를 호출하지 않는다.** Service가 데이터를 조회하여 DomainService에 전달한다.
-5. **Domain Model은 순수 비즈니스 로직만 포함한다.** 외부 의존(Repository, Port, Spring 등) 없음.
+2. **Service가 모든 외부 호출의 주체다.** Repository/Port(Cross-BC)는 Service에서 호출하고, 정책 판정은 Domain Model/DomainService로 위임한다.
+3. **호출 순서**: Controller → Facade → Service → (Repository / Port / Domain Model / DomainService). 계층 건너뛰기 금지.
+4. **Cross-BC 동기 호출은 `Service -> Port -> ACL -> Provider Facade`로 고정한다.**
+5. **ACL은 thin adapter다.** 변환/단순 위임만 수행하며 비즈니스/오케스트레이션/에러 매핑 로직을 두지 않는다.
+6. **ACL에서 Provider Repository/JPA/QueryDSL 직접 호출을 금지한다.**
+7. **Service의 public 메서드는 유스케이스 계약과 Facade/EventListener가 조합하는 단계를 노출한다.** 클래스 내부 전용 helper는 private으로 관리한다.
+8. **DomainService는 Repository/Port를 호출하지 않는다.** 다중 Aggregate 협력 중재가 필요할 때만 Service가 데이터를 전달해 호출한다.
+9. **Domain Model은 순수 비즈니스 로직만 포함한다.** 외부 의존(Repository, Port, Spring 등) 없음.
 
 ### 2.3 Cross-BC 통신 패턴
 
 | 패턴 | 사용 조건 | 예시 |
 |---|---|---|
-| **동기 Port** | 응답 데이터가 현재 트랜잭션에 필요하거나, 검증 실패 시 즉시 에러 반환이 필요한 경우 | LikeTargetValidator, CartProductReader, OrderStockManager |
+| **동기 Port + ACL + Provider Facade** | 응답 데이터가 현재 트랜잭션에 필요하거나, 검증 실패 시 즉시 에러 반환이 필요한 경우 | LikeTargetValidator, CartProductReader, OrderStockManager |
 | **도메인 이벤트** | 후속 처리/정리 작업으로, 실패해도 원래 트랜잭션에 영향 없는 경우 (최종 일관성) | OrderCreatedEvent, ProductDeletedEvent |
 
 ### 도메인 이벤트 목록
@@ -137,11 +141,12 @@
 |---|---|
 | `Controller` | 프레젠테이션 레이어. Request 수신, Response 반환 |
 | `Facade` | 유스케이스 오케스트레이션. **트랜잭션 경계. Service만 호출** |
-| `Service` | **Repository, Port, DomainService를 호출하는 유일한 레이어.** 단일 도메인 비즈니스 로직 |
+| `Service` | **Repository/Port를 호출하는 유일한 레이어.** 정책 판정은 Domain Model/DomainService에 위임. public은 유스케이스 계약만 노출 |
 | `DomainModel` | 도메인 모델(Aggregate Root). 불변식 검증, 상태 변경 |
-| `DomainService` | 비즈니스 불변식 검증 (순수 Java). **Repository/Port 호출 금지** |
+| `DomainService` | 다중 Aggregate 협력 중재 규칙 (순수 Java). **Repository/Port 호출 금지** |
 | `Repository` | 영속성 추상화 (CQRS: Command/Query 분리) |
 | `Port` | Cross-BC 통신 인터페이스 **(Service에서만 호출)** |
+| `ACL` | Port 구현체. **Provider Facade 호출만 허용**, 변환/위임만 수행 (에러 매핑은 호출 Service 책임) |
 | `Event` | 도메인 이벤트 발행. **트랜잭션 커밋 후 비동기 전달** (최종 일관성) |
 | `EventListener` | 도메인 이벤트 구독. **별도 트랜잭션**에서 후속 처리 |
 
@@ -321,7 +326,7 @@ sequenceDiagram
 ### 5-5. 브랜드 삭제 (ADMIN) — 삭제 정책 포함
 
 **왜 필요한가**: P0의 핵심 삭제 정책("활성 상품 0개")이 **어디서**, **어떤 책임 객체가** 검증하는지를 확인한다. 이것이 가장 중요한 비즈니스 규칙 중 하나다.
-**검증 포인트**: 삭제 정책 검증 주체(DomainService), Service가 데이터 조회 후 DomainService에 전달, 트랜잭션 범위.
+**검증 포인트**: 삭제 정책의 판정 소유권(Entity vs DomainService), Service의 facts 조회/전달, 트랜잭션 범위.
 
 ```mermaid
 sequenceDiagram
@@ -332,7 +337,7 @@ sequenceDiagram
     participant Service as BrandCommandService
     participant QService as BrandQueryService
     participant ProdQService as ProductQueryService
-    participant DomainService as BrandDeleteValidator<br/>(Domain Service)
+    participant BrandModel as Brand<br/>(Domain Model)
     participant Repository as BrandCommandRepository
     participant EventPublisher as EventPublisher
 
@@ -351,16 +356,16 @@ sequenceDiagram
     Service->>ProdQService: existsActiveByBrandId(brandId)
     ProdQService-->>Service: boolean (hasActiveProducts)
 
-    Service->>DomainService: validateDeletable(hasActiveProducts)
-    Note over DomainService: 데이터만 전달받아 검증<br/>(Repository/Port 호출 없음)
+    Service->>BrandModel: validateDeletable(hasActiveProducts)
+    Note over BrandModel: 브랜드 자체 상태 + 전달된 facts 검증<br/>(삭제 정책 불변식)
 
     alt 활성 상품 존재 (hasActiveProducts == true)
-        DomainService-->>Service: throw CoreException(BRAND_HAS_ACTIVE_PRODUCTS)
+        BrandModel-->>Service: throw CoreException(BRAND_HAS_ACTIVE_PRODUCTS)
         Service-->>Facade: CoreException 전파
         Facade-->>Controller: CoreException 전파
         Controller-->>Admin: 409 Conflict<br/>"활성 상품이 존재하여 삭제 불가"
     else 활성 상품 없음 (hasActiveProducts == false)
-        DomainService-->>Service: (통과)
+        BrandModel-->>Service: (통과)
         Service->>Repository: delete(brand)
         Note over Repository: Soft Delete<br/>(deletedAt 설정)
         Repository-->>Service: void
@@ -377,9 +382,9 @@ sequenceDiagram
 ```
 
 **해석**:
-- **Facade는 Service만 호출**한다. 기존처럼 Facade에서 DomainService를 직접 호출하지 않는다.
-- **Service가 데이터 조회 → DomainService에 전달** 패턴: `BrandCommandService`가 `ProductQueryService.existsActiveByBrandId()`를 호출하고, 그 결과(`boolean`)만 `BrandDeleteValidator`에 전달한다.
-- **DomainService는 Repository/Port를 호출하지 않는다.** 순수하게 전달받은 데이터로 비즈니스 규칙만 검증한다.
+- **Facade는 Service만 호출**한다. Facade에서 Domain Model/DomainService를 직접 호출하지 않는다.
+- **Service가 데이터 조회 → Domain Model에 facts 전달** 패턴: `BrandCommandService`가 `ProductQueryService.existsActiveByBrandId()`를 호출하고, 그 결과(`boolean`)를 `Brand.validateDeletable(hasActiveProducts)`에 전달한다.
+- 삭제 정책의 1차 판정 소유권은 Brand(Entity)에 둔다. 규칙이 다중 Aggregate 협력 중재로 확장되면 `BrandDeleteValidator` DomainService로 승격한다.
 - Brand와 Product는 **같은 Catalog BC** 내부이므로, Service 간 직접 호출이 허용된다.
 - Soft Delete로 `deletedAt`을 설정하므로, 이후 조회에서 자동 필터링된다.
 - **BrandDeletedEvent**: 삭제 성공 후 이벤트를 발행하여, Like BC가 해당 브랜드의 좋아요를 정리한다 (최종 일관성).
@@ -610,12 +615,11 @@ sequenceDiagram
     activate Facade
     Note over Facade: @Transactional 시작
 
-    Facade->>Service: createProduct(inDto)
-
-    Note over Service,BrandQService: [Catalog BC 내부] 같은 BC이므로 직접 호출
-    Service->>BrandQService: getBrandById(brandId)
+    Facade->>BrandQService: getBrandById(brandId)
     Note over BrandQService: 브랜드 미존재 시<br/>CoreException(NOT_FOUND)
-    BrandQService-->>Service: Brand (존재 확인)
+    BrandQService-->>Facade: Brand (존재 확인)
+
+    Facade->>Service: createProduct(inDto)
 
     Service->>Product: Product.create(brandId, name, price, stock, description)
     Note over Product: 유효성 검증<br/>(name, price>=0, stock>=0 등)
@@ -631,8 +635,8 @@ sequenceDiagram
 ```
 
 **해석**:
-- **Facade는 Service만 호출**한다. 브랜드 존재 검증은 `ProductCommandService` 내부에서 `BrandQueryService`를 호출하여 수행한다.
-- Brand와 Product는 **같은 Catalog BC** 내부이므로, Service 간 직접 호출이 허용된다. (`[Catalog BC 내부]` 표기)
+- **Facade는 Service만 호출**한다. 브랜드 존재 검증은 `ProductCommandFacade`가 `BrandQueryService`를 선호출하여 수행하고, 생성/저장은 `ProductCommandService`가 수행한다.
+- Brand와 Product는 **같은 Catalog BC** 내부이므로, Facade에서 도메인 간 Service 조합이 허용된다.
 - Product 도메인 모델은 `brandId`만 보유하며, Brand 도메인 객체에 직접 의존하지 않는다.
 - 가격과 재고는 Product 생성 시 함께 설정된다 (P0에서는 옵션 없이 단일 가격/재고).
 
@@ -732,103 +736,106 @@ sequenceDiagram
 - P0에서는 주문 생성 직후 "거래 종료"로 간주하므로 **별도 삭제 조건 검증이 없다**.
 - Soft Delete 후에도 주문 상세는 스냅샷 기반으로 조회 가능해야 한다.
 - **ProductDeletedEvent**: 삭제 성공 후 이벤트를 발행하여, Cart BC가 해당 상품의 CartItem을, Like BC가 해당 상품의 좋아요를 정리한다 (최종 일관성).
-- P2에서 주문 상태 확장 시, 삭제 조건 강화(`BrandDeleteValidator`와 유사한 `ProductDeleteValidator` 도입)가 필요하다.
+- P2에서 주문 상태 확장 시, 삭제 조건 강화가 필요하다. 이때 판정 소유권이 다중 Aggregate 협력 중재로 커지면 `ProductDeleteValidator` DomainService 도입을 검토한다.
 
 ---
 
-## 7. Like BC
+## 7. Like BC (ProductLike / BrandLike 분리)
 
-### 7-1. 좋아요 등록 (USER) — 상품/브랜드 공통
+> **설계 결정**: 좋아요는 `ProductLike`와 `BrandLike`로 도메인을 분리하여 각각 독립된 패키지(`engagement/productlike`, `engagement/brandlike`)로 구현한다.
+> 통합 `Like` + `LikeTargetType` 방식 대비 타입 안전성, Cross-BC 의존 단순화, 독립 확장성에서 이점이 있다.
+
+### 7-1. 상품 좋아요 등록 (USER)
 
 **왜 필요한가**: 좋아요의 **멱등성 보장** 방식과, 대상 리소스 존재 검증의 책임을 확인한다.
-**검증 포인트**: 멱등 처리 위치, Cross-BC(Product/Brand) 존재 검증에 Port 사용.
+**검증 포인트**: 멱등 처리 위치, Cross-BC(Product) 존재 검증에 Port 사용.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User as User (인증)
-    participant Controller as LikeCommandController
-    participant Facade as LikeCommandFacade
-    participant Service as LikeCommandService
+    participant Controller as ProductLikeCommandController
+    participant Facade as ProductLikeCommandFacade
+    participant Service as ProductLikeCommandService
     participant TargetValidator as LikeTargetValidator [Port]
-    participant Like as Like (Domain)
-    participant QRepo as LikeQueryRepository
-    participant CRepo as LikeCommandRepository
+    participant Like as ProductLike (Domain)
+    participant QRepo as ProductLikeQueryRepository
+    participant CRepo as ProductLikeCommandRepository
 
-    User->>Controller: POST /api/v1/products/{productId}/likes<br/>또는 POST /api/v1/brands/{brandId}/likes
-    Note over Controller: 인증 헤더 추출
-    Controller->>Facade: createLike(userId, targetType, targetId)
+    User->>Controller: POST /api/v1/products/{productId}/likes
+    Note over Controller: 인증 헤더 추출 + UserAuthenticator로 인증
+    Controller->>Facade: createLike(userId, productId)
     activate Facade
     Note over Facade: @Transactional 시작
 
-    Facade->>Service: createLike(userId, targetType, targetId)
+    Facade->>Service: createLike(userId, productId)
 
-    Service->>TargetValidator: validateExists(targetType, targetId)
-    Note over TargetValidator: Cross-BC Port: Product/Brand 존재 검증<br/>미존재 시 CoreException(NOT_FOUND)
+    Service->>TargetValidator: validateExists(productId)
+    Note over TargetValidator: Cross-BC Port: Product 존재 검증<br/>미존재 시 CoreException(LIKE_TARGET_NOT_FOUND)
     TargetValidator-->>Service: (존재 확인)
 
-    Service->>QRepo: findByUserAndTarget(userId, targetType, targetId)
+    Service->>QRepo: findByUserIdAndTargetId(userId, productId)
 
     alt 이미 좋아요 존재 (멱등)
-        QRepo-->>Service: Like (기존)
+        QRepo-->>Service: ProductLike (기존)
         Note over Service: 상태 변화 없이 성공 반환
-        Service-->>Facade: Like (기존)
+        Service-->>Facade: ProductLike (기존)
     else 좋아요 없음
         QRepo-->>Service: Optional.empty()
-        Service->>Like: Like.create(userId, targetType, targetId)
-        Like-->>Service: Like (id=null)
-        Service->>CRepo: save(Like)
-        CRepo-->>Service: Like (id 할당됨)
-        Service-->>Facade: Like
+        Service->>Like: ProductLike.create(userId, productId)
+        Like-->>Service: ProductLike (id=null)
+        Service->>CRepo: save(ProductLike)
+        CRepo-->>Service: ProductLike (id 할당됨)
+        Service-->>Facade: ProductLike
     end
 
     Note over Facade: @Transactional 커밋
     deactivate Facade
-    Facade-->>Controller: void (또는 LikeOutDto)
-    Controller-->>User: 200 OK (또는 201 Created)
+    Facade-->>Controller: ProductLikeOutDto
+    Controller-->>User: 200 OK + ProductLikeResponse
 ```
 
+> BrandLike 등록도 동일한 흐름이다. `ProductLike` → `BrandLike`, `productId` → `brandId`로 치환.
+
 **해석**:
-- **Facade는 Service만 호출**한다. 모든 로직은 `LikeCommandService` 내부에서 수행된다.
-- **Cross-BC 존재 검증은 Port(`LikeTargetValidator`)를 통해** 수행한다. Like BC에서 Product/Brand BC의 Service를 직접 호출하지 않는다.
+- **Facade는 Service만 호출**한다. 모든 로직은 `ProductLikeCommandService` 내부에서 수행된다.
+- **Cross-BC 존재 검증은 Port(`LikeTargetValidator`)를 통해** 수행한다. Like BC에서 Product BC의 Service를 직접 호출하지 않는다.
 - **멱등성은 Service에서 "조회 후 판단"으로 보장**한다. 이미 좋아요가 있으면 재생성하지 않는다.
-- Like 도메인은 `targetType`(PRODUCT/BRAND)과 `targetId`를 보유하며, Product/Brand 도메인 객체에 직접 의존하지 않는다.
 
 ---
 
-### 7-2. 좋아요 취소 (USER)
+### 7-2. 상품 좋아요 취소 (USER)
 
-**왜 필요한가**: 취소의 멱등성("좋아요하지 않은 대상에 취소 요청 → 성공")이 어디서 처리되는지 확인한다.
-**검증 포인트**: 멱등 취소 처리 위치.
+**왜 필요한가**: 취소 시 좋아요가 없으면 404를 반환하는 정책을 확인한다.
+**검증 포인트**: 비멱등 취소 처리 위치 (미존재 시 404).
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User as User (인증)
-    participant Controller as LikeCommandController
-    participant Facade as LikeCommandFacade
-    participant QService as LikeQueryService
-    participant Service as LikeCommandService
-    participant Repository as LikeCommandRepository
+    participant Controller as ProductLikeCommandController
+    participant Facade as ProductLikeCommandFacade
+    participant Service as ProductLikeCommandService
+    participant QRepo as ProductLikeQueryRepository
+    participant CRepo as ProductLikeCommandRepository
 
     User->>Controller: DELETE /api/v1/products/{productId}/likes
-    Note over Controller: 인증 헤더 추출
-    Controller->>Facade: cancelLike(userId, targetType, targetId)
+    Note over Controller: 인증 헤더 추출 + UserAuthenticator로 인증
+    Controller->>Facade: deleteLike(userId, productId)
     activate Facade
     Note over Facade: @Transactional 시작
 
-    Facade->>QService: findByUserAndTarget(userId, targetType, targetId)
+    Facade->>Service: deleteLike(userId, productId)
+    Service->>QRepo: findByUserIdAndTargetId(userId, productId)
 
     alt 좋아요 존재
-        QService-->>Facade: Like
-        Facade->>Service: deleteLike(like)
-        Service->>Repository: delete(like)
-        Repository-->>Service: void
+        QRepo-->>Service: ProductLike
+        Service->>CRepo: delete(productLike)
+        CRepo-->>Service: void
         Service-->>Facade: void
     else 좋아요 없음
-        QService-->>Facade: Optional.empty()
-        Facade-->>Controller: throw CoreException(NOT_FOUND)
-        Controller-->>User: 404 Not Found
+        QRepo-->>Service: Optional.empty()
+        Service-->>Facade: throw CoreException(LIKE_NOT_FOUND)
     end
 
     Note over Facade: @Transactional 커밋
@@ -837,46 +844,79 @@ sequenceDiagram
     Controller-->>User: 200 OK
 ```
 
+> BrandLike 취소도 동일한 흐름이다.
+
 **해석**:
 - 좋아요가 없는 상태에서 취소 요청이 오면 404를 반환한다 (삭제 API는 404 반환 정책).
 - **Hard Delete**: 좋아요는 이력 보존이 불필요하므로 Hard Delete를 적용한다 (§3 삭제 정책 참조).
 
 ---
 
-### 7-3. 좋아요 목록 조회 (USER)
+### 7-3. 좋아요 목록 조회 (USER) — ProductLike / BrandLike 분리
 
-**왜 필요한가**: `target` 필터(all/products/brands)에 따른 분기 처리 위치를 확인한다.
-**검증 포인트**: 본인 리소스만 조회 보장, 필터 분기.
+**왜 필요한가**: 상품 좋아요와 브랜드 좋아요가 별도 엔드포인트로 분리된 조회 흐름을 확인한다.
+**검증 포인트**: 본인 리소스만 조회 보장, 분리된 엔드포인트.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User as User (인증)
-    participant Controller as LikeQueryController
-    participant Facade as LikeQueryFacade
-    participant Service as LikeQueryService
-    participant Repository as LikeQueryRepository
+    participant Controller as ProductLikeQueryController
+    participant Facade as ProductLikeQueryFacade
+    participant Service as ProductLikeQueryService
+    participant Repository as ProductLikeQueryRepository
 
-    User->>Controller: GET /api/v1/users/me/likes<br/>?target=products&page=0&size=20
-    Note over Controller: 인증 헤더 추출
-    Controller->>Facade: getMyLikes(userId, target, page, size)
+    User->>Controller: GET /api/v1/users/me/product-likes?page=0&size=20
+    Note over Controller: 인증 헤더 추출 + UserAuthenticator로 인증
+    Controller->>Facade: getLikesByUserId(userId, page, size)
     activate Facade
     Note over Facade: @Transactional(readOnly=true)
 
-    Facade->>Service: getLikesByUser(userId, target, pageCriteria)
-    Service->>Repository: findByUserIdAndTarget(userId, targetFilter, pageCriteria)
-    Note over Repository: target=all → 전체<br/>target=products → PRODUCT만<br/>target=brands → BRAND만
-    Repository-->>Service: PageResult<Like>
-    Service-->>Facade: PageResult<Like>
+    Facade->>Service: getLikesByUserId(userId, page, size)
+    Service->>Repository: findByUserId(userId, pageCriteria)
+    Repository-->>Service: PageResult<ProductLike>
+    Service-->>Facade: PageResult<ProductLike>
 
     deactivate Facade
-    Facade-->>Controller: PageResult<LikeListOutDto>
-    Controller-->>User: 200 OK + PageResult<LikeListResponse>
+    Facade-->>Controller: ProductLikePageOutDto
+    Controller-->>User: 200 OK + ProductLikePageResponse
 ```
+
+> BrandLike 목록 조회: `GET /api/v1/users/me/brand-likes?page=0&size=20` — 동일한 흐름.
 
 **해석**:
 - `userId`는 인증된 사용자의 ID로, **본인의 좋아요만 조회**된다 (소유권 보장).
-- Repository에서 `target` 필터를 조건으로 적용한다.
+- 기존의 `target` 파라미터 분기 대신 **엔드포인트 분리**로 타입 안전성을 확보한다.
+
+---
+
+### 7-3-1. 좋아요 여부 확인 (USER)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User (인증)
+    participant Controller as ProductLikeQueryController
+    participant Facade as ProductLikeQueryFacade
+    participant Service as ProductLikeQueryService
+    participant Repository as ProductLikeQueryRepository
+
+    User->>Controller: GET /api/v1/users/me/product-likes/check?targetId=100
+    Note over Controller: 인증 헤더 추출 + UserAuthenticator로 인증
+    Controller->>Facade: isLikedByUser(userId, targetId)
+    activate Facade
+
+    Facade->>Service: isLikedByUser(userId, targetId)
+    Service->>Repository: existsByUserIdAndTargetId(userId, targetId)
+    Repository-->>Service: boolean
+    Service-->>Facade: boolean
+
+    deactivate Facade
+    Facade-->>Controller: boolean
+    Controller-->>User: 200 OK + { "liked": true/false }
+```
+
+> BrandLike 여부 확인: `GET /api/v1/users/me/brand-likes/check?targetId=100` — 동일한 흐름.
 
 ---
 
@@ -888,25 +928,27 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Event as ProductDeletedEvent / BrandDeletedEvent
-    participant Listener as LikeEventListener
-    participant Service as LikeCommandService
-    participant Repository as LikeCommandRepository
+    participant Event as ProductDeletedEvent
+    participant Listener as ProductLikeCleanupEventListener
+    participant Service as ProductLikeCommandService
+    participant Repository as ProductLikeCommandRepository
 
     Event->>Listener: 이벤트 수신 (트랜잭션 커밋 후)
     activate Listener
     Note over Listener: @TransactionalEventListener<br/>별도 트랜잭션에서 처리
 
-    Listener->>Service: deleteByTarget(targetType, targetId)
-    Service->>Repository: deleteAllByTarget(targetType, targetId)
-    Note over Repository: Hard Delete<br/>(해당 대상의 모든 좋아요 제거)
+    Listener->>Service: deleteAllByTargetId(productId)
+    Service->>Repository: deleteAllByTargetId(productId)
+    Note over Repository: Hard Delete<br/>(해당 상품의 모든 좋아요 제거)
     Repository-->>Service: void
     Service-->>Listener: void
     deactivate Listener
 ```
 
+> BrandLike 정리: `BrandDeletedEvent` → `BrandLikeCleanupEventListener` → `BrandLikeCommandService` — 동일한 흐름.
+
 **해석**:
-- `ProductDeletedEvent` 수신 시 `targetType=PRODUCT`, `BrandDeletedEvent` 수신 시 `targetType=BRAND`로 처리한다.
+- `ProductDeletedEvent` 수신 시 `ProductLikeCleanupEventListener`에서 처리, `BrandDeletedEvent` 수신 시 `BrandLikeCleanupEventListener`에서 처리한다.
 - **별도 트랜잭션**에서 실행되므로, 핸들러 실패가 원래 삭제 트랜잭션에 영향을 주지 않는다.
 - **멱등 핸들러**: 이미 삭제된 좋아요에 대해 재실행해도 부작용이 없다 (deleteAll은 0건 삭제도 정상).
 
@@ -986,18 +1028,21 @@ sequenceDiagram
     actor User as User (인증)
     participant Controller as CartQueryController
     participant Facade as CartQueryFacade
-    participant Service as CartQueryService
+    participant AuthService as CartCommandService
+    participant QService as CartQueryService
     participant Repository as CartQueryRepository
 
     User->>Controller: GET /api/v1/cart
     Note over Controller: 인증 헤더 추출
-    Controller->>Facade: getCart(userId)
+    Controller->>Facade: getCart(loginId, password)
     activate Facade
     Note over Facade: @Transactional(readOnly=true)
-    Facade->>Service: getCartItemsByUserId(userId)
-    Service->>Repository: findAllByUserId(userId)
-    Repository-->>Service: List<CartItem>
-    Service-->>Facade: List<CartItem>
+    Facade->>AuthService: authenticate(loginId, password)
+    AuthService-->>Facade: userId
+    Facade->>QService: getCartByUserId(userId)
+    QService->>Repository: findByUserId(userId)
+    Repository-->>QService: List<CartItem>
+    QService-->>Facade: List<CartItem>
     deactivate Facade
     Facade-->>Controller: CartOutDto
     Controller-->>User: 200 OK + CartResponse
@@ -1016,41 +1061,40 @@ sequenceDiagram
     actor User as User (인증)
     participant Controller as CartCommandController
     participant Facade as CartCommandFacade
-    participant QService as CartQueryService
     participant Service as CartCommandService
+    participant QRepo as CartQueryRepository
+    participant CRepo as CartCommandRepository
     participant CartItem as CartItem (Domain)
-    participant Repository as CartCommandRepository
 
     User->>Controller: PUT /api/v1/cart/items/{cartItemId}<br/>{quantity}
     Note over Controller: 인증 헤더 추출
-    Controller->>Facade: updateCartItemQuantity(userId, cartItemId, quantity)
+    Controller->>Facade: updateQuantity(loginId, password, cartItemId, inDto)
     activate Facade
     Note over Facade: @Transactional 시작
 
-    Facade->>QService: getCartItemById(cartItemId)
-    QService-->>Facade: CartItem
+    Facade->>Service: authenticate(loginId, password)
+    Service-->>Facade: userId
 
-    Note over Facade: cartItem.userId == userId 검증<br/>불일치 시 CoreException(NOT_FOUND) — 404 마스킹
+    Facade->>Service: updateQuantity(cartItemId, userId, inDto)
+    Service->>QRepo: findById(cartItemId)
+    QRepo-->>Service: Optional<CartItem>
 
-    alt 수량 0 이하
-        Facade-->>Controller: throw CoreException(BAD_REQUEST)<br/>"수량은 1 이상이어야 합니다"
-        Controller-->>User: 400 Bad Request
-    else 유효한 수량
-        Facade->>Service: updateQuantity(cartItem, quantity)
-        Service->>CartItem: cartItem.changeQuantity(quantity)
-        Note over CartItem: 수량 유효성 검증
-        Service->>Repository: save(cartItem)
-        Repository-->>Service: CartItem
-        Service-->>Facade: CartItem
-        Note over Facade: @Transactional 커밋
-        Facade-->>Controller: CartItemOutDto
-        Controller-->>User: 200 OK + CartItemResponse
-    end
+    Note over Service: 소유권 검증 (cartItem.userId == userId)<br/>불일치 시 CoreException(CART_ITEM_NOT_FOUND) — 404 마스킹
+
+    Service->>CartItem: cartItem.changeQuantity(quantity)
+    Note over CartItem: 수량 유효성 검증 (0 이하 시 예외)
+    Service->>CRepo: save(cartItem)
+    CRepo-->>Service: CartItem
+    Service-->>Facade: CartItem
+
+    Note over Facade: @Transactional 커밋
+    Facade-->>Controller: CartItemOutDto
+    Controller-->>User: 200 OK + CartItemResponse
     deactivate Facade
 ```
 
 **해석**:
-- **소유권 검증은 Facade**에서 수행한다. 타인의 장바구니 항목 접근 시 404를 반환한다 (리소스 존재 노출 방지).
+- **소유권 검증은 Service**에서 수행한다. 타인의 장바구니 항목 접근 시 404를 반환한다 (리소스 존재 노출 방지).
 - **수량 유효성 검증은 CartItem 도메인 모델**에서 수행한다 (0 이하 → 예외).
 
 ---
@@ -1063,30 +1107,31 @@ sequenceDiagram
     actor User as User (인증)
     participant Controller as CartCommandController
     participant Facade as CartCommandFacade
-    participant QService as CartQueryService
     participant Service as CartCommandService
-    participant Repository as CartCommandRepository
+    participant QRepo as CartQueryRepository
+    participant CRepo as CartCommandRepository
 
     User->>Controller: DELETE /api/v1/cart/items/{cartItemId}
     Note over Controller: 인증 헤더 추출
-    Controller->>Facade: deleteCartItem(userId, cartItemId)
+    Controller->>Facade: deleteItem(loginId, password, cartItemId)
     activate Facade
     Note over Facade: @Transactional 시작
 
-    Facade->>QService: getCartItemById(cartItemId)
-    QService-->>Facade: CartItem
+    Facade->>Service: authenticate(loginId, password)
+    Service-->>Facade: userId
 
-    Note over Facade: 소유권 검증 (cartItem.userId == userId)<br/>불일치 시 CoreException(NOT_FOUND) — 404 마스킹
-
-    Facade->>Service: deleteCartItem(cartItem)
-    Service->>Repository: delete(cartItem)
-    Repository-->>Service: void
+    Facade->>Service: deleteItem(cartItemId, userId)
+    Service->>QRepo: findById(cartItemId)
+    QRepo-->>Service: Optional<CartItem>
+    Note over Service: 소유권 검증 (cartItem.userId == userId)<br/>불일치 시 CoreException(CART_ITEM_NOT_FOUND) — 404 마스킹
+    Service->>CRepo: delete(cartItem)
+    CRepo-->>Service: void
     Service-->>Facade: void
 
     Note over Facade: @Transactional 커밋
     deactivate Facade
     Facade-->>Controller: void
-    Controller-->>User: 200 OK (또는 204 No Content)
+    Controller-->>User: 204 No Content
 ```
 
 ---
@@ -1102,35 +1147,36 @@ sequenceDiagram
     actor User as User (인증)
     participant Controller as CartCommandController
     participant Facade as CartCommandFacade
-    participant QService as CartQueryService
     participant Service as CartCommandService
+    participant QRepo as CartQueryRepository
+    participant CRepo as CartCommandRepository
     participant CartItem as CartItem (Domain)
-    participant Repository as CartCommandRepository
 
     User->>Controller: PUT /api/v1/cart/items/selection<br/>{cartItemIds: [1, 2, 3]}
     Note over Controller: 인증 헤더 추출
-    Controller->>Facade: updateSelection(userId, cartItemIds)
+    Controller->>Facade: updateSelection(loginId, password, inDto)
     activate Facade
     Note over Facade: @Transactional 시작
 
-    Facade->>QService: getCartItemsByUserId(userId)
-    QService-->>Facade: List<CartItem> (전체)
+    Facade->>Service: authenticate(loginId, password)
+    Service-->>Facade: userId
 
-    Note over Facade: 소유권 일괄 검증
+    Facade->>Service: updateSelection(userId, inDto)
+    Service->>QRepo: findByUserId(userId)
+    QRepo-->>Service: List<CartItem> (전체)
 
-    Facade->>Service: updateSelection(allCartItems, selectedIds)
     loop 각 CartItem
         Service->>CartItem: cartItem.select() 또는 cartItem.deselect()
         Note over CartItem: selectedIds에 포함 → select<br/>미포함 → deselect
+        Service->>CRepo: save(item)
+        CRepo-->>Service: CartItem
     end
-    Service->>Repository: saveAll(cartItems)
-    Repository-->>Service: List<CartItem>
-    Service-->>Facade: List<CartItem>
+    Service-->>Facade: CartItemSelectionOutDto
 
     Note over Facade: @Transactional 커밋
     deactivate Facade
-    Facade-->>Controller: CartOutDto
-    Controller-->>User: 200 OK + CartResponse
+    Facade-->>Controller: CartItemSelectionOutDto
+    Controller-->>User: 200 OK + CartItemSelectionResponse
 ```
 
 **해석**:
@@ -1141,8 +1187,8 @@ sequenceDiagram
 
 ### 8-6. 장바구니 상태 확인 (USER)
 
-**왜 필요한가**: 장바구니 항목의 품절 여부를 최신 상품 재고와 비교하는 흐름에서, Cross-BC 조회의 책임을 확인한다.
-**검증 포인트**: Product 도메인과의 조합 조회에 Port 사용, Service 내부에서 Port 호출.
+**왜 필요한가**: 장바구니 상태 응답(total/selected/item 목록) 생성 책임이 어디에 있는지 확인한다.
+**검증 포인트**: 사용자별 조회, selected 집계, 상태 DTO 구성 위치.
 
 ```mermaid
 sequenceDiagram
@@ -1150,28 +1196,26 @@ sequenceDiagram
     actor User as User (인증)
     participant Controller as CartQueryController
     participant Facade as CartQueryFacade
-    participant Service as CartQueryService
+    participant AuthService as CartCommandService
+    participant QService as CartQueryService
     participant QRepo as CartQueryRepository
-    participant ProductReader as CartProductReader [Port]
 
     User->>Controller: GET /api/v1/cart/status
     Note over Controller: 인증 헤더 추출
-    Controller->>Facade: getCartStatus(userId)
+    Controller->>Facade: getCartStatus(loginId, password)
     activate Facade
     Note over Facade: @Transactional(readOnly=true)
 
-    Facade->>Service: getCartStatus(userId)
+    Facade->>AuthService: authenticate(loginId, password)
+    AuthService-->>Facade: userId
+    Facade->>QService: getCartStatus(userId)
 
-    Service->>QRepo: findAllByUserId(userId)
-    QRepo-->>Service: List<CartItem>
+    QService->>QRepo: findByUserId(userId)
+    QRepo-->>QService: List<CartItem>
 
-    Service->>ProductReader: getProductsByIds(productIds)
-    Note over ProductReader: Cross-BC Port: Product 정보 조회
-    ProductReader-->>Service: List<Product 정보>
+    Note over QService: selectedCount 집계 + 상태 DTO 변환
 
-    Note over Service: CartItem별 품절 여부 판정<br/>(product.stock == 0 또는 product.deleted)
-
-    Service-->>Facade: CartStatusOutDto
+    QService-->>Facade: CartStatusOutDto
 
     deactivate Facade
     Facade-->>Controller: CartStatusOutDto
@@ -1180,8 +1224,8 @@ sequenceDiagram
 
 **해석**:
 - **Facade는 Service만 호출**한다. 기존처럼 Facade에서 ProductQueryService와 ProductQueryRepository를 직접 호출하지 않는다.
-- **Cross-BC 상품 조회는 Port(`CartProductReader`)를 통해** Service 내부에서 수행한다.
-- 품절 판정은 최신 Product 재고를 기준으로 한다. 이 결과는 주문 생성 시 재검증된다.
+- **장바구니 상태 조회는 Cart BC 내부 조회만 사용**한다. (현재 구현은 상품 재고/삭제 상태와의 Cross-BC 조합 조회를 포함하지 않는다.)
+- 상태 응답은 전체 항목 수, 선택 항목 수, 항목별 selected 상태를 기준으로 구성된다.
 
 ---
 
@@ -1202,8 +1246,8 @@ sequenceDiagram
         Event->>Listener: OrderCreatedEvent(userId, cartItemIds)
         activate Listener
         Note over Listener: @TransactionalEventListener<br/>별도 트랜잭션에서 처리
-        Listener->>Service: deleteCartItems(userId, cartItemIds)
-        Service->>Repository: deleteAll(cartItems)
+        Listener->>Service: deleteAllByUserIdAndIds(userId, cartItemIds)
+        Service->>Repository: deleteAllByUserIdAndIds(userId, cartItemIds)
         Note over Repository: Hard Delete<br/>(주문 완료된 장바구니 항목 제거)
         Repository-->>Service: void
         Service-->>Listener: void
@@ -1212,7 +1256,7 @@ sequenceDiagram
         Event->>Listener: ProductDeletedEvent(productId)
         activate Listener
         Note over Listener: @TransactionalEventListener<br/>별도 트랜잭션에서 처리
-        Listener->>Service: deleteByProductId(productId)
+        Listener->>Service: deleteAllByProductId(productId)
         Service->>Repository: deleteAllByProductId(productId)
         Note over Repository: Hard Delete<br/>(삭제된 상품의 CartItem 제거)
         Repository-->>Service: void
@@ -1241,87 +1285,93 @@ sequenceDiagram
     actor User as User (인증)
     participant Controller as OrderCommandController
     participant Facade as OrderCommandFacade
-    participant Service as OrderCommandService
-    participant Idem as IdempotencyService
+    participant CheckoutService as OrderCheckoutCommandService
+    participant IdemQService as OrderIdempotencyQueryService
+    participant OrderQService as OrderQueryService
+    participant PlacementService as OrderPlacementCommandService
     participant CartReader as OrderCartItemReader [Port]
     participant ProductReader as OrderProductReader [Port]
     participant StockManager as OrderStockManager [Port]
     participant Order as Order (Domain)
     participant OrderItem as OrderItem (Domain)
     participant OrderRepo as OrderCommandRepository
+    participant IdemRepo as IdempotencyKeyCommandRepository
     participant EventPublisher as EventPublisher
 
     User->>Controller: POST /api/v1/orders<br/>{cartItemIds, requestId}
     Note over Controller: 인증 헤더 추출
-    Controller->>Facade: createOrder(userId, OrderCreateInDto)
+    Controller->>Facade: createOrder(loginId, password, OrderCreateInDto)
     activate Facade
     Note over Facade: @Transactional 시작
 
-    Facade->>Service: createOrder(userId, inDto)
+    Facade->>CheckoutService: authenticate(loginId, password)
+    CheckoutService-->>Facade: userId
 
     %% 1. 멱등 키 확인
-    Service->>Idem: findCompleted(userId, requestId)
+    Facade->>IdemQService: findOrderIdByRequestId(userId, requestId)
     alt 이미 처리된 요청
-        Idem-->>Service: existingOrderId
-        Service-->>Facade: 기존 주문 반환
-        Facade-->>Controller: OrderCreateOutDto
+        IdemQService-->>Facade: existingOrderId
+        Facade->>OrderQService: findById(existingOrderId)
+        OrderQService-->>Facade: Order
+        Facade-->>Controller: OrderDetailOutDto
         Controller-->>User: 200 OK (멱등 성공)
     else 신규 요청
-        Idem-->>Service: not_found
+        IdemQService-->>Facade: not_found
 
         %% 2. 장바구니 항목 조회 (Cross-BC Port)
-        Service->>CartReader: getCartItems(userId, cartItemIds)
+        Facade->>CheckoutService: readCartItemsByIds(userId, cartItemIds)
+        CheckoutService->>CartReader: readCartItemsByIds(userId, cartItemIds)
         Note over CartReader: Cross-BC Port: Cart 항목 조회
-        CartReader-->>Service: List<CartItem>
-
-        Note over Service: 소유권 검증 (userId 일치)<br/>항목 없으면 CoreException(BAD_REQUEST)
+        CartReader-->>CheckoutService: List<OrderCartItemInfo>
+        CheckoutService-->>Facade: List<OrderCartItemInfo>
 
         %% 3. 상품 조회 (Cross-BC Port)
-        Service->>ProductReader: getProducts(productIds)
+        Facade->>CheckoutService: readProducts(productIds)
+        CheckoutService->>ProductReader: readProducts(productIds)
         Note over ProductReader: Cross-BC Port: Product 정보 조회
-        ProductReader-->>Service: List<Product>
+        ProductReader-->>CheckoutService: List<OrderProductInfo>
+        CheckoutService-->>Facade: List<OrderProductInfo>
 
         %% 4. 재고 차감 (Cross-BC Port)
-        loop 각 CartItem별 Product
-            Service->>StockManager: decreaseStock(productId, quantity)
+        Facade->>CheckoutService: decreaseStocks(cartItems)
+        loop productId 오름차순
+            CheckoutService->>StockManager: decreaseStock(productId, quantity)
             Note over StockManager: Cross-BC Port: 재고 차감<br/>재고 부족 시 CoreException(INSUFFICIENT_STOCK)<br/>→ 전체 트랜잭션 롤백
         end
 
         %% 5. 주문 + 주문항목 생성 (스냅샷)
-        Service->>Order: Order.create(userId)
-        loop 각 CartItem + Product
-            Service->>OrderItem: OrderItem.create(orderId, productId,<br/>snapshotName, snapshotPrice, quantity)
+        Facade->>PlacementService: createOrder(userId, requestId, cartItems, products, resolvedCartItemIds)
+        PlacementService->>Order: Order.create(userId, totalPrice, orderItems)
+        loop 각 CartItem + ProductInfo
+            PlacementService->>OrderItem: OrderItem.create(productId,<br/>snapshotName, snapshotPrice, quantity)
             Note over OrderItem: 주문 시점 상품 정보를<br/>스냅샷으로 보존
         end
-        Service->>OrderRepo: save(order, orderItems)
-        OrderRepo-->>Service: Order (id 할당됨)
+        PlacementService->>OrderRepo: save(order)
+        OrderRepo-->>PlacementService: Order (id 할당됨)
 
         %% 6. 주문 생성 이벤트 발행 (장바구니 정리는 이벤트로 처리)
-        Service->>EventPublisher: publish(OrderCreatedEvent(userId, cartItemIds))
+        PlacementService->>IdemRepo: save(IdempotencyKey)
+        PlacementService->>EventPublisher: publish(OrderCreatedEvent(orderId, userId, cartItemIds))
         Note over EventPublisher: 트랜잭션 커밋 후 발행<br/>→ Cart BC가 구독하여 장바구니 항목 정리 (최종 일관성)
 
-        %% 7. 멱등 키 완료 기록
-        Service->>Idem: markCompleted(userId, requestId, orderId)
-        Idem-->>Service: completed
-
-        Service-->>Facade: Order
+        PlacementService-->>Facade: Order
         Note over Facade: @Transactional 커밋<br/>(재고 차감 + 주문 생성 = 단일 트랜잭션)<br/>장바구니 정리는 이벤트 기반 최종 일관성으로 처리
     end
     deactivate Facade
-    Facade-->>Controller: OrderCreateOutDto
-    Controller-->>User: 201 Created + OrderCreateResponse
+    Facade-->>Controller: OrderDetailOutDto
+    Controller-->>User: 201 Created + OrderDetailResponse
 ```
 
 **해석**:
-- **Facade는 `OrderCommandService` 하나만 호출**한다. 기존처럼 Facade에서 여러 BC의 Service를 직접 호출하지 않는다.
-- **동기 Cross-BC 호출은 Port를 통해 Service 내부에서 수행**한다:
+- **Facade는 여러 Order Service를 오케스트레이션**한다. (`OrderCheckoutCommandService`, `OrderIdempotencyQueryService`, `OrderPlacementCommandService`, `OrderQueryService`)
+- **동기 Cross-BC 호출은 `OrderCheckoutCommandService` 내부 Port 호출로 수행**한다:
   - `OrderCartItemReader`: Cart BC에서 장바구니 항목 조회
   - `OrderProductReader`: Catalog BC에서 상품 정보 조회
   - `OrderStockManager`: Catalog BC에서 재고 차감
 - **장바구니 정리는 이벤트 기반 최종 일관성으로 처리**한다:
   - `OrderCreatedEvent`: 트랜잭션 커밋 후 발행 → Cart BC가 구독하여 장바구니 항목 제거
   - 장바구니 정리 실패가 주문을 무효화하지 않는다
-- **멱등 키(`requestId`)**: 동일한 `(userId, requestId)` 조합으로 중복 요청 시, 기존 주문을 반환한다. 재고 중복 차감을 방지한다.
+- **멱등 키(`requestId`)**: Facade에서 조회(`OrderIdempotencyQueryService`)로 중복 요청을 판별하고, 신규 주문 경로에서는 `OrderPlacementCommandService`가 멱등 키를 저장한다.
 - **트랜잭션 원자성이 핵심**: 재고 차감과 주문 생성이 **하나의 트랜잭션** 안에서 수행된다. 어느 하나라도 실패하면 전체 롤백된다.
 - **스냅샷은 OrderItem 생성 시점**에 Product의 현재 가격/상품명을 복사하여 저장한다. 이후 상품이 수정/삭제되어도 주문 조회에 영향 없다.
 - **동시성 제어**: 재고 차감에 비관적 락(`SELECT ... FOR UPDATE`) 또는 낙관적 락을 적용해야 한다. 락 타임아웃 시 409 Conflict 반환.
@@ -1340,21 +1390,24 @@ sequenceDiagram
     actor User as User (인증)
     participant Controller as OrderQueryController
     participant Facade as OrderQueryFacade
-    participant Service as OrderQueryService
+    participant AuthService as OrderCheckoutCommandService
+    participant QService as OrderQueryService
     participant Repository as OrderQueryRepository
 
     User->>Controller: GET /api/v1/orders<br/>?startDate=2026-01-31&endDate=2026-02-10&page=0&size=20
     Note over Controller: 인증 헤더 추출
-    Controller->>Facade: getMyOrders(userId, startDate, endDate, page, size)
+    Controller->>Facade: getOrders(loginId, password, page, size, startDate, endDate)
     activate Facade
     Note over Facade: @Transactional(readOnly=true)
-    Facade->>Service: getOrdersByUserId(userId, startDate, endDate, pageCriteria)
-    Service->>Repository: findByUserIdAndDateRange(userId, startDate, endDate, pageCriteria)
-    Repository-->>Service: PageResult<Order>
-    Service-->>Facade: PageResult<Order>
+    Facade->>AuthService: authenticate(loginId, password)
+    AuthService-->>Facade: userId
+    Facade->>QService: getOrdersByUserId(userId, page, size, startDate, endDate)
+    QService->>Repository: findByUserId(userId, startDate, endDate, pageCriteria)
+    Repository-->>QService: PageResult<Order>
+    QService-->>Facade: OrderPageOutDto
     deactivate Facade
-    Facade-->>Controller: PageResult<OrderListOutDto>
-    Controller-->>User: 200 OK + PageResult<OrderListResponse>
+    Facade-->>Controller: OrderPageOutDto
+    Controller-->>User: 200 OK + OrderPageResponse
 ```
 
 ---
@@ -1370,21 +1423,24 @@ sequenceDiagram
     actor User as User (인증)
     participant Controller as OrderQueryController
     participant Facade as OrderQueryFacade
-    participant Service as OrderQueryService
+    participant AuthService as OrderCheckoutCommandService
+    participant QService as OrderQueryService
     participant Repository as OrderQueryRepository
 
     User->>Controller: GET /api/v1/orders/{orderId}
     Note over Controller: 인증 헤더 추출
-    Controller->>Facade: getOrderDetail(userId, orderId)
+    Controller->>Facade: getOrder(loginId, password, orderId)
     activate Facade
     Note over Facade: @Transactional(readOnly=true)
 
-    Facade->>Service: getOrderById(orderId)
-    Service->>Repository: findByIdWithItems(orderId)
-    Repository-->>Service: Order (+ List<OrderItem>)
-    Service-->>Facade: Order
+    Facade->>AuthService: authenticate(loginId, password)
+    AuthService-->>Facade: userId
+    Facade->>QService: findByIdAndUserId(orderId, userId)
+    QService->>Repository: findById(orderId)
+    Repository-->>QService: Order (+ List<OrderItem>)
+    QService-->>Facade: Order
 
-    Note over Facade: 소유권 검증 (order.userId == userId)<br/>불일치 시 CoreException(NOT_FOUND) — 404 마스킹
+    Note over QService: 소유권 검증 (order.userId == userId)<br/>불일치 시 CoreException(ORDER_NOT_FOUND) — 404 마스킹
     Note over Facade: OrderItem의 스냅샷 데이터로 응답 구성<br/>(상품 삭제 여부와 무관)
 
     deactivate Facade
@@ -1394,7 +1450,7 @@ sequenceDiagram
 
 **해석**:
 - **스냅샷 기반 조회**: `OrderItem`에 저장된 `snapshotName`, `snapshotPrice`를 사용하므로, 원본 Product가 삭제/수정되어도 주문 상세는 정상 조회된다.
-- 소유권 검증은 Facade에서 수행하며, 타인의 주문 접근 시 404를 반환한다 (리소스 존재 노출 방지).
+- 소유권 검증은 Service에서 수행하며, 타인의 주문 접근 시 404를 반환한다 (리소스 존재 노출 방지).
 
 ---
 
@@ -1442,11 +1498,11 @@ sequenceDiagram
 
     Admin->>Controller: GET /api-admin/v1/orders/{orderId}
     Note over Controller: LDAP 인증 확인
-    Controller->>Facade: getOrderDetail(orderId)
+    Controller->>Facade: getAdminOrder(orderId)
     activate Facade
     Note over Facade: @Transactional(readOnly=true)
-    Facade->>Service: getOrderById(orderId)
-    Service->>Repository: findByIdWithItems(orderId)
+    Facade->>Service: findById(orderId)
+    Service->>Repository: findById(orderId)
     Repository-->>Service: Order (+ List<OrderItem>)
     Service-->>Facade: Order
     Note over Facade: 소유권 검증 없음 (ADMIN 권한)
@@ -1466,14 +1522,23 @@ sequenceDiagram
 | 인증 확인 | Controller / Filter | LDAP 인증, 헤더 추출 |
 | 트랜잭션 관리 | Facade | `@Transactional` 경계 |
 | 유스케이스 오케스트레이션 | Facade | **Service만 호출**, 멱등 판단 |
-| 소유권 검증 | Facade | `order.userId == userId` → 불일치 시 404 마스킹 (리소스 존재 노출 방지) |
-| 도메인 불변식 (데이터 전달) | DomainService | `BrandDeleteValidator` — **Service가 데이터 조회 → DomainService가 검증** |
+| 소유권 검증 | Facade / Service (유스케이스별) | `order.userId == userId` 또는 `cartItem.userId == userId` → 불일치 시 404 마스킹 (리소스 존재 노출 방지) |
+| 도메인 불변식 (facts 주입형) | Domain Model | `Brand.validateDeletable(hasActiveProducts)` — **Service가 데이터 조회/집계 → Domain Model이 최종 판정** |
+| 도메인 협력 중재 규칙 | DomainService | 다중 Aggregate 협력 중재가 필요해질 때 도입 |
 | 도메인 불변식 (자체) | Domain Model | `Product.decreaseStock()`, `CartItem.changeQuantity()` |
 | 유효성 검증 | Domain Model / VO | `create()` 팩토리 메서드 |
 | Cross-BC 통신 (동기) | Port + Adapter | `LikeTargetValidator`, `CartProductReader`, `OrderCartItemReader`, `OrderProductReader`, `OrderStockManager` |
 | Cross-BC 통신 (비동기) | EventPublisher + EventListener | `OrderCreatedEvent` → Cart 정리, `ProductDeletedEvent` → Cart/Like 정리, `BrandDeletedEvent` → Like 정리 |
-| 멱등 키 | IdempotencyService | 주문 생성 `requestId` 기반 중복 방지 |
+| 멱등 키 | OrderIdempotencyQueryService + IdempotencyKeyCommandRepository | 주문 생성 `requestId` 기반 중복 방지 |
 | 영속화 | Repository | CQRS 분리 (Command/Query) |
+
+### 평가기준 정합성 매핑
+
+| 관점 | 평가기준(v1.1) | 설계 문서 합의 | 현재 구현 기준 |
+|---|---|---|---|
+| 삭제 정책 facts 판정 | 단일 Aggregate 판정은 Entity/VO 허용, facts 준비는 Application | Service가 `existsActiveByBrandId` 조회 후 Domain으로 전달 | `Brand.validateDeletable(hasActiveProducts)` |
+| DomainService 도입 조건 | 다중 Aggregate 협력 중재가 필요한 규칙에 한정 | Brand 삭제는 현재 Entity 1차 판정, 필요 시 DomainService 승격 | `BrandDeleteValidator`는 확장 옵션 |
+| 해석 충돌 처리 | 책임 경계 충돌 시 `UNDECIDABLE` 우선 후 해석 확정 | 리뷰에서 FAIL 확정 전 질의 | 기준 확정 후 재판정 |
 
 ### 잠재 리스크
 
@@ -1483,5 +1548,5 @@ sequenceDiagram
 | 재고 차감 동시성 | 동시 주문 시 재고 정합성 문제 | 비관적 락(`FOR UPDATE`) 또는 낙관적 락 + 재시도 |
 | Cross-BC Port 증가 | Port/Adapter 수가 늘어나면 유지보수 부담 증가 | Port 인터페이스를 최소한으로 유지, 불필요한 세분화 지양 |
 | 이벤트 실패/소실 | 이벤트 핸들러 실패 시 고아 데이터 잔존 가능 | 멱등 핸들러 + 재시도 정책. 고아 데이터는 서비스에 치명적이지 않음 |
-| DomainService 역할 축소 | Service가 데이터 조회를 담당하므로 DomainService가 단순 검증만 수행 | 비즈니스 규칙이 복잡해지면 DomainService의 가치가 높아짐 |
+| 도메인 책임 경계 해석 차이 | Entity vs DomainService 책임 배치에 대한 문서/리뷰 충돌 가능 | 판정 소유권 기준(단일 Aggregate 판정 vs 협력 중재)을 문서에 고정 |
 | 브랜드 삭제 경쟁 상태 | 삭제 직전 상품 등록 시 정합성 깨짐 | 삭제 검증을 비관적 락으로 보호 |

@@ -108,6 +108,15 @@
 
 - 삭제된 리소스의 좋아요: 좋아요 목록 조회 시 **삭제된 리소스는 필터링하여 노출하지 않는다**.
 
+#### 아키텍처 경계 정책 (P0)
+
+- Cross-BC 동기 호출은 `Port + ACL` 패턴을 사용한다.
+- ACL은 **Provider BC의 Facade(또는 Facade 성격 전용 API)** 만 호출한다.
+- ACL은 변환/위임만 수행하는 thin adapter로 유지하며, 비즈니스/오케스트레이션/에러 매핑 로직을 포함하지 않는다.
+- 에러 매핑은 ACL을 호출하는 Service에서 수행한다.
+- ACL에서 Provider BC의 `Repository/JPA/QueryDSL` 직접 참조를 금지한다.
+- Service의 `public` 메서드는 유스케이스 계약과 Facade/EventListener가 조합할 단계를 노출하고, 클래스 내부 전용 helper는 `private`로 관리한다.
+
 ---
 
 ## 1.4 액터별 기능 정의
@@ -183,6 +192,7 @@
 
 ##### 브랜드 삭제 정책 (P0)
 
+- **노출 상태(VISIBLE)인 브랜드는 삭제할 수 없다.** (HIDDEN 상태로 변경 후 삭제 가능)
 - **브랜드를 삭제하려면, 해당 브랜드에 속한 "활성(미삭제)" 상품이 0개여야 한다.**
 - **브랜드에 속한 상품이 1개라도 남아 있으면 브랜드 삭제는 실패한다.**
 - (권장) Soft Delete를 사용할 경우에도 "활성 상품 0개" 조건을 동일하게 적용한다.
@@ -681,7 +691,7 @@
 | **파라미터**  | **예시**                                | **설명**             |
 |-----------|---------------------------------------|--------------------|
 | `brandId` | `1`                                   | 특정 브랜드의 상품만 필터링    |
-| `sort`    | `latest` / `price_asc` / `likes_desc` | 정렬 기준              |
+| `sort`    | `LATEST` / `PRICE_ASC` / `LIKES_DESC` | 정렬 기준              |
 | `page`    | `0`                                   | 페이지 번호 (기본값 0)     |
 | `size`    | `20`                                  | 페이지당 상품 수 (기본값 20) |
 
@@ -727,21 +737,29 @@
 
 - **USER**: 관심 상품/브랜드를 좋아요로 저장하고, 나중에 목록으로 모아보고 싶다.
 
-| **METHOD** | **URI**                              | **user_required** | **특징**                | **설명**                  |
-|------------|--------------------------------------|-------------------|-----------------------|-------------------------|
-| POST       | `/api/v1/products/{productId}/likes` | O                 |                       | 상품 좋아요 등록               |
-| DELETE     | `/api/v1/products/{productId}/likes` | O                 |                       | 상품 좋아요 취소               |
-| POST       | `/api/v1/brands/{brandId}/likes`     | O                 |                       | 브랜드 좋아요 등록              |
-| DELETE     | `/api/v1/brands/{brandId}/likes`     | O                 |                       | 브랜드 좋아요 취소              |
-| GET        | `/api/v1/users/me/likes`             | O                 | 페이지네이션(`page`,`size`) | 내가 좋아요 한 목록 조회 (브랜드/상품) |
+| **METHOD** | **URI**                                    | **user_required** | **특징**                | **설명**          |
+|------------|--------------------------------------------|-------------------|-----------------------|-----------------|
+| POST       | `/api/v1/products/{productId}/likes`       | O                 |                       | 상품 좋아요 등록       |
+| DELETE     | `/api/v1/products/{productId}/likes`       | O                 |                       | 상품 좋아요 취소       |
+| POST       | `/api/v1/brands/{brandId}/likes`           | O                 |                       | 브랜드 좋아요 등록      |
+| DELETE     | `/api/v1/brands/{brandId}/likes`           | O                 |                       | 브랜드 좋아요 취소      |
+| GET        | `/api/v1/users/me/product-likes`           | O                 | 페이지네이션(`page`,`size`) | 내 상품 좋아요 목록 조회  |
+| GET        | `/api/v1/users/me/brand-likes`             | O                 | 페이지네이션(`page`,`size`) | 내 브랜드 좋아요 목록 조회 |
+| GET        | `/api/v1/users/me/product-likes/check`     | O                 | `targetId` 쿼리 파라미터   | 상품 좋아요 여부 확인    |
+| GET        | `/api/v1/users/me/brand-likes/check`       | O                 | `targetId` 쿼리 파라미터   | 브랜드 좋아요 여부 확인   |
 
 #### ✅ 좋아요 목록 조회 쿼리 파라미터
 
-| **파라미터** | **예시**                        | **설명**               |
-|----------|-------------------------------|----------------------|
-| `target` | `all` / `products` / `brands` | 조회 대상 필터 (기본값 `all`) |
-| `page`   | `0`                           | 페이지 번호 (기본값 0)       |
-| `size`   | `20`                          | 페이지당 개수 (기본값 20)     |
+| **파라미터** | **예시** | **설명**               |
+|----------|--------|-----------------------|
+| `page`   | `0`    | 페이지 번호 (기본값 0)       |
+| `size`   | `20`   | 페이지당 개수 (기본값 20)     |
+
+#### ✅ 좋아요 여부 확인 쿼리 파라미터
+
+| **파라미터**   | **예시** | **설명**       |
+|------------|--------|--------------|
+| `targetId` | `1`    | 대상 상품/브랜드 ID |
 
 #### 상태코드
 
@@ -751,7 +769,10 @@
 | DELETE /api/v1/products/{productId}/likes | 200 OK | 401 (미인증), 404 (좋아요 없음) |
 | POST /api/v1/brands/{brandId}/likes | 200 OK | 401 (미인증), 404 (브랜드 없음) |
 | DELETE /api/v1/brands/{brandId}/likes | 200 OK | 401 (미인증), 404 (좋아요 없음) |
-| GET /api/v1/users/me/likes | 200 OK | 401 (미인증) |
+| GET /api/v1/users/me/product-likes | 200 OK | 401 (미인증) |
+| GET /api/v1/users/me/brand-likes | 200 OK | 401 (미인증) |
+| GET /api/v1/users/me/product-likes/check | 200 OK | 401 (미인증) |
+| GET /api/v1/users/me/brand-likes/check | 200 OK | 401 (미인증) |
 
 ---
 
