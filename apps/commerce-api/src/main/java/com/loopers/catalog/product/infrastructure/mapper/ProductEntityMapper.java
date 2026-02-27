@@ -21,6 +21,7 @@ public class ProductEntityMapper {
 	// 1. Domain -> Entity 변환
 	public ProductEntity toEntity(Product product) {
 
+		// 엔티티 생성
 		ProductEntity entity = ProductEntity.of(
 			product.getId(),
 			product.getBrandId(),
@@ -31,6 +32,7 @@ public class ProductEntityMapper {
 			product.getLikeCount()
 		);
 
+		// 소프트 삭제 상태 반영
 		if (product.getDeletedAt() != null) {
 			entity.delete();
 		}

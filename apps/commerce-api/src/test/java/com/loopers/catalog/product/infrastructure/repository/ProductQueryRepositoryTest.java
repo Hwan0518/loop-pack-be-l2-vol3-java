@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -139,6 +140,60 @@ class ProductQueryRepositoryTest {
 
 			// Assert
 			assertThat(exists).isFalse();
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("findActiveByIdForUpdate()")
+	class FindActiveByIdForUpdateTest {
+
+		@Test
+		@Transactional
+		@DisplayName("[findActiveByIdForUpdate()] 활성 상품 ID -> 비관적 쓰기 락으로 상품 반환")
+		void findActiveByIdForUpdateSuccess() {
+			// Arrange
+			Product product = Product.create(1L, "락 테스트 상품", new BigDecimal("10000"), 100L, "설명");
+			Product saved = productCommandRepository.save(product);
+
+			// Act
+			Optional<Product> result = productQueryRepository.findActiveByIdForUpdate(saved.getId());
+
+			// Assert
+			assertAll(
+				() -> assertThat(result).isPresent(),
+				() -> assertThat(result.get().getName().value()).isEqualTo("락 테스트 상품")
+			);
+		}
+
+
+		@Test
+		@Transactional
+		@DisplayName("[findActiveByIdForUpdate()] 삭제된 상품 ID -> Optional.empty() 반환")
+		void findActiveByIdForUpdateDeleted() {
+			// Arrange
+			Product product = Product.create(1L, "삭제 상품", new BigDecimal("10000"), 100L, null);
+			Product saved = productCommandRepository.save(product);
+			productCommandRepository.delete(saved);
+
+			// Act
+			Optional<Product> result = productQueryRepository.findActiveByIdForUpdate(saved.getId());
+
+			// Assert
+			assertThat(result).isEmpty();
+		}
+
+
+		@Test
+		@Transactional
+		@DisplayName("[findActiveByIdForUpdate()] 존재하지 않는 ID -> Optional.empty() 반환")
+		void findActiveByIdForUpdateNotFound() {
+			// Act
+			Optional<Product> result = productQueryRepository.findActiveByIdForUpdate(999L);
+
+			// Assert
+			assertThat(result).isEmpty();
 		}
 
 	}

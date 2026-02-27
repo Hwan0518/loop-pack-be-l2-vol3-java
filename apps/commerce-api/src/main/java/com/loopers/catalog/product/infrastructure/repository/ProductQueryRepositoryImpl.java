@@ -26,6 +26,7 @@ public class ProductQueryRepositoryImpl implements ProductQueryRepository {
 	 * 1. ID로 상품 조회 (미삭제)
 	 * 2. 브랜드의 활성 상품 존재 여부 확인
 	 * 3. ID로 상품 조회 (삭제 포함)
+	 * 4. ID로 상품 조회 (미삭제, 비관적 쓰기 락)
 	 */
 
 	// 1. ID로 상품 조회 (미삭제)
@@ -47,6 +48,14 @@ public class ProductQueryRepositoryImpl implements ProductQueryRepository {
 	@Override
 	public Optional<Product> findById(Long id) {
 		return productJpaRepository.findById(id)
+			.map(productMapper::toDomain);
+	}
+
+
+	// 4. ID로 상품 조회 (미삭제, 비관적 쓰기 락)
+	@Override
+	public Optional<Product> findActiveByIdForUpdate(Long id) {
+		return productJpaRepository.findByIdAndDeletedAtIsNullForUpdate(id)
 			.map(productMapper::toDomain);
 	}
 
