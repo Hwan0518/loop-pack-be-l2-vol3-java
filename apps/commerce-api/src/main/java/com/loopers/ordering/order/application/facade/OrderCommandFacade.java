@@ -6,6 +6,7 @@ import com.loopers.ordering.order.application.dto.out.OrderDetailOutDto;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.service.OrderCheckoutCommandService;
+import com.loopers.ordering.order.application.service.OrderCleanupCommandService;
 import com.loopers.ordering.order.application.service.OrderIdempotencyQueryService;
 import com.loopers.ordering.order.application.service.OrderPlacementCommandService;
 import com.loopers.ordering.order.application.service.OrderQueryService;
@@ -26,6 +27,7 @@ public class OrderCommandFacade {
 	private final OrderIdempotencyQueryService orderIdempotencyQueryService;
 	private final OrderCheckoutCommandService orderCheckoutCommandService;
 	private final OrderPlacementCommandService orderPlacementCommandService;
+	private final OrderCleanupCommandService orderCleanupCommandService;
 	private final OrderQueryService orderQueryService;
 
 
@@ -60,13 +62,16 @@ public class OrderCommandFacade {
 		// 5. 재고 차감
 		orderCheckoutCommandService.decreaseStocks(cartItems);
 
-		// 6. 주문 생성 (이벤트 발행 포함)
+		// 6. 주문 생성
 		List<Long> resolvedCartItemIds = cartItems.stream()
 			.map(OrderCartItemInfo::cartItemId)
 			.toList();
 		Order order = orderPlacementCommandService.createOrder(userId, inDto.requestId(), cartItems, products, resolvedCartItemIds);
 
-		// 7. DTO 변환
+		// 7. 장바구니 항목 정리 (Cross-BC 부수효과)
+		orderCleanupCommandService.deleteCartItems(userId, resolvedCartItemIds);
+
+		// 8. DTO 변환
 		return OrderDetailOutDto.from(order);
 	}
 

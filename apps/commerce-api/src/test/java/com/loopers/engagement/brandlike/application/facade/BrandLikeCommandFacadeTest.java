@@ -81,4 +81,23 @@ class BrandLikeCommandFacadeTest {
 		}
 	}
 
+
+	@Nested
+	@DisplayName("deleteAllByBrandId() - 브랜드 ID로 좋아요 전체 삭제")
+	class DeleteAllByBrandIdTest {
+
+		@Test
+		@DisplayName("[deleteAllByBrandId()] 유효한 브랜드 ID -> 서비스 deleteAllByTargetId 위임")
+		void deleteAllByBrandId() {
+			// Arrange
+			willDoNothing().given(brandLikeCommandService).deleteAllByTargetId(100L);
+
+			// Act
+			brandLikeCommandFacade.deleteAllByBrandId(100L);
+
+			// Assert
+			verify(brandLikeCommandService).deleteAllByTargetId(100L);
+		}
+	}
+
 }

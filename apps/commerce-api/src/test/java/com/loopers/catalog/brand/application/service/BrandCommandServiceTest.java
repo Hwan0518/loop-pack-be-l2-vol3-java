@@ -4,7 +4,6 @@ package com.loopers.catalog.brand.application.service;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandCreateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandUpdateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandVisibleStatusUpdateInDto;
-import com.loopers.catalog.brand.domain.event.BrandDeletedEvent;
 import com.loopers.catalog.brand.domain.model.Brand;
 import com.loopers.catalog.brand.domain.model.enums.VisibleStatus;
 import com.loopers.catalog.brand.domain.model.vo.BrandDescription;
@@ -19,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
@@ -37,17 +35,12 @@ class BrandCommandServiceTest {
 	@Mock
 	private BrandCommandRepository brandCommandRepository;
 
-	@Mock
-	private ApplicationEventPublisher eventPublisher;
-
 	private BrandCommandService brandCommandService;
 
 
 	@BeforeEach
 	void setUp() {
-		brandCommandService = new BrandCommandService(
-			brandCommandRepository, eventPublisher
-		);
+		brandCommandService = new BrandCommandService(brandCommandRepository);
 	}
 
 
@@ -161,7 +154,7 @@ class BrandCommandServiceTest {
 	class DeleteBrandTest {
 
 		@Test
-		@DisplayName("[BrandCommandService.deleteBrand()] 활성 상품 없음 -> 검증 통과 후 브랜드 삭제 및 이벤트 발행")
+		@DisplayName("[BrandCommandService.deleteBrand()] 활성 상품 없음 -> 검증 통과 후 브랜드 삭제")
 		void deleteBrandSuccess() {
 			// Arrange
 			Brand brand = Brand.reconstruct(1L, BrandName.from("나이키"),
@@ -173,14 +166,11 @@ class BrandCommandServiceTest {
 
 			// Assert
 			verify(brandCommandRepository).delete(brand);
-			verify(eventPublisher).publishEvent(argThat((BrandDeletedEvent event) ->
-				event.brandId().equals(1L)
-			));
 		}
 
 
 		@Test
-		@DisplayName("[BrandCommandService.deleteBrand()] 활성 상품 존재 -> BRAND_HAS_ACTIVE_PRODUCTS 예외. 삭제/이벤트 미발생")
+		@DisplayName("[BrandCommandService.deleteBrand()] 활성 상품 존재 -> BRAND_HAS_ACTIVE_PRODUCTS 예외. 삭제 미발생")
 		void deleteBrandFailWhenHasActiveProducts() {
 			// Arrange
 			Brand brand = Brand.reconstruct(1L, BrandName.from("나이키"),
@@ -196,7 +186,6 @@ class BrandCommandServiceTest {
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.BRAND_HAS_ACTIVE_PRODUCTS.getMessage())
 			);
 			verify(brandCommandRepository, never()).delete(any(Brand.class));
-			verify(eventPublisher, never()).publishEvent(any(BrandDeletedEvent.class));
 		}
 
 	}

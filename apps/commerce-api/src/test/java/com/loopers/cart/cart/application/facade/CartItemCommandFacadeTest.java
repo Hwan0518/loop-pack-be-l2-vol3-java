@@ -151,4 +151,45 @@ class CartItemCommandFacadeTest {
 
 	}
 
+
+	@Nested
+	@DisplayName("deleteAllByProductId()")
+	class DeleteAllByProductIdTest {
+
+		@Test
+		@DisplayName("[deleteAllByProductId()] 유효한 상품 ID -> 서비스 deleteAllByProductId 위임")
+		void deleteAllByProductIdSuccess() {
+			// Arrange
+			willDoNothing().given(cartItemCommandService).deleteAllByProductId(100L);
+
+			// Act
+			cartItemCommandFacade.deleteAllByProductId(100L);
+
+			// Assert
+			verify(cartItemCommandService).deleteAllByProductId(100L);
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("deleteAllByUserIdAndIds()")
+	class DeleteAllByUserIdAndIdsTest {
+
+		@Test
+		@DisplayName("[deleteAllByUserIdAndIds()] 유효한 사용자 ID + ID 목록 -> 서비스 deleteAllByUserIdAndIds 위임")
+		void deleteAllByUserIdAndIdsSuccess() {
+			// Arrange
+			List<Long> ids = List.of(1L, 2L, 3L);
+			willDoNothing().given(cartItemCommandService).deleteAllByUserIdAndIds(USER_ID, ids);
+
+			// Act
+			cartItemCommandFacade.deleteAllByUserIdAndIds(USER_ID, ids);
+
+			// Assert
+			verify(cartItemCommandService).deleteAllByUserIdAndIds(USER_ID, ids);
+		}
+
+	}
+
 }

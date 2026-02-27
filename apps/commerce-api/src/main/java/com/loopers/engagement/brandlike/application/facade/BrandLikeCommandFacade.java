@@ -20,6 +20,7 @@ public class BrandLikeCommandFacade {
 	 * 브랜드 좋아요 명령 퍼사드
 	 * 1. 브랜드 좋아요 생성
 	 * 2. 브랜드 좋아요 삭제
+	 * 3. 브랜드 ID로 브랜드 좋아요 전체 삭제 (Cross-BC 전용 — ACL에서 호출)
 	 */
 
 	// 1. 브랜드 좋아요 생성
@@ -46,6 +47,13 @@ public class BrandLikeCommandFacade {
 
 		// 좋아요 삭제
 		brandLikeCommandService.deleteLike(userId, targetId);
+	}
+
+
+	// 3. 브랜드 ID로 브랜드 좋아요 전체 삭제 (Cross-BC 전용 — ACL에서 호출)
+	@Transactional
+	public void deleteAllByBrandId(Long brandId) {
+		brandLikeCommandService.deleteAllByTargetId(brandId);
 	}
 
 }

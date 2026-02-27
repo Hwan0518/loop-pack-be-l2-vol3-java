@@ -3,7 +3,6 @@ package com.loopers.ordering.order.application.service;
 
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
-import com.loopers.ordering.order.domain.event.OrderCreatedEvent;
 import com.loopers.ordering.order.domain.model.Order;
 import com.loopers.ordering.order.domain.repository.IdempotencyKeyCommandRepository;
 import com.loopers.ordering.order.domain.repository.OrderCommandRepository;
@@ -14,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -36,15 +34,12 @@ class OrderPlacementCommandServiceTest {
 	@Mock
 	private IdempotencyKeyCommandRepository idempotencyKeyCommandRepository;
 
-	@Mock
-	private ApplicationEventPublisher eventPublisher;
-
 	private OrderPlacementCommandService orderPlacementCommandService;
 
 	@BeforeEach
 	void setUp() {
 		orderPlacementCommandService = new OrderPlacementCommandService(
-			orderCommandRepository, idempotencyKeyCommandRepository, eventPublisher
+			orderCommandRepository, idempotencyKeyCommandRepository
 		);
 	}
 
@@ -54,7 +49,7 @@ class OrderPlacementCommandServiceTest {
 	class CreateOrderTest {
 
 		@Test
-		@DisplayName("[createOrder()] 유효한 장바구니 항목 + 상품 정보 -> 주문 생성 및 저장. 멱등성 키도 저장 + 이벤트 발행")
+		@DisplayName("[createOrder()] 유효한 장바구니 항목 + 상품 정보 -> 주문 생성 및 저장. 멱등성 키도 저장")
 		void createOrderSuccess() {
 			// Arrange
 			Long userId = 1L;
@@ -91,8 +86,7 @@ class OrderPlacementCommandServiceTest {
 				() -> assertThat(result.getTotalPrice()).isEqualByComparingTo(new BigDecimal("400000")),
 				() -> assertThat(result.getItems()).hasSize(2),
 				() -> verify(orderCommandRepository).save(any(Order.class)),
-				() -> verify(idempotencyKeyCommandRepository).save(any()),
-				() -> verify(eventPublisher).publishEvent(any(OrderCreatedEvent.class))
+				() -> verify(idempotencyKeyCommandRepository).save(any())
 			);
 		}
 

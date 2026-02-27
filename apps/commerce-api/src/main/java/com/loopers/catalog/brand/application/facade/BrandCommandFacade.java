@@ -5,6 +5,7 @@ import com.loopers.catalog.brand.application.dto.in.AdminBrandCreateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandUpdateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandVisibleStatusUpdateInDto;
 import com.loopers.catalog.brand.application.dto.out.AdminBrandDetailOutDto;
+import com.loopers.catalog.brand.application.service.BrandCleanupCommandService;
 import com.loopers.catalog.brand.application.service.BrandCommandService;
 import com.loopers.catalog.brand.application.service.BrandQueryService;
 import com.loopers.catalog.brand.domain.model.Brand;
@@ -20,6 +21,7 @@ public class BrandCommandFacade {
 
 	// service
 	private final BrandCommandService brandCommandService;
+	private final BrandCleanupCommandService brandCleanupCommandService;
 	private final BrandQueryService brandQueryService;
 	private final ProductQueryService productQueryService;
 
@@ -69,8 +71,11 @@ public class BrandCommandFacade {
 		// 활성 상품 존재 여부 확인
 		boolean hasActiveProducts = productQueryService.existsActiveByBrandId(id);
 
-		// 브랜드 삭제 (검증 + 삭제 + 이벤트 발행)
+		// 브랜드 삭제 (검증 + 삭제)
 		brandCommandService.deleteBrand(brand, hasActiveProducts);
+
+		// 브랜드 좋아요 정리 (Cross-BC 부수효과)
+		brandCleanupCommandService.deleteAllBrandLikes(brand.getId());
 	}
 
 

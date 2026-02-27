@@ -4,13 +4,11 @@ package com.loopers.catalog.brand.application.service;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandCreateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandUpdateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandVisibleStatusUpdateInDto;
-import com.loopers.catalog.brand.domain.event.BrandDeletedEvent;
 import com.loopers.catalog.brand.domain.model.Brand;
 import com.loopers.catalog.brand.domain.model.vo.BrandDescription;
 import com.loopers.catalog.brand.domain.model.vo.BrandName;
 import com.loopers.catalog.brand.domain.repository.BrandCommandRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,8 +19,6 @@ public class BrandCommandService {
 
 	// repository
 	private final BrandCommandRepository brandCommandRepository;
-	// event
-	private final ApplicationEventPublisher eventPublisher;
 
 
 	/**
@@ -78,9 +74,6 @@ public class BrandCommandService {
 
 		// 삭제
 		brandCommandRepository.delete(brand);
-
-		// 삭제 이벤트 발행
-		eventPublisher.publishEvent(new BrandDeletedEvent(brand.getId()));
 	}
 
 

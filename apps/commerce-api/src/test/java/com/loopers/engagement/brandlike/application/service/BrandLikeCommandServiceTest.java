@@ -3,8 +3,6 @@ package com.loopers.engagement.brandlike.application.service;
 
 import com.loopers.engagement.brandlike.application.port.out.client.catalog.BrandLikeTargetValidator;
 import com.loopers.engagement.brandlike.application.port.out.client.user.UserAuthenticator;
-import com.loopers.engagement.brandlike.domain.event.BrandLikeCancelledEvent;
-import com.loopers.engagement.brandlike.domain.event.BrandLikeCreatedEvent;
 import com.loopers.engagement.brandlike.domain.model.BrandLike;
 import com.loopers.engagement.brandlike.domain.repository.BrandLikeCommandRepository;
 import com.loopers.engagement.brandlike.domain.repository.BrandLikeQueryRepository;
@@ -17,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -42,8 +39,6 @@ class BrandLikeCommandServiceTest {
 	private BrandLikeTargetValidator brandLikeTargetValidator;
 	@Mock
 	private UserAuthenticator userAuthenticator;
-	@Mock
-	private ApplicationEventPublisher eventPublisher;
 
 	private BrandLikeCommandService brandLikeCommandService;
 
@@ -54,8 +49,7 @@ class BrandLikeCommandServiceTest {
 			brandLikeCommandRepository,
 			brandLikeQueryRepository,
 			brandLikeTargetValidator,
-			userAuthenticator,
-			eventPublisher
+			userAuthenticator
 		);
 	}
 
@@ -65,7 +59,7 @@ class BrandLikeCommandServiceTest {
 	class CreateLikeTest {
 
 		@Test
-		@DisplayName("[createLike()] 신규 좋아요 -> 저장 후 반환. BrandLikeCreatedEvent 발행")
+		@DisplayName("[createLike()] 신규 좋아요 -> 저장 후 반환")
 		void createLikeSuccess() {
 			// Arrange
 			Long userId = 1L;
@@ -82,11 +76,11 @@ class BrandLikeCommandServiceTest {
 
 			// Assert
 			assertThat(result.getId()).isEqualTo(1L);
-			verify(eventPublisher).publishEvent(new BrandLikeCreatedEvent(targetId));
+			verify(brandLikeCommandRepository).save(any(BrandLike.class));
 		}
 
 		@Test
-		@DisplayName("[createLike()] 기존 좋아요 존재 -> 기존 좋아요 반환 (멱등). 이벤트 미발행")
+		@DisplayName("[createLike()] 기존 좋아요 존재 -> 기존 좋아요 반환 (멱등)")
 		void createLikeIdempotent() {
 			// Arrange
 			Long userId = 1L;
@@ -103,7 +97,6 @@ class BrandLikeCommandServiceTest {
 			// Assert
 			assertThat(result.getId()).isEqualTo(1L);
 			verify(brandLikeCommandRepository, never()).save(any());
-			verify(eventPublisher, never()).publishEvent(any());
 		}
 
 		@Test
@@ -128,7 +121,7 @@ class BrandLikeCommandServiceTest {
 	class DeleteLikeTest {
 
 		@Test
-		@DisplayName("[deleteLike()] 좋아요 존재 -> 삭제 성공. BrandLikeCancelledEvent 발행")
+		@DisplayName("[deleteLike()] 좋아요 존재 -> 삭제 성공")
 		void deleteLikeSuccess() {
 			// Arrange
 			Long userId = 1L;
@@ -144,7 +137,6 @@ class BrandLikeCommandServiceTest {
 
 			// Assert
 			verify(brandLikeCommandRepository).delete(existingLike);
-			verify(eventPublisher).publishEvent(new BrandLikeCancelledEvent(targetId));
 		}
 
 		@Test

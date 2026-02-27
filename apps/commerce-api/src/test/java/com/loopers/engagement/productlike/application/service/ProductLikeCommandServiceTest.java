@@ -3,8 +3,6 @@ package com.loopers.engagement.productlike.application.service;
 
 import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeTargetValidator;
 import com.loopers.engagement.productlike.application.port.out.client.user.UserAuthenticator;
-import com.loopers.engagement.productlike.domain.event.ProductLikeCancelledEvent;
-import com.loopers.engagement.productlike.domain.event.ProductLikeCreatedEvent;
 import com.loopers.engagement.productlike.domain.model.ProductLike;
 import com.loopers.engagement.productlike.domain.repository.ProductLikeCommandRepository;
 import com.loopers.engagement.productlike.domain.repository.ProductLikeQueryRepository;
@@ -17,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -42,8 +39,6 @@ class ProductLikeCommandServiceTest {
 	private ProductLikeTargetValidator productLikeTargetValidator;
 	@Mock
 	private UserAuthenticator userAuthenticator;
-	@Mock
-	private ApplicationEventPublisher eventPublisher;
 
 	private ProductLikeCommandService productLikeCommandService;
 
@@ -54,9 +49,48 @@ class ProductLikeCommandServiceTest {
 			productLikeCommandRepository,
 			productLikeQueryRepository,
 			productLikeTargetValidator,
-			userAuthenticator,
-			eventPublisher
+			userAuthenticator
 		);
+	}
+
+
+	@Nested
+	@DisplayName("findLike() - 좋아요 조회")
+	class FindLikeTest {
+
+		@Test
+		@DisplayName("[findLike()] 좋아요 존재 -> Optional 반환")
+		void findLikeExists() {
+			// Arrange
+			Long userId = 1L;
+			Long targetId = 100L;
+			ProductLike like = ProductLike.reconstruct(1L, userId, targetId, LocalDateTime.now());
+			given(productLikeQueryRepository.findByUserIdAndTargetId(userId, targetId))
+				.willReturn(Optional.of(like));
+
+			// Act
+			Optional<ProductLike> result = productLikeCommandService.findLike(userId, targetId);
+
+			// Assert
+			assertAll(
+				() -> assertThat(result).isPresent(),
+				() -> assertThat(result.get().getId()).isEqualTo(1L)
+			);
+		}
+
+		@Test
+		@DisplayName("[findLike()] 좋아요 미존재 -> Optional.empty 반환")
+		void findLikeNotExists() {
+			// Arrange
+			given(productLikeQueryRepository.findByUserIdAndTargetId(1L, 100L))
+				.willReturn(Optional.empty());
+
+			// Act
+			Optional<ProductLike> result = productLikeCommandService.findLike(1L, 100L);
+
+			// Assert
+			assertThat(result).isEmpty();
+		}
 	}
 
 
@@ -65,7 +99,7 @@ class ProductLikeCommandServiceTest {
 	class CreateLikeTest {
 
 		@Test
-		@DisplayName("[createLike()] 신규 좋아요 -> 저장 후 반환. ProductLikeCreatedEvent 발행")
+		@DisplayName("[createLike()] 유효한 요청 -> 좋아요 생성 및 저장")
 		void createLikeSuccess() {
 			// Arrange
 			Long userId = 1L;
@@ -73,8 +107,6 @@ class ProductLikeCommandServiceTest {
 			ProductLike savedLike = ProductLike.reconstruct(1L, userId, targetId, LocalDateTime.now());
 
 			willDoNothing().given(productLikeTargetValidator).validate(targetId);
-			given(productLikeQueryRepository.findByUserIdAndTargetId(userId, targetId))
-				.willReturn(Optional.empty());
 			given(productLikeCommandRepository.save(any(ProductLike.class))).willReturn(savedLike);
 
 			// Act
@@ -82,28 +114,7 @@ class ProductLikeCommandServiceTest {
 
 			// Assert
 			assertThat(result.getId()).isEqualTo(1L);
-			verify(eventPublisher).publishEvent(new ProductLikeCreatedEvent(targetId));
-		}
-
-		@Test
-		@DisplayName("[createLike()] 기존 좋아요 존재 -> 기존 좋아요 반환 (멱등). 이벤트 미발행")
-		void createLikeIdempotent() {
-			// Arrange
-			Long userId = 1L;
-			Long targetId = 100L;
-			ProductLike existingLike = ProductLike.reconstruct(1L, userId, targetId, LocalDateTime.now());
-
-			willDoNothing().given(productLikeTargetValidator).validate(targetId);
-			given(productLikeQueryRepository.findByUserIdAndTargetId(userId, targetId))
-				.willReturn(Optional.of(existingLike));
-
-			// Act
-			ProductLike result = productLikeCommandService.createLike(userId, targetId);
-
-			// Assert
-			assertThat(result.getId()).isEqualTo(1L);
-			verify(productLikeCommandRepository, never()).save(any());
-			verify(eventPublisher, never()).publishEvent(any());
+			verify(productLikeCommandRepository).save(any(ProductLike.class));
 		}
 
 		@Test
@@ -128,7 +139,7 @@ class ProductLikeCommandServiceTest {
 	class DeleteLikeTest {
 
 		@Test
-		@DisplayName("[deleteLike()] 좋아요 존재 -> 삭제 성공. ProductLikeCancelledEvent 발행")
+		@DisplayName("[deleteLike()] 좋아요 존재 -> 삭제 성공")
 		void deleteLikeSuccess() {
 			// Arrange
 			Long userId = 1L;
@@ -144,7 +155,6 @@ class ProductLikeCommandServiceTest {
 
 			// Assert
 			verify(productLikeCommandRepository).delete(existingLike);
-			verify(eventPublisher).publishEvent(new ProductLikeCancelledEvent(targetId));
 		}
 
 		@Test

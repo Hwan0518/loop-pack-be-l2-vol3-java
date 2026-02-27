@@ -2,15 +2,12 @@ package com.loopers.engagement.brandlike.application.service;
 
 import com.loopers.engagement.brandlike.application.port.out.client.catalog.BrandLikeTargetValidator;
 import com.loopers.engagement.brandlike.application.port.out.client.user.UserAuthenticator;
-import com.loopers.engagement.brandlike.domain.event.BrandLikeCancelledEvent;
-import com.loopers.engagement.brandlike.domain.event.BrandLikeCreatedEvent;
 import com.loopers.engagement.brandlike.domain.model.BrandLike;
 import com.loopers.engagement.brandlike.domain.repository.BrandLikeCommandRepository;
 import com.loopers.engagement.brandlike.domain.repository.BrandLikeQueryRepository;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,8 +24,6 @@ public class BrandLikeCommandService {
 	// port
 	private final BrandLikeTargetValidator brandLikeTargetValidator;
 	private final UserAuthenticator userAuthenticator;
-	// event
-	private final ApplicationEventPublisher eventPublisher;
 
 
 	/**
@@ -65,12 +60,7 @@ public class BrandLikeCommandService {
 
 		// 좋아요 생성 및 저장
 		BrandLike brandLike = BrandLike.create(userId, targetId);
-		BrandLike savedLike = brandLikeCommandRepository.save(brandLike);
-
-		// 이벤트 발행
-		eventPublisher.publishEvent(new BrandLikeCreatedEvent(targetId));
-
-		return savedLike;
+		return brandLikeCommandRepository.save(brandLike);
 	}
 
 
@@ -85,9 +75,6 @@ public class BrandLikeCommandService {
 
 		// 삭제
 		brandLikeCommandRepository.delete(brandLike);
-
-		// 이벤트 발행
-		eventPublisher.publishEvent(new BrandLikeCancelledEvent(targetId));
 	}
 
 

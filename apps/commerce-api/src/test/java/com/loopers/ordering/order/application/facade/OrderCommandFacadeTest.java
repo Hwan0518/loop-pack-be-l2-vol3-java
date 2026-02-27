@@ -6,6 +6,7 @@ import com.loopers.ordering.order.application.dto.out.OrderDetailOutDto;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.service.OrderCheckoutCommandService;
+import com.loopers.ordering.order.application.service.OrderCleanupCommandService;
 import com.loopers.ordering.order.application.service.OrderIdempotencyQueryService;
 import com.loopers.ordering.order.application.service.OrderPlacementCommandService;
 import com.loopers.ordering.order.application.service.OrderQueryService;
@@ -32,8 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.BDDMockito.*;
 import static org.mockito.Mockito.*;
 
 
@@ -51,6 +51,9 @@ class OrderCommandFacadeTest {
 	private OrderPlacementCommandService orderPlacementCommandService;
 
 	@Mock
+	private OrderCleanupCommandService orderCleanupCommandService;
+
+	@Mock
 	private OrderQueryService orderQueryService;
 
 	private OrderCommandFacade orderCommandFacade;
@@ -59,7 +62,8 @@ class OrderCommandFacadeTest {
 	void setUp() {
 		orderCommandFacade = new OrderCommandFacade(
 			orderIdempotencyQueryService, orderCheckoutCommandService,
-			orderPlacementCommandService, orderQueryService
+			orderPlacementCommandService, orderCleanupCommandService,
+			orderQueryService
 		);
 	}
 
@@ -80,7 +84,7 @@ class OrderCommandFacadeTest {
 	class CreateOrderTest {
 
 		@Test
-		@DisplayName("[createOrder()] 유효한 요청 + 멱등성 키 없음 -> 주문 생성. 인증 → 장바구니 조회 → 상품 조회 → 재고 차감 → 주문 생성")
+		@DisplayName("[createOrder()] 유효한 요청 + 멱등성 키 없음 -> 주문 생성 + 장바구니 정리. 인증 → 장바구니 조회 → 상품 조회 → 재고 차감 → 주문 생성 → 장바구니 정리")
 		void createOrderSuccess() {
 			// Arrange
 			String loginId = "loginId";
@@ -110,6 +114,8 @@ class OrderCommandFacadeTest {
 				eq(userId), eq("req-123"), eq(cartItems), eq(products), eq(resolvedCartItemIds)
 			)).willReturn(savedOrder);
 
+			willDoNothing().given(orderCleanupCommandService).deleteCartItems(userId, resolvedCartItemIds);
+
 			// Act
 			OrderDetailOutDto result = orderCommandFacade.createOrder(loginId, password, inDto);
 
@@ -120,7 +126,8 @@ class OrderCommandFacadeTest {
 				() -> verify(orderCheckoutCommandService).authenticate(loginId, password),
 				() -> verify(orderCheckoutCommandService).decreaseStocks(cartItems),
 				() -> verify(orderPlacementCommandService).createOrder(
-					eq(userId), eq("req-123"), eq(cartItems), eq(products), eq(resolvedCartItemIds))
+					eq(userId), eq("req-123"), eq(cartItems), eq(products), eq(resolvedCartItemIds)),
+				() -> verify(orderCleanupCommandService).deleteCartItems(userId, resolvedCartItemIds)
 			);
 		}
 

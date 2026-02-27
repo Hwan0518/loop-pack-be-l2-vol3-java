@@ -3,6 +3,7 @@ package com.loopers.engagement.productlike.application.facade;
 
 import com.loopers.engagement.productlike.application.dto.out.ProductLikeOutDto;
 import com.loopers.engagement.productlike.application.service.ProductLikeCommandService;
+import com.loopers.engagement.productlike.application.service.ProductLikeCountSyncCommandService;
 import com.loopers.engagement.productlike.domain.model.ProductLike;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,11 +14,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 
@@ -28,12 +32,17 @@ class ProductLikeCommandFacadeTest {
 	@Mock
 	private ProductLikeCommandService productLikeCommandService;
 
+	@Mock
+	private ProductLikeCountSyncCommandService productLikeCountSyncCommandService;
+
 	private ProductLikeCommandFacade productLikeCommandFacade;
 
 
 	@BeforeEach
 	void setUp() {
-		productLikeCommandFacade = new ProductLikeCommandFacade(productLikeCommandService);
+		productLikeCommandFacade = new ProductLikeCommandFacade(
+			productLikeCommandService, productLikeCountSyncCommandService
+		);
 	}
 
 
@@ -42,7 +51,7 @@ class ProductLikeCommandFacadeTest {
 	class CreateLikeTest {
 
 		@Test
-		@DisplayName("[createLike()] 유효한 요청 -> OutDto 반환. id, userId, targetId 포함")
+		@DisplayName("[createLike()] 신규 좋아요 -> OutDto 반환 + 좋아요 수 증가 호출")
 		void createLike() {
 			// Arrange
 			String loginId = "loginId";
@@ -52,7 +61,9 @@ class ProductLikeCommandFacadeTest {
 			ProductLike like = ProductLike.reconstruct(1L, userId, targetId, LocalDateTime.now());
 
 			given(productLikeCommandService.authenticate(loginId, password)).willReturn(userId);
+			given(productLikeCommandService.findLike(userId, targetId)).willReturn(Optional.empty());
 			given(productLikeCommandService.createLike(userId, targetId)).willReturn(like);
+			willDoNothing().given(productLikeCountSyncCommandService).increaseLikeCount(targetId);
 
 			// Act
 			ProductLikeOutDto result = productLikeCommandFacade.createLike(loginId, password, targetId);
@@ -61,7 +72,33 @@ class ProductLikeCommandFacadeTest {
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(1L),
 				() -> assertThat(result.userId()).isEqualTo(1L),
-				() -> assertThat(result.targetId()).isEqualTo(100L)
+				() -> assertThat(result.targetId()).isEqualTo(100L),
+				() -> verify(productLikeCommandService).createLike(userId, targetId),
+				() -> verify(productLikeCountSyncCommandService).increaseLikeCount(targetId)
+			);
+		}
+
+		@Test
+		@DisplayName("[createLike()] 기존 좋아요 존재 -> 기존 반환 (멱등). 좋아요 수 증가 미호출")
+		void createLikeIdempotent() {
+			// Arrange
+			String loginId = "loginId";
+			String password = "password";
+			Long userId = 1L;
+			Long targetId = 100L;
+			ProductLike existingLike = ProductLike.reconstruct(1L, userId, targetId, LocalDateTime.now());
+
+			given(productLikeCommandService.authenticate(loginId, password)).willReturn(userId);
+			given(productLikeCommandService.findLike(userId, targetId)).willReturn(Optional.of(existingLike));
+
+			// Act
+			ProductLikeOutDto result = productLikeCommandFacade.createLike(loginId, password, targetId);
+
+			// Assert
+			assertAll(
+				() -> assertThat(result.id()).isEqualTo(1L),
+				() -> verify(productLikeCommandService, never()).createLike(any(), any()),
+				() -> verify(productLikeCountSyncCommandService, never()).increaseLikeCount(any())
 			);
 		}
 	}
@@ -72,7 +109,7 @@ class ProductLikeCommandFacadeTest {
 	class DeleteLikeTest {
 
 		@Test
-		@DisplayName("[deleteLike()] 유효한 요청 -> 서비스 위임")
+		@DisplayName("[deleteLike()] 유효한 요청 -> 서비스 위임 + 좋아요 수 감소 호출")
 		void deleteLike() {
 			// Arrange
 			String loginId = "loginId";
@@ -82,6 +119,7 @@ class ProductLikeCommandFacadeTest {
 
 			given(productLikeCommandService.authenticate(loginId, password)).willReturn(userId);
 			willDoNothing().given(productLikeCommandService).deleteLike(userId, targetId);
+			willDoNothing().given(productLikeCountSyncCommandService).decreaseLikeCount(targetId);
 
 			// Act
 			productLikeCommandFacade.deleteLike(loginId, password, targetId);
@@ -89,6 +127,26 @@ class ProductLikeCommandFacadeTest {
 			// Assert
 			verify(productLikeCommandService).authenticate(loginId, password);
 			verify(productLikeCommandService).deleteLike(userId, targetId);
+			verify(productLikeCountSyncCommandService).decreaseLikeCount(targetId);
+		}
+	}
+
+
+	@Nested
+	@DisplayName("deleteAllByProductId() - 상품 ID로 좋아요 전체 삭제")
+	class DeleteAllByProductIdTest {
+
+		@Test
+		@DisplayName("[deleteAllByProductId()] 유효한 상품 ID -> 서비스 deleteAllByTargetId 위임")
+		void deleteAllByProductId() {
+			// Arrange
+			willDoNothing().given(productLikeCommandService).deleteAllByTargetId(100L);
+
+			// Act
+			productLikeCommandFacade.deleteAllByProductId(100L);
+
+			// Assert
+			verify(productLikeCommandService).deleteAllByTargetId(100L);
 		}
 	}
 

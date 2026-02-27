@@ -5,6 +5,7 @@ import com.loopers.catalog.brand.application.dto.in.AdminBrandCreateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandUpdateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandVisibleStatusUpdateInDto;
 import com.loopers.catalog.brand.application.dto.out.AdminBrandDetailOutDto;
+import com.loopers.catalog.brand.application.service.BrandCleanupCommandService;
 import com.loopers.catalog.brand.application.service.BrandCommandService;
 import com.loopers.catalog.brand.application.service.BrandQueryService;
 import com.loopers.catalog.brand.domain.model.Brand;
@@ -39,6 +40,9 @@ class BrandCommandFacadeTest {
 	private BrandCommandService brandCommandService;
 
 	@Mock
+	private BrandCleanupCommandService brandCleanupCommandService;
+
+	@Mock
 	private BrandQueryService brandQueryService;
 
 	@Mock
@@ -50,7 +54,8 @@ class BrandCommandFacadeTest {
 	@BeforeEach
 	void setUp() {
 		brandCommandFacade = new BrandCommandFacade(
-			brandCommandService, brandQueryService, productQueryService
+			brandCommandService, brandCleanupCommandService,
+			brandQueryService, productQueryService
 		);
 	}
 
@@ -141,7 +146,7 @@ class BrandCommandFacadeTest {
 	class DeleteBrandTest {
 
 		@Test
-		@DisplayName("[BrandCommandFacade.deleteBrand()] 활성 상품 없음 -> 조회 후 삭제 오케스트레이션 수행")
+		@DisplayName("[BrandCommandFacade.deleteBrand()] 활성 상품 없음 -> 조회 후 삭제 및 좋아요 정리 오케스트레이션 수행")
 		void deleteBrandSuccess() {
 			// Arrange
 			Brand brand = Brand.reconstruct(1L, BrandName.from("나이키"),
@@ -149,6 +154,7 @@ class BrandCommandFacadeTest {
 			given(brandQueryService.getBrandById(1L)).willReturn(brand);
 			given(productQueryService.existsActiveByBrandId(1L)).willReturn(false);
 			willDoNothing().given(brandCommandService).deleteBrand(brand, false);
+			willDoNothing().given(brandCleanupCommandService).deleteAllBrandLikes(1L);
 
 			// Act
 			assertDoesNotThrow(() -> brandCommandFacade.deleteBrand(1L));
@@ -157,11 +163,12 @@ class BrandCommandFacadeTest {
 			verify(brandQueryService).getBrandById(1L);
 			verify(productQueryService).existsActiveByBrandId(1L);
 			verify(brandCommandService).deleteBrand(brand, false);
+			verify(brandCleanupCommandService).deleteAllBrandLikes(1L);
 		}
 
 
 		@Test
-		@DisplayName("[BrandCommandFacade.deleteBrand()] 활성 상품 존재 -> hasActiveProducts=true 전달하여 commandService 호출")
+		@DisplayName("[BrandCommandFacade.deleteBrand()] 활성 상품 존재 -> BRAND_HAS_ACTIVE_PRODUCTS 예외. 정리 서비스 미호출")
 		void deleteBrandWithActiveProducts() {
 			// Arrange
 			Brand brand = Brand.reconstruct(1L, BrandName.from("나이키"),
@@ -181,11 +188,12 @@ class BrandCommandFacadeTest {
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.BRAND_HAS_ACTIVE_PRODUCTS.getMessage())
 			);
 			verify(brandCommandService).deleteBrand(brand, true);
+			verify(brandCleanupCommandService, never()).deleteAllBrandLikes(any());
 		}
 
 
 		@Test
-		@DisplayName("[BrandCommandFacade.deleteBrand()] 존재하지 않는 ID -> BRAND_NOT_FOUND 예외 전파. commandService 미호출")
+		@DisplayName("[BrandCommandFacade.deleteBrand()] 존재하지 않는 ID -> BRAND_NOT_FOUND 예외 전파. commandService/cleanupService 미호출")
 		void deleteBrandNotFound() {
 			// Arrange
 			given(brandQueryService.getBrandById(999L))
@@ -200,6 +208,7 @@ class BrandCommandFacadeTest {
 			verify(productQueryService, never()).existsActiveByBrandId(any());
 			verify(brandCommandService, never()).deleteBrand(any(), eq(false));
 			verify(brandCommandService, never()).deleteBrand(any(), eq(true));
+			verify(brandCleanupCommandService, never()).deleteAllBrandLikes(any());
 		}
 
 	}

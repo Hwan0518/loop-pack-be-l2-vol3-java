@@ -3,14 +3,12 @@ package com.loopers.ordering.order.application.service;
 
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
-import com.loopers.ordering.order.domain.event.OrderCreatedEvent;
 import com.loopers.ordering.order.domain.model.IdempotencyKey;
 import com.loopers.ordering.order.domain.model.Order;
 import com.loopers.ordering.order.domain.model.OrderItem;
 import com.loopers.ordering.order.domain.repository.IdempotencyKeyCommandRepository;
 import com.loopers.ordering.order.domain.repository.OrderCommandRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,13 +25,11 @@ public class OrderPlacementCommandService {
 	// repository
 	private final OrderCommandRepository orderCommandRepository;
 	private final IdempotencyKeyCommandRepository idempotencyKeyCommandRepository;
-	// event
-	private final ApplicationEventPublisher eventPublisher;
 
 
 	/**
 	 * 주문 생성 명령 서비스
-	 * 1. 주문 생성 (장바구니 항목 + 상품 정보 → 주문 + 멱등성 키 저장 + 이벤트 발행)
+	 * 1. 주문 생성 (장바구니 항목 + 상품 정보 → 주문 + 멱등성 키 저장)
 	 */
 
 	// 1. 주문 생성
@@ -73,11 +69,6 @@ public class OrderPlacementCommandService {
 		// 멱등성 키 저장
 		IdempotencyKey idempotencyKey = IdempotencyKey.create(userId, requestId, savedOrder.getId());
 		idempotencyKeyCommandRepository.save(idempotencyKey);
-
-		// 주문 생성 이벤트 발행 (장바구니 정리용)
-		eventPublisher.publishEvent(new OrderCreatedEvent(
-			savedOrder.getId(), userId, resolvedCartItemIds
-		));
 
 		return savedOrder;
 	}

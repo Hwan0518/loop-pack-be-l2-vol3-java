@@ -3,7 +3,6 @@ package com.loopers.catalog.product.application.service;
 
 import com.loopers.catalog.product.application.dto.in.AdminProductCreateInDto;
 import com.loopers.catalog.product.application.dto.in.AdminProductUpdateInDto;
-import com.loopers.catalog.product.domain.event.ProductDeletedEvent;
 import com.loopers.catalog.product.domain.model.Product;
 import com.loopers.catalog.product.domain.model.vo.Money;
 import com.loopers.catalog.product.domain.model.vo.ProductName;
@@ -17,20 +16,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.*;
 import static org.mockito.Mockito.verify;
-
-import java.util.Optional;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -41,8 +37,6 @@ class ProductCommandServiceTest {
 	private ProductCommandRepository productCommandRepository;
 	@Mock
 	private ProductQueryRepository productQueryRepository;
-	@Mock
-	private ApplicationEventPublisher eventPublisher;
 
 	private ProductCommandService productCommandService;
 
@@ -50,7 +44,7 @@ class ProductCommandServiceTest {
 	@BeforeEach
 	void setUp() {
 		productCommandService = new ProductCommandService(
-			productCommandRepository, productQueryRepository, eventPublisher
+			productCommandRepository, productQueryRepository
 		);
 	}
 
@@ -125,7 +119,7 @@ class ProductCommandServiceTest {
 	class DeleteProductTest {
 
 		@Test
-		@DisplayName("[deleteProduct()] 활성 상품 -> soft delete + 이벤트 발행")
+		@DisplayName("[deleteProduct()] 활성 상품 -> soft delete 수행")
 		void deleteProductSuccess() {
 			// Arrange
 			Product product = Product.reconstruct(1L, 1L,
@@ -138,14 +132,9 @@ class ProductCommandServiceTest {
 			productCommandService.deleteProduct(product);
 
 			// Assert
-			ArgumentCaptor<ProductDeletedEvent> eventCaptor = ArgumentCaptor.forClass(ProductDeletedEvent.class);
 			assertAll(
 				() -> assertThat(product.isDeleted()).isTrue(),
-				() -> verify(productCommandRepository).delete(product),
-				() -> {
-					verify(eventPublisher).publishEvent(eventCaptor.capture());
-					assertThat(eventCaptor.getValue().productId()).isEqualTo(1L);
-				}
+				() -> verify(productCommandRepository).delete(product)
 			);
 		}
 

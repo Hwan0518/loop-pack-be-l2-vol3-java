@@ -3,14 +3,12 @@ package com.loopers.catalog.product.application.service;
 
 import com.loopers.catalog.product.application.dto.in.AdminProductCreateInDto;
 import com.loopers.catalog.product.application.dto.in.AdminProductUpdateInDto;
-import com.loopers.catalog.product.domain.event.ProductDeletedEvent;
 import com.loopers.catalog.product.domain.model.Product;
 import com.loopers.catalog.product.domain.repository.ProductCommandRepository;
 import com.loopers.catalog.product.domain.repository.ProductQueryRepository;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,8 +20,6 @@ public class ProductCommandService {
 	// repository
 	private final ProductCommandRepository productCommandRepository;
 	private final ProductQueryRepository productQueryRepository;
-	// event
-	private final ApplicationEventPublisher eventPublisher;
 
 
 	/**
@@ -78,9 +74,6 @@ public class ProductCommandService {
 
 		// 삭제 저장
 		productCommandRepository.delete(product);
-
-		// 삭제 이벤트 발행
-		eventPublisher.publishEvent(new ProductDeletedEvent(product.getId()));
 	}
 
 
