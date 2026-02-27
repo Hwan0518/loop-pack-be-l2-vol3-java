@@ -13,6 +13,7 @@ public interface ProductQueryRepository {
 	 * 1. ID로 상품 조회 (미삭제)
 	 * 2. 브랜드의 활성 상품 존재 여부 확인
 	 * 3. ID로 상품 조회 (삭제 포함)
+	 * 4. ID로 상품 조회 (미삭제, 비관적 쓰기 락)
 	 */
 
 	// 1. ID로 상품 조회 (미삭제)
@@ -23,5 +24,8 @@ public interface ProductQueryRepository {
 
 	// 3. ID로 상품 조회 (삭제 포함)
 	Optional<Product> findById(Long id);
+
+	// 4. ID로 상품 조회 (미삭제, 비관적 쓰기 락)
+	Optional<Product> findActiveByIdForUpdate(Long id);
 
 }

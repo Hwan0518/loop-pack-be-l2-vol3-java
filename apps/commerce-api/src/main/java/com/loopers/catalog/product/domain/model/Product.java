@@ -29,7 +29,7 @@ public class Product {
 	 * - deletedAt: 삭제 일시 (soft delete)
 	 */
 
-	private Long id;
+	private final Long id;
 	private final Long brandId;
 	private ProductName name;
 	private Money price;

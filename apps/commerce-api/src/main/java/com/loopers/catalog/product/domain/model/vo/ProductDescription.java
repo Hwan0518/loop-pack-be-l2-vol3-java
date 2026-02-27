@@ -48,7 +48,7 @@ public record ProductDescription(String value) {
 
 
 	// 3. 상품 설명 정규화
-	public static String normalize(String description) {
+	private static String normalize(String description) {
 		if (description == null) {
 			return null;
 		}
