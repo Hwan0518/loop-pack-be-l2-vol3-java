@@ -204,6 +204,44 @@ class ProductQueryServiceTest {
 
 
 	@Nested
+	@DisplayName("findActiveByIds()")
+	class FindActiveByIdsTest {
+
+		@Test
+		@DisplayName("[findActiveByIds()] 활성 상품 ID 목록 -> Product 목록 반환")
+		void findActiveByIdsSuccess() {
+			// Arrange
+			Product product = createTestProduct();
+			given(productQueryRepository.findActiveByIds(List.of(1L))).willReturn(List.of(product));
+
+			// Act
+			List<Product> result = productQueryService.findActiveByIds(List.of(1L));
+
+			// Assert
+			assertAll(
+				() -> assertThat(result).hasSize(1),
+				() -> assertThat(result.get(0).getId()).isEqualTo(1L)
+			);
+		}
+
+
+		@Test
+		@DisplayName("[findActiveByIds()] 빈 ID 목록 -> 빈 목록 반환")
+		void findActiveByIdsEmpty() {
+			// Arrange
+			given(productQueryRepository.findActiveByIds(List.of())).willReturn(List.of());
+
+			// Act
+			List<Product> result = productQueryService.findActiveByIds(List.of());
+
+			// Assert
+			assertThat(result).isEmpty();
+		}
+
+	}
+
+
+	@Nested
 	@DisplayName("searchAdminProducts()")
 	class SearchAdminProductsTest {
 

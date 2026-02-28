@@ -8,6 +8,7 @@ import com.loopers.catalog.product.infrastructure.mapper.ProductEntityMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 
@@ -27,6 +28,7 @@ public class ProductQueryRepositoryImpl implements ProductQueryRepository {
 	 * 2. 브랜드의 활성 상품 존재 여부 확인
 	 * 3. ID로 상품 조회 (삭제 포함)
 	 * 4. ID로 상품 조회 (미삭제, 비관적 쓰기 락)
+	 * 5. ID 목록으로 활성 상품 일괄 조회
 	 */
 
 	// 1. ID로 상품 조회 (미삭제)
@@ -57,6 +59,15 @@ public class ProductQueryRepositoryImpl implements ProductQueryRepository {
 	public Optional<Product> findActiveByIdForUpdate(Long id) {
 		return productJpaRepository.findByIdAndDeletedAtIsNullForUpdate(id)
 			.map(productMapper::toDomain);
+	}
+
+
+	// 5. ID 목록으로 활성 상품 일괄 조회
+	@Override
+	public List<Product> findActiveByIds(List<Long> ids) {
+		return productJpaRepository.findByIdInAndDeletedAtIsNull(ids).stream()
+			.map(productMapper::toDomain)
+			.toList();
 	}
 
 }

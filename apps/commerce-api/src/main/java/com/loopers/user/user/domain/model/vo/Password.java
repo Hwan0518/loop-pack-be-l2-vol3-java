@@ -60,7 +60,7 @@ public record Password(String value) {
 	private static void validateFormat(String rawPassword) {
 
 		// null/빈 값 검증
-		if (rawPassword == null || rawPassword.isBlank() || rawPassword.isEmpty()) {
+		if (rawPassword == null || rawPassword.isBlank()) {
 			throw new CoreException(ErrorType.INVALID_PASSWORD_FORMAT, "비밀번호를 입력해주세요.");
 		}
 

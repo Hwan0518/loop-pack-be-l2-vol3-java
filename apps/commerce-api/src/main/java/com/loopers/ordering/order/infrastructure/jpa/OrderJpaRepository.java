@@ -24,7 +24,7 @@ public interface OrderJpaRepository extends JpaRepository<OrderEntity, Long> {
 
 	// 2. 사용자별 주문 목록 조회 (페이지네이션, 날짜 필터)
 	@Query("SELECT o FROM OrderEntity o WHERE o.userId = :userId AND o.createdAt >= :startDateTime AND o.createdAt < :endDateTime")
-	Page<OrderEntity> findByUserIdAndCreatedAtBetween(
+	Page<OrderEntity> findByUserIdAndCreatedAtInRange(
 		@Param("userId") Long userId,
 		@Param("startDateTime") ZonedDateTime startDateTime,
 		@Param("endDateTime") ZonedDateTime endDateTime,

@@ -71,7 +71,7 @@ public class OrderQueryRepositoryImpl implements OrderQueryRepository {
 			// 날짜 범위 변환: startDate 00:00:00 ~ endDate+1 00:00:00
 			ZonedDateTime startDateTime = startDate.atStartOfDay(ZoneId.systemDefault());
 			ZonedDateTime endDateTime = endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault());
-			page = orderJpaRepository.findByUserIdAndCreatedAtBetween(userId, startDateTime, endDateTime, pageable);
+			page = orderJpaRepository.findByUserIdAndCreatedAtInRange(userId, startDateTime, endDateTime, pageable);
 		} else {
 			page = orderJpaRepository.findByUserId(userId, pageable);
 		}

@@ -121,6 +121,29 @@ class OrderCheckoutCommandServiceTest {
 			// Assert
 			assertThat(result).hasSize(2);
 		}
+
+
+		@Test
+		@DisplayName("[readProducts()] 요청한 상품 수 != 조회 결과 수 -> PRODUCT_NOT_FOUND 예외. "
+			+ "일부 상품이 삭제/미존재 시 건수 불일치 검증 실패")
+		void readProductsPartialNotFound() {
+			// Arrange
+			List<Long> productIds = List.of(1L, 2L);
+			List<OrderProductInfo> products = List.of(
+				new OrderProductInfo(1L, "나이키 에어맥스", new BigDecimal("100000"), 10L)
+			);  // 2개 요청 → 1개만 반환
+			given(orderProductReader.readProducts(productIds)).willReturn(products);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> orderCheckoutCommandService.readProducts(productIds));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND.getMessage())
+			);
+		}
 	}
 
 

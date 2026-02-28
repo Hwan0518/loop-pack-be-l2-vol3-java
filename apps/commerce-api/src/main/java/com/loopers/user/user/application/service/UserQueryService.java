@@ -51,8 +51,15 @@ public class UserQueryService {
 	@Transactional(readOnly = true)
 	public User authenticate(String rawLoginId, String inputPassword) {
 
-		// 로그인 ID로 유저 조회
+		// 로그인 ID 정규화
 		String normalizedLoginId = LoginId.normalize(rawLoginId);
+
+		// 정규화 결과가 null이면 인증 실패 처리
+		if (normalizedLoginId == null) {
+			throw new CoreException(ErrorType.AUTHENTICATION_FAILED);
+		}
+
+		// 로그인 ID로 유저 조회
 		User user = userQueryRepository.findByLoginId(normalizedLoginId)
 			.orElseThrow(() -> new CoreException(ErrorType.AUTHENTICATION_FAILED));
 

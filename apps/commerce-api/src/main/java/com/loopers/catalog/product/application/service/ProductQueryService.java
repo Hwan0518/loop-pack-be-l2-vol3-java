@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +35,7 @@ public class ProductQueryService {
 	 * 3. ID로 상품 조회 (삭제 포함, 관리자용)
 	 * 4. 사용자 상품 목록 검색 (QueryPort, 페이지네이션)
 	 * 5. 관리자 상품 목록 검색 (QueryPort, 페이지네이션)
+	 * 6. ID 목록으로 활성 상품 일괄 조회 (Cross-BC 전용)
 	 */
 
 	// 1. ID로 활성 상품 조회
@@ -85,6 +88,13 @@ public class ProductQueryService {
 
 		// DTO 변환
 		return AdminProductPageOutDto.from(result);
+	}
+
+
+	// 6. ID 목록으로 활성 상품 일괄 조회 (Cross-BC 전용)
+	@Transactional(readOnly = true)
+	public List<Product> findActiveByIds(List<Long> ids) {
+		return productQueryRepository.findActiveByIds(ids);
 	}
 
 }

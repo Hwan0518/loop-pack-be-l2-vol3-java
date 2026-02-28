@@ -32,20 +32,17 @@ public class OrderProductReaderImpl implements OrderProductReader {
 	@Override
 	public List<OrderProductInfo> readProducts(List<Long> productIds) {
 
-		// Provider Facade를 통해 각 상품 조회 후 주문용 정보로 변환
-		return productIds.stream()
-			.map(productId -> {
-				// facade: 활성 상품 조회 (삭제된 상품 제외, 미존재 시 PRODUCT_NOT_FOUND 예외)
-				Product product = productQueryFacade.findActiveById(productId);
+		// Provider Facade를 통해 활성 상품 일괄 조회
+		List<Product> products = productQueryFacade.findActiveByIds(productIds);
 
-				// Product 도메인 모델 → OrderProductInfo 변환 (VO에서 원시값 추출)
-				return new OrderProductInfo(
-					product.getId(),
-					product.getName().value(),
-					product.getPrice().value(),
-					product.getStock().value()
-				);
-			})
+		// Product 도메인 모델 → OrderProductInfo 변환 (VO에서 원시값 추출)
+		return products.stream()
+			.map(product -> new OrderProductInfo(
+				product.getId(),
+				product.getName().value(),
+				product.getPrice().value(),
+				product.getStock().value()
+			))
 			.toList();
 	}
 

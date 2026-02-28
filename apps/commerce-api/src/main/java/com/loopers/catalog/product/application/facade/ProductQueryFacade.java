@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +33,7 @@ public class ProductQueryFacade {
 	 * 3. 관리자 상품 상세 조회 (삭제 포함, 브랜드명 포함)
 	 * 4. 관리자 상품 목록 검색 (전체 상품)
 	 * 5. 활성 상품 조회 (Cross-BC 전용 — ACL에서 호출)
+	 * 6. 활성 상품 일괄 조회 (Cross-BC 전용 — ACL에서 호출)
 	 */
 
 	// 1. 사용자 상품 상세 조회
@@ -81,6 +84,13 @@ public class ProductQueryFacade {
 	@Transactional(readOnly = true)
 	public Product findActiveById(Long productId) {
 		return productQueryService.findActiveById(productId);
+	}
+
+
+	// 6. 활성 상품 일괄 조회 (Cross-BC 전용 — ACL에서 호출)
+	@Transactional(readOnly = true)
+	public List<Product> findActiveByIds(List<Long> ids) {
+		return productQueryService.findActiveByIds(ids);
 	}
 
 }

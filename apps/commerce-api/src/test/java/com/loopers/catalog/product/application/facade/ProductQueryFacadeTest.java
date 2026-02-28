@@ -145,6 +145,30 @@ class ProductQueryFacadeTest {
 
 
 	@Nested
+	@DisplayName("findActiveByIds()")
+	class FindActiveByIdsTest {
+
+		@Test
+		@DisplayName("[findActiveByIds()] 상품 ID 목록 -> Product 목록 반환. Service에 위임")
+		void findActiveByIdsSuccess() {
+			// Arrange
+			Product product = createTestProduct();
+			given(productQueryService.findActiveByIds(List.of(1L))).willReturn(List.of(product));
+
+			// Act
+			List<Product> result = productQueryFacade.findActiveByIds(List.of(1L));
+
+			// Assert
+			assertAll(
+				() -> assertThat(result).hasSize(1),
+				() -> verify(productQueryService).findActiveByIds(List.of(1L))
+			);
+		}
+
+	}
+
+
+	@Nested
 	@DisplayName("getAdminProducts()")
 	class GetAdminProductsTest {
 

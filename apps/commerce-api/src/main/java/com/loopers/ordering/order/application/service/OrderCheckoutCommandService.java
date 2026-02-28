@@ -64,8 +64,18 @@ public class OrderCheckoutCommandService {
 	@Transactional(readOnly = true)
 	public List<OrderProductInfo> readProducts(List<Long> productIds) {
 
-		// port: 카탈로그 BC에서 상품 정보 조회
-		return orderProductReader.readProducts(productIds);
+		// 중복 제거 (장바구니 항목에서 동일 상품 중복 가능)
+		List<Long> distinctIds = productIds.stream().distinct().toList();
+
+		// port: 카탈로그 BC에서 상품 정보 일괄 조회
+		List<OrderProductInfo> products = orderProductReader.readProducts(distinctIds);
+
+		// 요청한 고유 상품 수와 조회 결과 수 불일치 검증 (삭제/미존재 상품 포함 시)
+		if (products.size() != distinctIds.size()) {
+			throw new CoreException(ErrorType.PRODUCT_NOT_FOUND);
+		}
+
+		return products;
 	}
 
 

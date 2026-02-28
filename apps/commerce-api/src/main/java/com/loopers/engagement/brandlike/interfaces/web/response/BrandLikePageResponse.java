@@ -13,7 +13,7 @@ public record BrandLikePageResponse(List<BrandLikeResponse> content, int page, i
 	// 1. OutDto -> Response 변환
 	public static BrandLikePageResponse from(BrandLikePageOutDto outDto) {
 		List<BrandLikeResponse> content = outDto.content().stream()
-			.map(dto -> new BrandLikeResponse(dto.id(), dto.userId(), dto.targetId(), dto.createdAt()))
+			.map(BrandLikeResponse::from)
 			.toList();
 		return new BrandLikePageResponse(content, outDto.page(), outDto.size(), outDto.totalElements());
 	}

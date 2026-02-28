@@ -22,7 +22,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 
@@ -186,6 +188,42 @@ class UserQueryServiceTest {
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.AUTHENTICATION_FAILED.getMessage())
 			);
 			verify(userQueryRepository).findByLoginId("testuser01");
+		}
+
+
+		@Test
+		@DisplayName("[UserQueryService.authenticate()] null loginId -> CoreException(AUTHENTICATION_FAILED). "
+			+ "정규화 결과 null이면 DB 조회/인증 없이 즉시 실패")
+		void failWhenAuthenticateNullLoginId() {
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> userQueryService.authenticate(null, "Test1234!"));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.AUTHENTICATION_FAILED),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.AUTHENTICATION_FAILED.getMessage()),
+				() -> verify(userQueryRepository, never()).findByLoginId(any()),
+				() -> verify(authenticationManager, never()).authenticate(any(), any())
+			);
+		}
+
+
+		@Test
+		@DisplayName("[UserQueryService.authenticate()] blank loginId -> CoreException(AUTHENTICATION_FAILED). "
+			+ "정규화 결과 null이면 DB 조회/인증 없이 즉시 실패")
+		void failWhenAuthenticateBlankLoginId() {
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> userQueryService.authenticate("   ", "Test1234!"));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.AUTHENTICATION_FAILED),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.AUTHENTICATION_FAILED.getMessage()),
+				() -> verify(userQueryRepository, never()).findByLoginId(any()),
+				() -> verify(authenticationManager, never()).authenticate(any(), any())
+			);
 		}
 
 	}
