@@ -167,4 +167,24 @@ class ProductCommandFacadeTest {
 
 	}
 
+
+	@Nested
+	@DisplayName("decreaseStock()")
+	class DecreaseStockTest {
+
+		@Test
+		@DisplayName("[decreaseStock()] 유효한 상품 ID와 수량 -> CommandService에 재고 차감 위임")
+		void decreaseStockSuccess() {
+			// Arrange
+			willDoNothing().given(productCommandService).decreaseStock(1L, 5L);
+
+			// Act
+			productCommandFacade.decreaseStock(1L, 5L);
+
+			// Assert
+			verify(productCommandService).decreaseStock(1L, 5L);
+		}
+
+	}
+
 }
