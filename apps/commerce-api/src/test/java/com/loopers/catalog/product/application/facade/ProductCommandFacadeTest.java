@@ -26,7 +26,6 @@ import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.*;
 import static org.mockito.Mockito.verify;
@@ -163,54 +162,6 @@ class ProductCommandFacadeTest {
 				() -> verify(productCommandService).deleteProduct(product),
 				() -> verify(productCleanupCommandService).deleteAllProductLikes(1L),
 				() -> verify(productCleanupCommandService).deleteAllCartItems(1L)
-			);
-		}
-
-	}
-
-
-	@Nested
-	@DisplayName("increaseLikeCount()")
-	class IncreaseLikeCountTest {
-
-		@Test
-		@DisplayName("[increaseLikeCount()] 활성 상품 ID -> 좋아요 수 증가. QueryService로 조회 후 CommandService로 증가")
-		void increaseLikeCountSuccess() {
-			// Arrange
-			Product product = createTestProduct();
-			given(productQueryService.findActiveById(1L)).willReturn(product);
-
-			// Act
-			productCommandFacade.increaseLikeCount(1L);
-
-			// Assert
-			assertAll(
-				() -> verify(productQueryService).findActiveById(1L),
-				() -> verify(productCommandService).increaseLikeCount(product)
-			);
-		}
-
-	}
-
-
-	@Nested
-	@DisplayName("decreaseLikeCount()")
-	class DecreaseLikeCountTest {
-
-		@Test
-		@DisplayName("[decreaseLikeCount()] 활성 상품 ID -> 좋아요 수 감소. QueryService로 조회 후 CommandService로 감소")
-		void decreaseLikeCountSuccess() {
-			// Arrange
-			Product product = createTestProduct();
-			given(productQueryService.findActiveById(1L)).willReturn(product);
-
-			// Act
-			productCommandFacade.decreaseLikeCount(1L);
-
-			// Assert
-			assertAll(
-				() -> verify(productQueryService).findActiveById(1L),
-				() -> verify(productCommandService).decreaseLikeCount(product)
 			);
 		}
 
