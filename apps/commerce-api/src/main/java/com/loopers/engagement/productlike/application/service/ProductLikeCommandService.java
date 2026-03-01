@@ -1,0 +1,89 @@
+package com.loopers.engagement.productlike.application.service;
+
+import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeTargetValidator;
+import com.loopers.engagement.productlike.application.port.out.client.user.UserAuthenticator;
+import com.loopers.engagement.productlike.domain.model.ProductLike;
+import com.loopers.engagement.productlike.domain.repository.ProductLikeCommandRepository;
+import com.loopers.engagement.productlike.domain.repository.ProductLikeQueryRepository;
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+
+
+@Service
+@RequiredArgsConstructor
+public class ProductLikeCommandService {
+
+	// repository
+	private final ProductLikeCommandRepository productLikeCommandRepository;
+	private final ProductLikeQueryRepository productLikeQueryRepository;
+	// port
+	private final ProductLikeTargetValidator productLikeTargetValidator;
+	private final UserAuthenticator userAuthenticator;
+
+
+	/**
+	 * 상품 좋아요 명령 서비스
+	 * 1. 사용자 인증
+	 * 2. 좋아요 조회
+	 * 3. 상품 좋아요 생성
+	 * 4. 상품 좋아요 삭제
+	 * 5. 상품 ID로 상품 좋아요 전체 삭제
+	 */
+
+	// 1. 사용자 인증
+	@Transactional(readOnly = true)
+	public Long authenticate(String loginId, String password) {
+		return userAuthenticator.authenticate(loginId, password);
+	}
+
+
+	// 2. 좋아요 조회
+	@Transactional(readOnly = true)
+	public Optional<ProductLike> findLike(Long userId, Long targetId) {
+		return productLikeQueryRepository.findByUserIdAndTargetId(userId, targetId);
+	}
+
+
+	// 3. 상품 좋아요 생성
+	@Transactional
+	public ProductLike createLike(Long userId, Long targetId) {
+
+		// 좋아요 대상 상품 존재 여부 검증 (Provider 예외 → Consumer 에러 매핑)
+		try {
+			productLikeTargetValidator.validate(targetId);
+		} catch (CoreException e) {
+			throw new CoreException(ErrorType.LIKE_TARGET_NOT_FOUND);
+		}
+
+		// 좋아요 생성 및 저장
+		ProductLike productLike = ProductLike.create(userId, targetId);
+		return productLikeCommandRepository.save(productLike);
+	}
+
+
+	// 4. 상품 좋아요 삭제
+	@Transactional
+	public void deleteLike(Long userId, Long targetId) {
+
+		// 좋아요 조회
+		ProductLike productLike = productLikeQueryRepository
+			.findByUserIdAndTargetId(userId, targetId)
+			.orElseThrow(() -> new CoreException(ErrorType.LIKE_NOT_FOUND));
+
+		// 삭제
+		productLikeCommandRepository.delete(productLike);
+	}
+
+
+	// 5. 상품 ID로 상품 좋아요 전체 삭제
+	@Transactional
+	public void deleteAllByTargetId(Long targetId) {
+		productLikeCommandRepository.deleteAllByTargetId(targetId);
+	}
+
+}

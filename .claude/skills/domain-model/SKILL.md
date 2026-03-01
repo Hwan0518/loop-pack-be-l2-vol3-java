@@ -84,7 +84,7 @@ Design principles:
 - **Stateless** design: mediates domain object collaboration within the same BC
 - Inject functional interfaces via constructor (e.g., `Predicate<String>`)
 - Register with `@Bean` in Config class, inject repository method references
-- Complex use-cases (cross-BC combinations) handled in Application Layer (Facade) via Client
+- Complex use-cases (cross-BC combinations) handled in Application Layer (Facade) via Port
 
 ```
 // Domain Service (pure class)
@@ -102,9 +102,17 @@ public class LoginIdDuplicateValidator {
 }
 ```
 
+## 6.5 Pagination VO (`domain/repository/vo/`)
+
+- `PageCriteria`: framework-independent record (`page`, `size`)
+- `PageResult<T>`: framework-independent record (`content`, `page`, `size`, `totalElements`)
+- Location: `domain/repository/vo/` — belongs to Domain Layer
+- Usable by both Domain Repository and QueryPort
+- Infrastructure implementations handle Spring `Page`/`Pageable` ↔ `PageCriteria`/`PageResult` conversion
+
 ## 7. BaseEntity Constraints
 
-- `id`: `final Long id = 0L` + `@GeneratedValue(IDENTITY)` → cannot set id directly
+- `id`: `private Long id` + `@GeneratedValue(IDENTITY)` → 엔티티에서 직접 id 설정 불가
 - `createdAt`, `updatedAt`: auto-managed via `@PrePersist`, `@PreUpdate`
 - Soft delete: `deletedAt` field, `delete()`/`restore()` methods provided
 

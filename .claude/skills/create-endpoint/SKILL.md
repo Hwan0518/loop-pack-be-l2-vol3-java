@@ -32,7 +32,8 @@ Repeat the **Red → Green → Refactor** cycle at each step.
 
 - [ ] Command Repository interface (save, delete) — location: `domain/repository/`
 - [ ] Query Repository interface (find, exists) — location: `domain/repository/`
-- [ ] Entity class (`from(Domain)` + `toDomain()`)
+- [ ] Entity class (`of(...)` 팩토리 메서드)
+- [ ] EntityMapper class (`@Component`, `toEntity(Domain)` + `toDomain(Entity)`)
 - [ ] JPA Repository interface
 - [ ] CommandRepositoryImpl — location: `infrastructure/repository/`
 - [ ] QueryRepositoryImpl — location: `infrastructure/repository/`
@@ -42,6 +43,7 @@ Repeat the **Red → Green → Refactor** cycle at each step.
 
 - [ ] CommandService class (`@Service`, `@Transactional`)
 - [ ] Single domain business logic implementation
+- [ ] Keep public methods as use-case contracts; make internal step helpers `private`
 - [ ] Create Domain Service if needed (pure Java, `@Bean` registration)
 - [ ] **Tests**: Mock-based unit tests, normal/exception cases
 
@@ -79,7 +81,7 @@ Request
     → [Facade] authentication/authorization validation
       → [Service] business logic
         → [Domain] domain validation + creation
-          → [Repository] Entity.from(domain) → save → toDomain()
+          → [Repository] mapper.toEntity(domain) → save → mapper.toDomain(entity)
       → OutDto.from(domain)
     → [Controller] Response.from(outDto)
 → HTTP Response
@@ -97,13 +99,28 @@ When new domain business errors are needed:
 
 Add these steps when data from another BC is required:
 
-- [ ] Create Client interface — location: `{domain}/application/client/{other-domain}/{OtherDomain}Client`
-- [ ] Create ACL implementation — location: `{domain}/infrastructure/acl/{other-domain}/{OtherDomain}ClientImpl`
-- [ ] Only the implementation directly references other domain's domain model and JPA
-- [ ] Service calls through the Client interface
-- [ ] **Tests**: Client Mock-based unit tests
+- [ ] Create Port interface — location: `{domain}/application/port/out/client/{other-domain}/{OtherDomain}Port`
+- [ ] Create ACL implementation — location: `{domain}/infrastructure/acl/{other-domain}/{OtherDomain}PortImpl`
+- [ ] ACL implementation calls **provider Facade (or facade-style dedicated API)** only
+- [ ] ACL implementation stays thin: mapping/delegation only (no business/orchestration/error-mapping logic)
+- [ ] Error mapping is done in the Service that calls the ACL
+- [ ] Never call provider `Service/Repository/JPA/QueryDSL/Entity` directly from ACL (must call provider **Facade** only)
+- [ ] Service calls through the Port interface
+- [ ] **Tests**: Port Mock-based unit tests
 
-> BC boundaries: catalog(Brand, Product) / engagement(Like) / ordering(Order, OrderItem) / user(User)
+> BC boundaries: catalog(Brand, Product) / engagement(ProductLike, BrandLike) / cart(CartItem) / ordering(Order, OrderItem) / user(User)
+
+## 5.5 When QueryPort Is Needed (Use-Case Specific Complex Queries)
+
+When complex queries, Projections, or direct DTO returns are needed:
+
+- [ ] Create QueryPort interface — location: `{domain}/application/port/out/query/{Domain}QueryPort`
+- [ ] Create criteria object (if needed) — location: `application/port/out/query/criteria/{Domain}SearchCriteria`
+- [ ] Create QuerydslRepository — location: `{domain}/infrastructure/querydsl/{Domain}QuerydslRepository` (QueryDSL query logic)
+- [ ] Create QueryPortImpl implementation — location: `{domain}/infrastructure/query/{Domain}QueryPortImpl` (thin adapter, delegates to QuerydslRepository)
+- [ ] "Repository" naming prohibited (except QuerydslRepository)
+- [ ] Service calls through QueryPort interface
+- [ ] **Tests**: QueryPort Mock-based unit tests, QueryPortImpl integration tests
 
 ## 6. Completion Criteria
 
@@ -118,6 +135,6 @@ Add these steps when data from another BC is required:
 
 - No layer skipping (Controller → Facade → Service → Repository)
 - Business logic only in Domain Model/Domain Service
-- Never use `Entity.from()` for Entity updates (query existing entity then modify)
+- Entity 업데이트 시에도 `mapper.toEntity(domain)` → `save()` → `mapper.toDomain(entity)` 패턴 사용 (id 포함 시 JPA merge)
 - Never include sensitive info (password, etc.) in Response
 - Input normalization only in Domain Model's `create()` factory

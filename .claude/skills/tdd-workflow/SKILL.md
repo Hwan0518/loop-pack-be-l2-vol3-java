@@ -126,12 +126,14 @@ assertAll(
 - BDD style: `given().willReturn()`, `willThrow()`
 - Verification: `verify()`, `never()`
 - Parameterized tests: `@ParameterizedTest` + `@NullAndEmptySource` + `@ValueSource`
+- QueryPort tests: Mock/Stub QueryPort interface for Service unit tests
 
 ### 4.2 Integration Tests
 
 - Annotations: `@SpringBootTest`, `@ActiveProfiles("test")`
 - Integrate with real infrastructure via TestContainers
 - Import Config classes if needed
+- QueryPortImpl integration tests: TestContainers + actual DB queries to verify QueryPort implementation
 
 ### 4.3 E2E Tests
 

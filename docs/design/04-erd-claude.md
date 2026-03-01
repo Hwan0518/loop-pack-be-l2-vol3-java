@@ -51,14 +51,19 @@
 
 ## 2. 테이블 설계 기준
 
-### 2.1 공통 컬럼 (BaseEntity)
+### 2.1 공통 컬럼 (BaseEntity / SoftDeleteBaseEntity)
 
+#### BaseEntity (모든 테이블 공통)
 | 컬럼 | 타입 | 제약 | 설명 |
 |------|------|------|------|
 | `id` | BIGINT | PK, AUTO_INCREMENT | 식별자 |
 | `created_at` | DATETIME(6) | NOT NULL | 생성 시각 (UTC) |
 | `updated_at` | DATETIME(6) | NOT NULL | 수정 시각 (UTC) |
-| `deleted_at` | DATETIME(6) | NULL | Soft Delete 대상에만 존재 |
+
+#### SoftDeleteBaseEntity (Soft Delete 테이블 추가 컬럼)
+| 컬럼 | 타입 | 제약 | 설명 |
+|------|------|------|------|
+| `deleted_at` | DATETIME(6) | NULL | Soft Delete 시각 |
 
 > `deleted_at`은 Soft Delete를 사용하는 테이블(`users`, `brands`, `products`)에만 포함된다.
 > Hard Delete 테이블(`likes`, `cart_items`)과 삭제 불가 테이블(`orders`, `order_items`)에는 포함하지 않는다.
@@ -107,6 +112,7 @@ erDiagram
         bigint id PK "AUTO_INCREMENT"
         varchar(100) name "NOT NULL"
         varchar(500) description "NULL"
+        varchar(10) visible_status "NOT NULL, VISIBLE/HIDDEN, default HIDDEN"
         datetime created_at "NOT NULL"
         datetime updated_at "NOT NULL"
         datetime deleted_at "NULL, Soft Delete"
@@ -119,6 +125,7 @@ erDiagram
         decimal price "NOT NULL, DECIMAL(15,2)"
         bigint stock "NOT NULL, default 0"
         varchar(1000) description "NULL"
+        bigint like_count "NOT NULL, default 0"
         datetime created_at "NOT NULL"
         datetime updated_at "NOT NULL"
         datetime deleted_at "NULL, Soft Delete"
@@ -223,6 +230,7 @@ erDiagram
 | `id` | BIGINT | PK, AUTO_INCREMENT | |
 | `name` | VARCHAR(100) | NOT NULL | 브랜드명 |
 | `description` | VARCHAR(500) | NULL | 브랜드 설명 |
+| `visible_status` | VARCHAR(10) | NOT NULL, DEFAULT 'HIDDEN', CHECK(visible_status IN ('VISIBLE','HIDDEN')) | 노출 상태 |
 | `created_at` | DATETIME(6) | NOT NULL | |
 | `updated_at` | DATETIME(6) | NOT NULL | |
 | `deleted_at` | DATETIME(6) | NULL | Soft Delete |
@@ -237,6 +245,7 @@ erDiagram
 | `price` | DECIMAL(15,2) | NOT NULL, CHECK(price >= 0) | 가격 |
 | `stock` | BIGINT | NOT NULL, DEFAULT 0, CHECK(stock >= 0) | 재고 수량 |
 | `description` | VARCHAR(1000) | NULL | 상품 설명 |
+| `like_count` | BIGINT | NOT NULL, DEFAULT 0 | 좋아요 수 (이벤트 동기화) |
 | `created_at` | DATETIME(6) | NOT NULL | |
 | `updated_at` | DATETIME(6) | NOT NULL | |
 | `deleted_at` | DATETIME(6) | NULL | Soft Delete |
@@ -360,6 +369,7 @@ erDiagram
 
 | 테이블 | 인덱스 | 컬럼 | 용도 (쿼리 패턴) |
 |--------|--------|------|------|
+| `brands` | `idx_brands_visible_deleted_id` | `(visible_status, deleted_at, id DESC)` | 노출상태별 활성 브랜드 목록 조회 |
 | `products` | `idx_products_brand_deleted_id` | `(brand_id, deleted_at, id DESC)` | 브랜드별 활성 상품 목록 (커서 페이징) |
 | `products` | `idx_products_deleted_price_id` | `(deleted_at, price, id DESC)` | 활성 상품 가격순 조회 (커서 페이징) |
 | `products` | `idx_products_deleted_id` | `(deleted_at, id DESC)` | 활성 상품 전체 목록 (커서 페이징) |
@@ -375,8 +385,10 @@ erDiagram
 
 | 테이블 | 제약 | 목적 |
 |--------|------|------|
+| `brands` | `CHECK(visible_status IN ('VISIBLE','HIDDEN'))` | 허용된 노출 상태만 저장 |
 | `products` | `CHECK(price >= 0)` | 음수 가격 방지 |
 | `products` | `CHECK(stock >= 0)` | 음수 재고 방지 (재고 차감 시 DB 레벨 안전망) |
+| `products` | `CHECK(like_count >= 0)` | 음수 좋아요 수 방지 |
 | `cart_items` | `CHECK(quantity > 0)` | 0 이하 수량 방지 |
 | `order_items` | `CHECK(quantity > 0)` | 0 이하 주문 수량 방지 |
 | `order_items` | `CHECK(snapshot_price >= 0)` | 음수 스냅샷 가격 방지 |
@@ -430,6 +442,9 @@ UPDATE products SET stock = stock - ?, updated_at = NOW() WHERE id = ?;
 
 - All-or-Nothing: 한 주문 내 모든 상품의 재고 차감이 단일 트랜잭션에서 수행된다.
 - 재고 부족 시 전체 롤백, 부분 차감 없음.
+- 데드락 완화: 주문 내 재고 차감 대상은 `product_id` 오름차순으로 정렬해 락 획득 순서를 고정한다.
+- 중복 상품 완화: 동일 주문 내 동일 `product_id`는 수량 합산 후 1회 차감한다.
+- DB deadlock/lock timeout 발생 시 409 반환 후 제한적 재시도 정책을 적용할 수 있다.
 
 ### 6.4 트랜잭션 정합성 체크
 
@@ -513,5 +528,5 @@ Soft Delete 테이블은 조회 시 `WHERE deleted_at IS NULL` 조건을 기본 
 | `order_idempotency_keys` 무한 증가 | 디스크 사용량 증가 | TTL 기반 배치 정리 (P1). 30일 경과 레코드 삭제 |
 | 다형적 참조 (`likes.target_type + target_id`) | FK 불가, 타입 안전성 낮음 | 애플리케이션 레벨 `LikeTargetType` enum으로 제한. `LikeTargetValidator` Port로 존재 검증 |
 | Soft Delete 누적 | 조회 성능 저하 | `deleted_at IS NULL` 조건 인덱스(partial index) 또는 아카이빙 정책 (P2) |
-| 재고 비관적 락 대기 | 동시 주문 급증 시 락 타임아웃 | 타임아웃 409 반환 + 클라이언트 재시도. P2에서 분산 락(Redis) 고려 |
+| 재고 비관적 락 대기/데드락 | 동시 주문 급증 시 락 타임아웃/교착 | `product_id` 정렬 고정 + 중복 상품 수량 합산 + 타임아웃/데드락 409 반환 + 제한적 재시도. P2에서 분산 락(Redis) 고려 |
 | `order_items.product_id` 참조 불일치 | 상품 Hard Delete 시 참조 끊김 | 상품은 Soft Delete이므로 물리 삭제 없음. 스냅샷 필드로 조회 독립 보장 |

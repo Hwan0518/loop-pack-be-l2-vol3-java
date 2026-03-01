@@ -40,9 +40,16 @@ Verify that the blueprint complies with all of the following rules:
 
 ### BC Rules
 - [ ] Same BC (catalog: Brand+Product / engagement: Like / ordering: Order+OrderItem / user: User): Facade can directly call Service
-- [ ] Cross-BC (sync): Client interface (`application/client/`) + ACL implementation (`infrastructure/acl/`)
+- [ ] Cross-BC (sync): Port interface (`application/port/out/client/`) + ACL implementation (`infrastructure/acl/`)
 - [ ] Cross-BC (async): Domain events + `@TransactionalEventListener` (eventual consistency)
-- [ ] No direct references to other BC's Service/Repository without Client/ACL
+- [ ] No direct references to other BC's Service/Repository without Port/ACL
+
+### Port & Repository Rules
+- [ ] Domain Repository signatures use only domain language (Page, Pageable, JPA types prohibited)
+- [ ] "Repository" naming prohibited in QueryPort
+- [ ] client/query ports: unified `...Port` suffix
+- [ ] util ports: keep existing naming (`...Port` suffix not used)
+- [ ] QueryPort interface: `application/port/out/query/`, implementation: `infrastructure/query/`
 
 ### Domain Model Rules
 - [ ] `create()`: includes validation + normalization, id = null

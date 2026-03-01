@@ -35,7 +35,7 @@ Domain/Service code
 ```
 ErrorType {
     HttpStatus status;    // HTTP status code
-    String code;          // Error code (e.g., "E001")
+    String code;          // Error code (e.g., "BRAND_NOT_FOUND")
     String message;       // Default error message
 }
 ```
@@ -46,7 +46,7 @@ ErrorType {
 
 1. Add new value to `ErrorType` enum
    ```
-   NEW_ERROR_TYPE(HttpStatus.BAD_REQUEST, "E999", "에러 메시지")
+   NEW_ERROR_TYPE(HttpStatus.BAD_REQUEST, "NEW_ERROR_TYPE", "에러 메시지")
    ```
 2. Use in domain code
    ```
@@ -87,7 +87,7 @@ Controller: @RequestHeader(required = false) → allows null
 | Layer | Responsibility | Example |
 |-------|---------------|---------|
 | Domain Model | Throw exceptions on business rule violations | Password format validation failure |
-| Domain Service | Repository-dependent invariant verification | Duplicate ID check |
+| Domain Service | 여러 도메인 객체 간 비즈니스 불변식 검증 (Repository 미호출, Service가 데이터 전달) | 복합 도메인 규칙 검증 |
 | Facade | Authentication/authorization verification, use-case exceptions | Missing auth header |
 | Controller | Delegates `@Valid` request body validation | Missing required fields |
 | GlobalExceptionHandler | Converts common exceptions to HTTP responses | Automatic handling |
@@ -103,5 +103,5 @@ Controller: @RequestHeader(required = false) → allows null
 ## 9. Error Code Naming Conventions
 
 - Enum constant names: `UPPER_SNAKE_CASE` (e.g., `INVALID_PASSWORD_FORMAT`)
-- Error code strings: follow project conventions (e.g., `E001`, `USER_001`)
+- Error code strings: `UPPER_SNAKE_CASE` (e.g., `BRAND_NOT_FOUND`, `INVALID_PASSWORD_FORMAT`)
 - Messages: written in Korean, user-friendly (no internal terminology)

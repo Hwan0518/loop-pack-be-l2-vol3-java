@@ -33,13 +33,17 @@ Controller → Facade(@Transactional) → Service → Repository(interface, doma
 
 **BC (Bounded Context) Boundaries**:
 - `catalog`: Brand, Product (same BC → direct Service call allowed)
-- `engagement`: Like (cross-BC → access via Client/ACL)
-- `ordering`: Order, OrderItem (cross-BC → access via Client/ACL)
-- `user`: User (cross-BC → access via Client/ACL)
+- `engagement`: Like (cross-BC → access via Port/ACL)
+- `ordering`: Order, OrderItem (cross-BC → access via Port/ACL)
+- `user`: User (cross-BC → access via Port/ACL)
 
 **Cross-BC Communication**:
-- Sync: `application/client/{domain}/{Domain}Client` (interface) + `infrastructure/acl/{domain}/{Domain}ClientImpl` (implementation)
+- Sync: `application/port/out/client/{domain}/{Domain}Port` (interface) + `infrastructure/acl/{domain}/{Domain}PortImpl` (implementation)
 - Async: Domain events + `@TransactionalEventListener` (eventual consistency)
+
+**Port Structure**: `application/port/out/` subdivided into `client/` (Cross-BC), `query/` (use-case specific queries), `util/` (utilities)
+**QueryPort**: Complex queries/Projections → `application/port/out/query/{Domain}QueryPort`, implementation in `infrastructure/query/`
+**Domain Repository Purity**: Signatures use only domain language, Spring/JPA type exposure prohibited
 
 **Domain Model Patterns**: `create()` + `reconstruct()` factories, private constructors, VOs as Java records
 

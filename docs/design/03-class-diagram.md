@@ -50,10 +50,13 @@
 ### 2.1 레이어 의존 규칙
 
 1. Facade는 Service만 호출한다.
-2. Service는 Repository, Port, DomainService를 호출한다.
-3. DomainService는 Repository/Port를 호출하지 않는다.
+2. Service는 Repository/Port를 호출하고, 정책 판정은 DomainModel/DomainService에 위임한다.
+3. DomainService는 다중 Aggregate 협력 중재가 필요할 때 사용하며 Repository/Port를 호출하지 않는다.
 4. DomainModel(Entity/VO)은 외부 프레임워크 의존을 갖지 않는다.
 5. Domain Entity 간 연관은 단방향 ManyToOne만 허용하며, OneToMany(List/Set) 컬렉션 보유는 금지한다.
+6. Cross-BC 동기 호출은 `Service -> Port -> ACL -> Provider Facade`로 고정한다.
+7. ACL은 변환/위임만 담당하는 thin adapter다. 비즈니스/오케스트레이션/에러 매핑 로직을 포함하지 않는다.
+8. Service의 public 메서드는 유스케이스 계약과 Facade/EventListener가 조합할 단계를 노출한다. 클래스 내부 전용 helper는 private으로 관리한다.
 
 ### 2.2 표기 범위 (레이어 확장)
 
@@ -64,15 +67,15 @@
 ### 2.3 검증 목표
 
 - 도메인 책임이 모델 내부에 모여 있는지
-- Cross-BC 의존이 Port/Event로만 연결되는지
+- Cross-BC 의존이 Port/Event로만 연결되는지, 동기 통신에서 ACL이 Provider Facade만 참조하는지
 - 응집도 높은 단위(Brand/Product/Like/Cart/Order)로 분리되어 있는지
 
 ---
 
 ## 3. 공통 모델 (Base/Enum/Event)
 
-**왜 필요한가**: 모든 BC에서 반복되는 삭제 정책, 타겟 타입, 이벤트 계약을 먼저 고정해야 각 BC 다이어그램을 일관되게 읽을 수 있다.  
-**검증 포인트**: Soft/Hard Delete 구분, 이벤트 payload 최소화, 타겟 타입의 다형성 표현.
+**왜 필요한가**: 모든 BC에서 반복되는 삭제 정책과 이벤트 계약을 먼저 고정해야 각 BC 다이어그램을 일관되게 읽을 수 있다.  
+**검증 포인트**: Soft/Hard Delete 구분, 이벤트 payload 최소화, BC 경계별 이벤트 분리.
 
 ```mermaid
 classDiagram
@@ -81,22 +84,43 @@ classDiagram
         #Long id
         #ZonedDateTime createdAt
         #ZonedDateTime updatedAt
-        #ZonedDateTime deletedAt
         #BaseEntity()
         #BaseEntity(Long id)
         #void guard()
-        +void delete()
-        +void restore()
         +Long getId()
         +ZonedDateTime getCreatedAt()
         +ZonedDateTime getUpdatedAt()
-        +ZonedDateTime getDeletedAt()
     }
 
-    class LikeTargetType {
+    class SoftDeleteBaseEntity {
+        <<MappedSuperclass>>
+        #ZonedDateTime deletedAt
+        +void delete()
+        +void restore()
+        +ZonedDateTime getDeletedAt()
+    }
+    SoftDeleteBaseEntity --|> BaseEntity
+
+    class ProductLikeCreatedEvent {
+        +Long productId
+    }
+
+    class ProductLikeCancelledEvent {
+        +Long productId
+    }
+
+    class BrandLikeCreatedEvent {
+        +Long brandId
+    }
+
+    class BrandLikeCancelledEvent {
+        +Long brandId
+    }
+
+    class VisibleStatus {
         <<enumeration>>
-        PRODUCT
-        BRAND
+        VISIBLE
+        HIDDEN
     }
 
     class ProductSortType {
@@ -119,13 +143,15 @@ classDiagram
         +List~Long~ cartItemIds
     }
 
-    note for BaseEntity "id: @GeneratedValue(IDENTITY)\ndelete/restore는 멱등"
+    note for BaseEntity "id: @GeneratedValue(IDENTITY)"
+    note for SoftDeleteBaseEntity "delete/restore는 멱등"
 ```
 
 **해석**:
 
-- `BaseEntity`는 실제 코드와 동일하게 `ZonedDateTime` 기반 생성/수정/삭제 시간과 `delete()/restore()` 멱등 동작을 가진다.
-- `LikeTargetType`으로 Like가 Product/Brand 객체에 직접 의존하지 않는다.
+- `BaseEntity`는 모든 엔티티의 공통 베이스(`id`, `createdAt`, `updatedAt`)이며, `SoftDeleteBaseEntity`가 Soft Delete 전용 기능(`deletedAt`, `delete()`, `restore()`)을 추가한다.
+- `ProductLikeCreatedEvent`/`ProductLikeCancelledEvent`는 Product의 likeCount 동기화에 사용된다.
+- Like 이벤트는 `targetType` enum 대신 명시적 식별자(`productId`, `brandId`)를 payload로 사용한다.
 - 이벤트는 후속 정리에 필요한 최소 식별자만 담아 BC 결합을 줄인다.
 
 ### 3.1 예외 공통 모델
@@ -160,7 +186,7 @@ classDiagram
 ### 4.1 Brand
 
 **왜 필요한가**: 브랜드 생성/수정/삭제와 삭제 정책(활성 상품 0개)의 책임 배치를 명확히 검증해야 한다.  
-**검증 포인트**: `BrandDeleteValidator` 사용 위치, Facade -> Service 의존 규칙, Query/Command 분리.
+**검증 포인트**: 브랜드 삭제 정책의 판정 소유권(Entity vs DomainService), Facade -> Service 의존 규칙, Query/Command 분리.
 
 ```mermaid
 classDiagram
@@ -171,47 +197,52 @@ classDiagram
     class Brand {
         +String name
         +String description
+        +VisibleStatus visibleStatus
         +Brand create(String name, String description)
         +void changeName(String name)
         +void changeDescription(String description)
+        +void changeVisibleStatus(VisibleStatus visibleStatus)
+        +boolean isVisible()
         +void delete()
     }
-    Brand --|> BaseEntity
+    Brand --|> SoftDeleteBaseEntity
 
     class BrandCommandFacade {
         <<Facade>>
-        +Brand createBrand(BrandCreateInDto inDto)
-        +Brand updateBrand(Long brandId, BrandUpdateInDto inDto)
+        +BrandAdminDetailOutDto createBrand(BrandCreateInDto inDto)
+        +BrandAdminDetailOutDto updateBrand(Long brandId, BrandUpdateInDto inDto)
+        +BrandAdminDetailOutDto updateVisibleStatus(Long brandId, BrandVisibleStatusUpdateInDto inDto)
         +void deleteBrand(Long brandId)
     }
 
     class BrandQueryFacade {
         <<Facade>>
-        +Page~Brand~ getBrands(Pageable pageable)
-        +Brand getBrand(Long brandId)
+        +BrandPageOutDto getBrands(int page, int size)
+        +BrandDetailOutDto getBrand(Long brandId)
+        +BrandAdminPageOutDto getAdminBrands(VisibleStatus visibleStatus, int page, int size)
+        +BrandAdminDetailOutDto getAdminBrand(Long brandId)
     }
 
     class BrandCommandService {
         <<Service>>
         +Brand createBrand(BrandCreateInDto inDto)
         +Brand updateBrand(Brand brand, BrandUpdateInDto inDto)
+        +Brand updateVisibleStatus(Brand brand, BrandVisibleStatusUpdateInDto inDto)
         +void deleteBrand(Long brandId)
     }
 
     class BrandQueryService {
         <<Service>>
-        +Page~Brand~ getBrands(Pageable pageable)
+        +PageResult~Brand~ getBrands(PageCriteria pageCriteria)
         +Brand getBrandById(Long brandId)
+        +Brand getVisibleBrandById(Long brandId)
+        +BrandPageOutDto getVisibleBrandsAsPage(int page, int size)
+        +BrandAdminPageOutDto getAdminBrandsAsPage(VisibleStatus visibleStatus, int page, int size)
     }
 
     class ProductQueryService {
         <<Service>>
         +boolean existsActiveByBrandId(Long brandId)
-    }
-
-    class BrandDeleteValidator {
-        <<DomainService>>
-        +void validateDeletable(boolean hasActiveProducts)
     }
 
     class BrandCommandRepository {
@@ -222,8 +253,11 @@ classDiagram
 
     class BrandQueryRepository {
         <<Repository>>
-        +Page~Brand~ findAll(Pageable pageable)
+        +PageResult~Brand~ findAll(PageCriteria pageCriteria)
         +Optional~Brand~ findById(Long brandId)
+        +Optional~Brand~ findVisibleById(Long brandId)
+        +PageResult~Brand~ findAllVisible(PageCriteria pageCriteria)
+        +PageResult~Brand~ findAllByVisibleStatus(VisibleStatus visibleStatus, PageCriteria pageCriteria)
     }
 
     class BrandDeletedEvent {
@@ -240,7 +274,7 @@ classDiagram
     BrandQueryService ..> BrandQueryRepository : uses
 
     BrandCommandService ..> ProductQueryService : existsActiveByBrandId()
-    BrandCommandService ..> BrandDeleteValidator : validate policy
+    BrandCommandService ..> Brand : validateDeletable(hasActiveProducts)
     BrandCommandService ..> BrandDeletedEvent : publish
     BrandCommandService ..> Brand : mutate
     BrandQueryService ..> Brand : read
@@ -248,11 +282,15 @@ classDiagram
 
 **해석**:
 
-- 브랜드 삭제 정책 검증은 `BrandDeleteValidator`가 담당하고, 필요한 조회는 `BrandCommandService`가 수행한다.
+- 브랜드 삭제 정책 검증의 1차 판정 소유권은 `Brand.validateDeletable(hasActiveProducts)`에 둔다. 필요한 조회는 `BrandCommandService`가 수행하여 facts를 전달한다.
+- 추후 규칙이 다중 Aggregate 협력 중재로 확장되면 `BrandDeleteValidator` DomainService로 승격한다.
 - `updateBrand`는 Facade가 `BrandQueryService`로 대상을 선조회한 뒤, `BrandCommandService.updateBrand(brand, inDto)`를 호출하는 계약으로
   고정했다.
+- **`visibleStatus`**: 브랜드 생성 시 기본값 `HIDDEN`. User/Guest API는 `VISIBLE`만 조회, Admin API는 전체 조회 + 필터 옵션.
+- **`changeVisibleStatus()`**: null 입력 시 `INVALID_BRAND_VISIBLE_STATUS` 예외. PATCH 전용 엔드포인트 및 PUT 수정에서 선택적 변경.
+- **Admin 전용 DTO**: `BrandAdminDetailOutDto`, `BrandAdminPageOutDto` 등 Admin 응답에만 `visibleStatus` 필드 포함.
 - Facade는 Service만 사용하며 정책/저장 로직은 Service로 내려간다.
-- Brand는 생성/수정/삭제 불변식을 가진 Aggregate Root로 유지한다.
+- Brand는 생성/수정/삭제/노출상태 불변식을 가진 Aggregate Root로 유지한다.
 
 ### 4.2 Product
 
@@ -271,6 +309,7 @@ classDiagram
         +BigDecimal price
         +Long stock
         +String description
+        +Long likeCount
         +Product create(Long brandId, String name, BigDecimal price, Long stock, String description)
         +void changeName(String name)
         +void changePrice(BigDecimal price)
@@ -278,8 +317,10 @@ classDiagram
         +void changeDescription(String description)
         +void decreaseStock(Long quantity)
         +void delete()
+        +void increaseLikeCount()
+        +void decreaseLikeCount()
     }
-    Product --|> BaseEntity
+    Product --|> SoftDeleteBaseEntity
 
     class ProductCommandFacade {
         <<Facade>>
@@ -290,7 +331,7 @@ classDiagram
 
     class ProductQueryFacade {
         <<Facade>>
-        +Page~Product~ getProducts(Long brandId, ProductSortType sort, Pageable pageable)
+        +PageResult~Product~ getProducts(Long brandId, ProductSortType sort, PageCriteria pageCriteria)
         +Product getProduct(Long productId)
     }
 
@@ -304,7 +345,7 @@ classDiagram
 
     class ProductQueryService {
         <<Service>>
-        +Page~Product~ getProducts(Long brandId, ProductSortType sort, Pageable pageable)
+        +PageResult~Product~ getProducts(Long brandId, ProductSortType sort, PageCriteria pageCriteria)
         +Product getProductById(Long productId)
         +boolean existsActiveByBrandId(Long brandId)
     }
@@ -322,13 +363,18 @@ classDiagram
 
     class ProductQueryRepository {
         <<Repository>>
-        +Page~Product~ findAllByCondition(Long brandId, ProductSortType sort, Pageable pageable)
+        +PageResult~Product~ findAllByCondition(Long brandId, ProductSortType sort, PageCriteria pageCriteria)
         +Optional~Product~ findById(Long productId)
     }
 
     class ProductDeletedEvent {
         <<Event>>
         +Long productId
+    }
+
+    class LikeCountSyncEventListener {
+        +void handleProductLikeCreated(ProductLikeCreatedEvent event)
+        +void handleProductLikeCancelled(ProductLikeCancelledEvent event)
     }
 
     ProductCommandFacade ..> ProductCommandService : uses
@@ -339,6 +385,9 @@ classDiagram
     ProductCommandService ..> ProductCommandRepository : uses
     ProductCommandService ..> ProductDeletedEvent : publish
     ProductQueryService ..> ProductQueryRepository : uses
+    LikeCountSyncEventListener ..> ProductCommandFacade : increase/decrease likeCount
+    LikeCountSyncEventListener ..> ProductLikeCreatedEvent : subscribes
+    LikeCountSyncEventListener ..> ProductLikeCancelledEvent : subscribes
 
     ProductCommandService ..> Product : mutate
     ProductQueryService ..> Product : read
@@ -353,10 +402,14 @@ classDiagram
 
 ---
 
-## 5. Like BC 클래스 다이어그램
+## 5. Like BC 클래스 다이어그램 (ProductLike / BrandLike 분리)
 
-**왜 필요한가**: 좋아요의 멱등성과 대상(Product/Brand) 검증이 어디서 이뤄지는지 명확히 해야 한다.  
-**검증 포인트**: `LikeTargetValidator` Port 의존, Like의 타겟 다형성, 이벤트 기반 정리.
+**왜 필요한가**: 좋아요의 멱등성과 대상(Product/Brand) 검증이 어디서 이뤄지는지 명확히 해야 한다.
+**검증 포인트**: `ProductLikeTargetValidator`/`BrandLikeTargetValidator` Port 의존, ProductLike/BrandLike 분리 구조, 이벤트 기반 정리.
+
+> **설계 결정**: 통합 `Like` + `LikeTargetType` 대신 `ProductLike`/`BrandLike`로 도메인을 분리한다.
+> 각 도메인은 독립 패키지(`engagement/productlike`, `engagement/brandlike`)에 위치하며, 동일한 레이어 구조를 가진다.
+> 아래는 ProductLike 기준이며, BrandLike도 동일 구조이다.
 
 ```mermaid
 classDiagram
@@ -364,58 +417,71 @@ classDiagram
         <<abstract>>
     }
 
-    class Like {
+    class ProductLike {
         +Long userId
-        +LikeTargetType targetType
         +Long targetId
-        +Like create(Long userId, LikeTargetType targetType, Long targetId)
+        +ProductLike create(Long userId, Long targetId)
+        +ProductLike reconstruct(Long id, Long userId, Long targetId, LocalDateTime createdAt)
     }
-    Like --|> BaseEntity
+    ProductLike --|> BaseEntity
 
-    class LikeCommandFacade {
+    class BrandLike {
+        +Long userId
+        +Long targetId
+        +BrandLike create(Long userId, Long targetId)
+        +BrandLike reconstruct(Long id, Long userId, Long targetId, LocalDateTime createdAt)
+    }
+    BrandLike --|> BaseEntity
+
+    class ProductLikeCommandFacade {
         <<Facade>>
-        +Like createLike(Long userId, LikeTargetType targetType, Long targetId)
-        +void cancelLike(Long userId, LikeTargetType targetType, Long targetId)
+        +ProductLikeOutDto createLike(Long userId, Long targetId)
+        +void deleteLike(Long userId, Long targetId)
     }
 
-    class LikeQueryFacade {
+    class ProductLikeQueryFacade {
         <<Facade>>
-        +Page~Like~ getMyLikes(Long userId, String targetFilter, Pageable pageable)
+        +ProductLikePageOutDto getLikesByUserId(Long userId, int page, int size)
+        +boolean isLikedByUser(Long userId, Long targetId)
     }
 
-    class LikeCommandService {
+    class ProductLikeCommandService {
         <<Service>>
-        +Like createLike(Long userId, LikeTargetType targetType, Long targetId)
-        +void deleteLike(Like like)
-        +void deleteByTarget(LikeTargetType targetType, Long targetId)
+        +ProductLike createLike(Long userId, Long targetId)
+        +void deleteLike(Long userId, Long targetId)
+        +void deleteAllByTargetId(Long targetId)
     }
 
-    class LikeQueryService {
+    class ProductLikeQueryService {
         <<Service>>
-        +Page~Like~ getLikesByUser(Long userId, String targetFilter, Pageable pageable)
-        +Optional~Like~ findByUserAndTarget(Long userId, LikeTargetType targetType, Long targetId)
+        +PageResult~ProductLike~ getLikesByUserId(Long userId, int page, int size)
+        +boolean isLikedByUser(Long userId, Long targetId)
     }
 
-    class LikeTargetValidator {
+    class ProductLikeTargetValidator {
         <<Port>>
-        +void validateExists(LikeTargetType targetType, Long targetId)
+        +void validate(Long targetId)
     }
 
-    class LikeCommandRepository {
+    class ProductLikeCommandRepository {
         <<Repository>>
-        +Like save(Like like)
-        +void delete(Like like)
-        +void deleteAllByTarget(LikeTargetType targetType, Long targetId)
+        +ProductLike save(ProductLike like)
+        +void delete(ProductLike like)
+        +void deleteAllByTargetId(Long targetId)
     }
 
-    class LikeQueryRepository {
+    class ProductLikeQueryRepository {
         <<Repository>>
-        +Optional~Like~ findByUserAndTarget(Long userId, LikeTargetType targetType, Long targetId)
-        +Page~Like~ findByUserIdAndTarget(Long userId, String targetFilter, Pageable pageable)
+        +Optional~ProductLike~ findByUserIdAndTargetId(Long userId, Long targetId)
+        +PageResult~ProductLike~ findByUserId(Long userId, PageCriteria pageCriteria)
+        +boolean existsByUserIdAndTargetId(Long userId, Long targetId)
     }
 
-    class LikeEventListener {
+    class ProductLikeCleanupEventListener {
         +void onProductDeleted(ProductDeletedEvent event)
+    }
+
+    class BrandLikeCleanupEventListener {
         +void onBrandDeleted(BrandDeletedEvent event)
     }
 
@@ -427,30 +493,28 @@ classDiagram
         +Long brandId
     }
 
-    LikeCommandFacade ..> LikeCommandService : uses
-    LikeQueryFacade ..> LikeQueryService : uses
-    LikeCommandFacade ..> LikeQueryService : preload like for cancel
+    ProductLikeCommandFacade ..> ProductLikeCommandService : uses
+    ProductLikeQueryFacade ..> ProductLikeQueryService : uses
 
-    LikeCommandService ..> LikeTargetValidator : validate exists
-    LikeCommandService ..> LikeQueryService : idempotency/cancel lookup
-    LikeCommandService ..> LikeQueryRepository : idempotency check
-    LikeCommandService ..> LikeCommandRepository : uses
-    LikeQueryService ..> LikeQueryRepository : uses
+    ProductLikeCommandService ..> ProductLikeTargetValidator : validate exists
+    ProductLikeCommandService ..> ProductLikeQueryRepository : idempotency check
+    ProductLikeCommandService ..> ProductLikeCommandRepository : uses
+    ProductLikeQueryService ..> ProductLikeQueryRepository : uses
 
-    LikeCommandService ..> Like : create
-    LikeQueryService ..> Like : read
+    ProductLikeCommandService ..> ProductLike : create
+    ProductLikeQueryService ..> ProductLike : read
 
-    LikeEventListener ..> LikeCommandService : cleanup
-    LikeEventListener ..> ProductDeletedEvent : subscribes
-    LikeEventListener ..> BrandDeletedEvent : subscribes
+    ProductLikeCleanupEventListener ..> ProductLikeCommandService : cleanup
+    ProductLikeCleanupEventListener ..> ProductDeletedEvent : subscribes
+    BrandLikeCleanupEventListener ..> BrandDeletedEvent : subscribes
 ```
 
 **해석**:
 
-- Like는 `targetType + targetId` 구조로 Product/Brand 모델과 분리된다.
-- 멱등 등록은 `findByUserAndTarget` 조회 후 분기하는 방식으로 Service에서 보장한다.
-- `cancelLike`는 Facade가 QueryService로 대상 Like를 선조회한 뒤 CommandService에 전달하는 흐름으로 고정했다.
-- 삭제 이벤트 수신 시 Like BC에서 Hard Delete로 고아 데이터를 정리한다.
+- `ProductLike`와 `BrandLike`는 각각 `userId + targetId` 구조로 대상 도메인과 분리된다 (통합 `LikeTargetType` 불필요).
+- 멱등 등록은 `findByUserIdAndTargetId` 조회 후 분기하는 방식으로 Service에서 보장한다.
+- 삭제 이벤트 수신 시 각 EventListener에서 Hard Delete로 고아 데이터를 정리한다.
+- BrandLike도 동일한 레이어 구조(`BrandLikeCommandFacade`, `BrandLikeCommandService`, ...) 를 가진다.
 
 ---
 
@@ -480,55 +544,61 @@ classDiagram
 
     class CartCommandFacade {
         <<Facade>>
-        +CartItem addCartItem(Long userId, CartItemAddInDto inDto)
-        +CartItem updateQuantity(Long userId, Long cartItemId, Long quantity)
-        +void deleteCartItem(Long userId, Long cartItemId)
-        +List~CartItem~ updateSelection(Long userId, List~Long~ selectedIds)
+        +CartItemOutDto addItem(String loginId, String password, CartItemAddInDto inDto)
+        +CartItemOutDto updateQuantity(String loginId, String password, Long cartItemId, CartItemUpdateQuantityInDto inDto)
+        +void deleteItem(String loginId, String password, Long cartItemId)
+        +CartItemSelectionOutDto updateSelection(String loginId, String password, CartItemSelectionInDto inDto)
     }
 
     class CartQueryFacade {
         <<Facade>>
-        +List~CartItem~ getCart(Long userId)
-        +CartStatusOutDto getCartStatus(Long userId)
+        +CartOutDto getCart(String loginId, String password)
+        +CartStatusOutDto getCartStatus(String loginId, String password)
+        +List~CartItem~ findSelectedByUserId(Long userId)
+        +List~CartItem~ findByUserIdAndIds(Long userId, List~Long~ ids)
     }
 
     class CartCommandService {
         <<Service>>
-        +CartItem addCartItem(Long userId, Long productId, Long quantity)
-        +CartItem updateQuantity(CartItem cartItem, Long quantity)
-        +void deleteCartItem(CartItem cartItem)
-        +List~CartItem~updateSelection(List~CartItem~ allItems, List~Long~ selectedIds)
-        +void deleteByProductId(Long productId)
-        +void deleteCartItems(Long userId, List~Long~ cartItemIds)
+        +Long authenticate(String loginId, String password)
+        +CartItem addItem(Long userId, CartItemAddInDto inDto)
+        +CartItem updateQuantity(Long cartItemId, Long userId, CartItemUpdateQuantityInDto inDto)
+        +void deleteItem(Long cartItemId, Long userId)
+        +CartItemSelectionOutDto updateSelection(Long userId, CartItemSelectionInDto inDto)
+        +void deleteAllByProductId(Long productId)
+        +void deleteAllByIds(List~Long~ ids)
+        +void deleteAllByUserIdAndIds(Long userId, List~Long~ ids)
     }
 
     class CartQueryService {
         <<Service>>
-        +List~CartItem~ getCartItemsByUserId(Long userId)
-        +CartItem getCartItemById(Long cartItemId)
+        +List~CartItem~ getCartByUserId(Long userId)
         +CartStatusOutDto getCartStatus(Long userId)
+        +List~CartItem~ findSelectedByUserId(Long userId)
+        +List~CartItem~ findByUserIdAndIds(Long userId, List~Long~ ids)
     }
 
     class CartProductReader {
         <<Port>>
-        +ProductSnapshot getProduct(Long productId)
-        +List~ProductSnapshot~getProductsByIds(List~Long~ productIds)
+        +void validateProductExists(Long productId)
     }
 
     class CartCommandRepository {
         <<Repository>>
         +CartItem save(CartItem cartItem)
-        +List~CartItem~saveAll(List~CartItem~ cartItems)
         +void delete(CartItem cartItem)
         +void deleteAllByProductId(Long productId)
+        +void deleteAllByIds(List~Long~ cartItemIds)
         +void deleteAllByUserIdAndIds(Long userId, List~Long~ cartItemIds)
     }
 
     class CartQueryRepository {
         <<Repository>>
-        +Optional~CartItem~ findByUserAndProduct(Long userId, Long productId)
+        +Optional~CartItem~ findByUserIdAndProductId(Long userId, Long productId)
         +Optional~CartItem~ findById(Long cartItemId)
-        +List~CartItem~ findAllByUserId(Long userId)
+        +List~CartItem~ findByUserId(Long userId)
+        +List~CartItem~ findSelectedByUserId(Long userId)
+        +List~CartItem~ findByUserIdAndIds(Long userId, List~Long~ cartItemIds)
     }
 
     class CartEventListener {
@@ -564,7 +634,7 @@ classDiagram
 
 - 동일 상품 병합은 `findByUserAndProduct` 후 `addQuantity()`로 처리하는 모델 중심 구조다.
 - 선택/해제는 `selected` 상태를 가진 CartItem 도메인 동작으로 통일한다.
-- `updateQuantity/deleteCartItem/updateSelection`은 Facade가 QueryService 선조회 + 소유권 검증 후 CommandService를 호출하는 구조다.
+- `updateQuantity/deleteCartItem/updateSelection`은 Facade가 CommandService를 호출하고, CommandService가 조회/소유권 검증/저장을 함께 처리하는 구조다.
 - 주문 완료 및 상품 삭제 후 정리는 EventListener가 별도 트랜잭션에서 수행한다.
 
 ---
@@ -572,7 +642,7 @@ classDiagram
 ## 7. Order BC 클래스 다이어그램
 
 **왜 필요한가**: 재고 차감, 스냅샷 저장, 멱등성 처리를 단일 유스케이스로 묶는 P0 핵심 모델이기 때문이다.  
-**검증 포인트**: `OrderItem -> Order` 단방향 ManyToOne(`orderId`) 관계, `IdempotencyService`, Cross-BC Port 의존 집중.
+**검증 포인트**: `OrderItem -> Order` 단방향 ManyToOne(`orderId`) 관계, IdempotencyKey 조회/저장 분리, Cross-BC Port 의존 집중.
 
 ```mermaid
 classDiagram
@@ -600,43 +670,52 @@ classDiagram
 
     class OrderCommandFacade {
         <<Facade>>
-        +Order createOrder(Long userId, OrderCreateInDto inDto)
+        +OrderDetailOutDto createOrder(String loginId, String password, OrderCreateInDto inDto)
     }
 
     class OrderQueryFacade {
         <<Facade>>
-        +Page~Order~ getMyOrders(Long userId, LocalDate startAt, LocalDate endAt, Pageable pageable)
-        +Order getMyOrderDetail(Long userId, Long orderId)
-        +Page~Order~ getAllOrders(Pageable pageable)
-        +Order getAdminOrderDetail(Long orderId)
+        +OrderDetailOutDto getOrder(String loginId, String password, Long orderId)
+        +OrderPageOutDto getOrders(String loginId, String password, int page, int size, LocalDate startDate, LocalDate endDate)
+        +AdminOrderDetailOutDto getAdminOrder(Long orderId)
+        +AdminOrderPageOutDto getAdminOrders(int page, int size)
     }
 
-    class OrderCommandService {
+    class OrderCheckoutCommandService {
         <<Service>>
-        +Order createOrder(Long userId, OrderCreateInDto inDto)
+        +Long authenticate(String loginId, String password)
+        +List~OrderCartItemInfo~ readCartItemsByIds(Long userId, List~Long~ cartItemIds)
+        +List~OrderProductInfo~ readProducts(List~Long~ productIds)
+        +void decreaseStocks(List~OrderCartItemInfo~ cartItems)
+    }
+
+    class OrderPlacementCommandService {
+        <<Service>>
+        +Order createOrder(Long userId, String requestId, List~OrderCartItemInfo~ cartItems, List~OrderProductInfo~ products, List~Long~ resolvedCartItemIds)
     }
 
     class OrderQueryService {
         <<Service>>
-        +Page~Order~ getOrdersByUserId(Long userId, LocalDate startAt, LocalDate endAt, Pageable pageable)
-        +Page~Order~ getAllOrders(Pageable pageable)
-        +Order getOrderById(Long orderId)
+        +Order findById(Long orderId)
+        +Order findByIdAndUserId(Long orderId, Long userId)
+        +OrderPageOutDto getOrdersByUserId(Long userId, int page, int size, LocalDate startDate, LocalDate endDate)
+        +AdminOrderPageOutDto getAllOrders(int page, int size)
     }
 
-    class IdempotencyService {
+    class OrderIdempotencyQueryService {
         <<Service>>
-        +Optional~Long~ findCompleted(Long userId, String requestId)
-        +void markCompleted(Long userId, String requestId, Long orderId)
+        +Optional~Long~ findOrderIdByRequestId(Long userId, String requestId)
     }
 
     class OrderCartItemReader {
         <<Port>>
-        +List~CartItemSnapshot~ getCartItems(Long userId, List~Long~ cartItemIds)
+        +List~OrderCartItemInfo~ readSelectedCartItems(Long userId)
+        +List~OrderCartItemInfo~ readCartItemsByIds(Long userId, List~Long~ cartItemIds)
     }
 
     class OrderProductReader {
         <<Port>>
-        +List~ProductSnapshot~ getProducts(List~Long~ productIds)
+        +List~OrderProductInfo~ readProducts(List~Long~ productIds)
     }
 
     class OrderStockManager {
@@ -649,16 +728,16 @@ classDiagram
         +Order save(Order order)
     }
 
-    class OrderItemCommandRepository {
+    class IdempotencyKeyCommandRepository {
         <<Repository>>
-        +List~OrderItem~ saveAll(List~OrderItem~ orderItems)
+        +IdempotencyKey save(IdempotencyKey idempotencyKey)
     }
 
     class OrderQueryRepository {
         <<Repository>>
-        +Page~Order~ findByUserIdAndDateRange(Long userId, LocalDate startAt, LocalDate endAt, Pageable pageable)
-        +Page~Order~ findAll(Pageable pageable)
-        +Optional~Order~ findByIdWithItems(Long orderId)
+        +PageResult~Order~ findByUserId(Long userId, LocalDate startDate, LocalDate endDate, PageCriteria pageCriteria)
+        +PageResult~Order~ findAll(PageCriteria pageCriteria)
+        +Optional~Order~ findById(Long orderId)
     }
 
     class OrderCreatedEvent {
@@ -667,38 +746,41 @@ classDiagram
         +List~Long~ cartItemIds
     }
 
-    class OrderEventPublisher {
+    class ApplicationEventPublisher {
         <<Port>>
-        +void publishOrderCreated(Long userId, List~Long~ cartItemIds)
+        +void publish(OrderCreatedEvent event)
     }
 
-    OrderCommandFacade ..> OrderCommandService : uses
+    OrderCommandFacade ..> OrderCheckoutCommandService : uses
+    OrderCommandFacade ..> OrderIdempotencyQueryService : uses
+    OrderCommandFacade ..> OrderPlacementCommandService : uses
+    OrderCommandFacade ..> OrderQueryService : uses (idempotent hit)
     OrderQueryFacade ..> OrderQueryService : uses
+    OrderQueryFacade ..> OrderCheckoutCommandService : uses (auth)
 
-    OrderCommandService ..> IdempotencyService : idempotency
-    OrderCommandService ..> OrderCartItemReader : read cart items
-    OrderCommandService ..> OrderProductReader : read products
-    OrderCommandService ..> OrderStockManager : decrease stock
-    OrderCommandService ..> OrderCommandRepository : persist
-    OrderCommandService ..> OrderItemCommandRepository : persist items
-    OrderCommandService ..> OrderEventPublisher : publish event
+    OrderCheckoutCommandService ..> OrderCartItemReader : read cart items
+    OrderCheckoutCommandService ..> OrderProductReader : read products
+    OrderCheckoutCommandService ..> OrderStockManager : decrease stock
+    OrderPlacementCommandService ..> OrderCommandRepository : persist
+    OrderPlacementCommandService ..> IdempotencyKeyCommandRepository : persist idempotency key
+    OrderPlacementCommandService ..> ApplicationEventPublisher : publish event
 
     OrderQueryService ..> OrderQueryRepository : read
-    OrderCommandService ..> Order : create/mutate
-    OrderCommandService ..> OrderItem : create snapshot
+    OrderPlacementCommandService ..> Order : create/mutate
+    OrderPlacementCommandService ..> OrderItem : create snapshot
     OrderQueryService ..> Order : read
 
     OrderItem "N" --> "1" Order : orderId
-    OrderEventPublisher ..> OrderCreatedEvent : emits
+    ApplicationEventPublisher ..> OrderCreatedEvent : emits
 ```
 
 **해석**:
 
-- 주문 생성은 `OrderCommandService`에 Port 의존이 집중된 오케스트레이션 구조다.
+- 주문 생성은 `OrderCommandFacade`가 `Checkout/IdempotencyQuery/Placement/Query` 서비스를 조합하는 구조다.
 - `Order`는 `OrderItem` 컬렉션을 보유하지 않고, `OrderItem.orderId`로만 단방향 ManyToOne 관계를 표현한다.
 - `OrderItem.snapshot*` 필드가 Product 변경/삭제로부터 주문 조회를 분리한다.
-- 멱등성은 `(userId, requestId)` 키를 가진 `IdempotencyService` 계약으로 보장한다.
-- USER 주문 상세 조회의 소유권 검증은 `OrderQueryFacade` 관심사로 분리된다.
+- 멱등성은 Facade의 조회(`OrderIdempotencyQueryService`)와 Placement 단계의 저장(`IdempotencyKeyCommandRepository`)으로 보장한다.
+- USER 주문 상세 조회의 소유권 검증은 `OrderQueryService.findByIdAndUserId`에서 수행된다.
 
 ---
 
@@ -709,83 +791,93 @@ classDiagram
 
 ```mermaid
 classDiagram
-    class LikeCommandService
-    class CartCommandService
-    class CartQueryService
-    class OrderCommandService
-    class BrandQueryService
-    class ProductQueryService
-    class ProductCommandService
+    class ProductLikeCommandService
+    class BrandLikeCommandService
+    class CartItemCommandService
+    class CartItemQueryService
+    class OrderCheckoutCommandService
+    class OrderCommandFacade
+    class BrandQueryFacade
+    class ProductQueryFacade
+    class ProductCommandFacade
+    class CartItemQueryFacade
 
-    class LikeTargetValidator {
+    class ProductLikeTargetValidator {
         <<Port>>
-        +void validateExists(LikeTargetType targetType, Long targetId)
+        +void validate(Long targetId)
+    }
+    class BrandLikeTargetValidator {
+        <<Port>>
+        +void validate(Long targetId)
     }
     class CartProductReader {
         <<Port>>
-        +ProductSnapshot getProduct(Long productId)
-        +List~ProductSnapshot~getProductsByIds(List~Long~ productIds)
+        +void validateProductExists(Long productId)
     }
     class OrderCartItemReader {
         <<Port>>
-        +List~CartItemSnapshot~ getCartItems(Long userId, List~Long~ cartItemIds)
+        +List~OrderCartItemInfo~ readSelectedCartItems(Long userId)
+        +List~OrderCartItemInfo~ readCartItemsByIds(Long userId, List~Long~ cartItemIds)
     }
     class OrderProductReader {
         <<Port>>
-        +List~ProductSnapshot~getProducts(List~Long~ productIds)
+        +List~OrderProductInfo~ readProducts(List~Long~ productIds)
     }
     class OrderStockManager {
         <<Port>>
         +void decreaseStock(Long productId, Long quantity)
     }
 
-    class CatalogLikeTargetValidatorAdapter
-    class CatalogCartProductReaderAdapter
-    class CartOrderCartItemReaderAdapter
-    class CatalogOrderProductReaderAdapter
-    class CatalogOrderStockManagerAdapter
-
-    class CatalogDomainEventPublisher
-    class OrderDomainEventPublisher
+    class ProductLikeTargetValidatorImpl
+    class BrandLikeTargetValidatorImpl
+    class CartProductReaderImpl
+    class OrderCartItemReaderImpl
+    class OrderProductReaderImpl
+    class OrderStockManagerImpl
 
     class BrandDeletedEvent
     class ProductDeletedEvent
     class OrderCreatedEvent
+    class ProductLikeCreatedEvent
+    class ProductLikeCancelledEvent
 
-    class LikeEventListener
-    class CartEventListener
+    class ProductLikeCleanupEventListener
+    class BrandLikeCleanupEventListener
+    class CartCleanupEventListener
+    class LikeCountSyncEventListener
 
-    LikeCommandService ..> LikeTargetValidator: sync port
-    CartCommandService ..> CartProductReader: sync port
-    CartQueryService ..> CartProductReader: sync port
-    OrderCommandService ..> OrderCartItemReader: sync port
-    OrderCommandService ..> OrderProductReader: sync port
-    OrderCommandService ..> OrderStockManager: sync port
-    CatalogLikeTargetValidatorAdapter ..|> LikeTargetValidator
-    CatalogCartProductReaderAdapter ..|> CartProductReader
-    CartOrderCartItemReaderAdapter ..|> OrderCartItemReader
-    CatalogOrderProductReaderAdapter ..|> OrderProductReader
-    CatalogOrderStockManagerAdapter ..|> OrderStockManager
-    CatalogLikeTargetValidatorAdapter ..> BrandQueryService: validateExists(BRAND)
-    CatalogLikeTargetValidatorAdapter ..> ProductQueryService: validateExists(PRODUCT)
-    CatalogCartProductReaderAdapter ..> ProductQueryService: getProduct/getProductsByIds
-    CartOrderCartItemReaderAdapter ..> CartQueryService: getCartItems
-    CatalogOrderProductReaderAdapter ..> ProductQueryService: getProducts
-    CatalogOrderStockManagerAdapter ..> ProductCommandService: decreaseStock
-    CatalogDomainEventPublisher ..> BrandDeletedEvent: emits
-    CatalogDomainEventPublisher ..> ProductDeletedEvent: emits
-    OrderDomainEventPublisher ..> OrderCreatedEvent: emits
-    LikeEventListener ..> BrandDeletedEvent: subscribes
-    LikeEventListener ..> ProductDeletedEvent: subscribes
-    CartEventListener ..> ProductDeletedEvent: subscribes
-    CartEventListener ..> OrderCreatedEvent: subscribes
+    ProductLikeCommandService ..> ProductLikeTargetValidator: sync port
+    BrandLikeCommandService ..> BrandLikeTargetValidator: sync port
+    CartItemCommandService ..> CartProductReader: sync port
+    OrderCheckoutCommandService ..> OrderCartItemReader: sync port
+    OrderCheckoutCommandService ..> OrderProductReader: sync port
+    OrderCheckoutCommandService ..> OrderStockManager: sync port
+    ProductLikeTargetValidatorImpl ..|> ProductLikeTargetValidator
+    BrandLikeTargetValidatorImpl ..|> BrandLikeTargetValidator
+    CartProductReaderImpl ..|> CartProductReader
+    OrderCartItemReaderImpl ..|> OrderCartItemReader
+    OrderProductReaderImpl ..|> OrderProductReader
+    OrderStockManagerImpl ..|> OrderStockManager
+    ProductLikeTargetValidatorImpl ..> ProductQueryFacade: validate product
+    BrandLikeTargetValidatorImpl ..> BrandQueryFacade: validate brand
+    CartProductReaderImpl ..> ProductQueryFacade: validateProductExists
+    OrderCartItemReaderImpl ..> CartItemQueryFacade: read cart items
+    OrderProductReaderImpl ..> ProductQueryFacade: readProducts
+    OrderStockManagerImpl ..> ProductCommandFacade: decrease stock
+    OrderCommandFacade ..> OrderCreatedEvent: emits
+    LikeCountSyncEventListener ..> ProductLikeCreatedEvent: subscribes
+    LikeCountSyncEventListener ..> ProductLikeCancelledEvent: subscribes
+    ProductLikeCleanupEventListener ..> ProductDeletedEvent: subscribes
+    BrandLikeCleanupEventListener ..> BrandDeletedEvent: subscribes
+    CartCleanupEventListener ..> ProductDeletedEvent: subscribes
+    CartCleanupEventListener ..> OrderCreatedEvent: subscribes
 ```
 
 **해석**:
 
 - 동기 Cross-BC 호출은 Port 인터페이스를 경계로 하여 컴파일 의존을 역전한다.
-- Adapter가 실제 Provider Service(`BrandQueryService`, `ProductQueryService`, `CartQueryService`, `ProductCommandService`)를
-  호출하는 종착점을 명시해 의존 방향 검증을 강화했다.
+- ACL Adapter는 실제 Provider 컴포넌트로 **Facade만 호출**한다.
+- ACL에서 Provider Repository/JPA/QueryDSL 직접 호출을 금지해 BC 내부 구현 결합을 차단한다.
 - 비동기 정리 로직은 EventListener가 구독하므로 원 트랜잭션과 결합되지 않는다.
 - Port 수가 늘어나도 BC 직접 의존을 막아 경계 안정성을 유지할 수 있다.
 
@@ -795,26 +887,30 @@ classDiagram
 
 | 분류            | 이름                     | 책임                                |
 |---------------|------------------------|-----------------------------------|
-| Port          | `LikeTargetValidator`  | Like 대상(Brand/Product) 존재 검증      |
+| Port          | `ProductLikeTargetValidator` | ProductLike 대상(Product) 존재 검증 |
+| Port          | `BrandLikeTargetValidator` | BrandLike 대상(Brand) 존재 검증 |
 | Port          | `CartProductReader`    | Cart 상태/추가 시 Product 정보 조회        |
 | Port          | `OrderCartItemReader`  | 주문 대상 CartItem 조회                 |
 | Port          | `OrderProductReader`   | 주문용 Product 정보 조회                 |
 | Port          | `OrderStockManager`    | 주문 시 재고 차감                        |
-| Port          | `OrderEventPublisher`  | 주문 완료 이벤트(`OrderCreatedEvent`) 발행 |
-| DomainService | `BrandDeleteValidator` | 브랜드 삭제 정책(활성 상품 0개) 검증            |
+| Application   | `OrderPlacementCommandService` | 주문 완료 이벤트(`OrderCreatedEvent`) 발행 |
+| DomainModel   | `Brand.validateDeletable(hasActiveProducts)` | 브랜드 삭제 정책(활성 상품 0개) 1차 판정 |
+| DomainService | `BrandDeleteValidator` | 다중 Aggregate 협력 중재가 필요해질 때 도입 |
 | Event         | `BrandDeletedEvent`    | 브랜드 삭제 후 Like 정리 트리거              |
 | Event         | `ProductDeletedEvent`  | 상품 삭제 후 Like/Cart 정리 트리거          |
 | Event         | `OrderCreatedEvent`    | 주문 생성 후 Cart 정리 트리거               |
-| Idempotency   | `IdempotencyService`   | `(userId, requestId)` 기반 중복 주문 방지 |
+| Idempotency   | `OrderIdempotencyQueryService` + `IdempotencyKeyCommandRepository` | `(userId, requestId)` 기반 중복 주문 방지 |
 
 ### 9.1 이벤트-구독 매핑
 
 | 이벤트                   | 발행 BC   | 구독 Listener         | 처리 내용                      |
 |-----------------------|---------|---------------------|----------------------------|
-| `OrderCreatedEvent`   | Order   | `CartEventListener` | 주문 포함 CartItem Hard Delete |
-| `ProductDeletedEvent` | Catalog | `CartEventListener` | 해당 상품 CartItem Hard Delete |
-| `ProductDeletedEvent` | Catalog | `LikeEventListener` | 해당 상품 Like Hard Delete     |
-| `BrandDeletedEvent`   | Catalog | `LikeEventListener` | 해당 브랜드 Like Hard Delete    |
+| `OrderCreatedEvent`   | Order   | `CartCleanupEventListener` | 주문 포함 CartItem Hard Delete |
+| `ProductDeletedEvent` | Catalog | `CartCleanupEventListener` | 해당 상품 CartItem Hard Delete |
+| `ProductDeletedEvent` | Catalog | `ProductLikeCleanupEventListener` | 해당 상품 ProductLike Hard Delete |
+| `BrandDeletedEvent`   | Catalog | `BrandLikeCleanupEventListener` | 해당 브랜드 BrandLike Hard Delete |
+| `ProductLikeCreatedEvent` | Engagement(ProductLike) | `LikeCountSyncEventListener` | 상품 likeCount +1 |
+| `ProductLikeCancelledEvent` | Engagement(ProductLike) | `LikeCountSyncEventListener` | 상품 likeCount -1 |
 
 ### 9.2 이벤트 처리 트랜잭션 규약
 
@@ -831,10 +927,11 @@ classDiagram
 ## 10. 설계 해석 포인트
 
 1. **도메인 책임 중심**: 수량 변경/재고 차감/삭제 같은 핵심 규칙은 Entity 메서드로 유지한다.
-2. **의존 방향 고정**: Facade -> Service -> Repository/Port/DomainService 방향으로만 흐른다.
+2. **의존 방향 고정**: Facade -> Service -> Repository/Port 방향을 유지하고, Cross-BC 동기는 `Port -> ACL -> Provider Facade`로 고정한다.
 3. **Cross-BC 분리**: 동기는 Port, 후속 정리는 Event로 분리해 결합도와 트랜잭션 부담을 낮춘다.
 4. **스냅샷 보존**: 주문 조회는 Product 현재 상태가 아닌 `OrderItem.snapshot*` 기준으로 동작한다.
 5. **정책 변경 여지**: P2 확장 시 Product 삭제 정책 강화나 주문 상태 전이를 독립적으로 도입할 수 있다.
+6. **Service API 최소화**: Service의 public은 유스케이스 계약과 재사용 조합 단계만 노출하고, 클래스 내부 전용 helper는 private으로 캡슐화한다.
 
 ---
 
