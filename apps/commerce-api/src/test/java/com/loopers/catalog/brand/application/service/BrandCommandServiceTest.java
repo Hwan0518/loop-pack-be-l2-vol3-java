@@ -4,6 +4,7 @@ package com.loopers.catalog.brand.application.service;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandCreateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandUpdateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandVisibleStatusUpdateInDto;
+import com.loopers.catalog.brand.application.port.out.client.engagement.BrandLikeCleanupManager;
 import com.loopers.catalog.brand.domain.model.Brand;
 import com.loopers.catalog.brand.domain.model.enums.VisibleStatus;
 import com.loopers.catalog.brand.domain.model.vo.BrandDescription;
@@ -34,13 +35,15 @@ class BrandCommandServiceTest {
 
 	@Mock
 	private BrandCommandRepository brandCommandRepository;
+	@Mock
+	private BrandLikeCleanupManager brandLikeCleanupManager;
 
 	private BrandCommandService brandCommandService;
 
 
 	@BeforeEach
 	void setUp() {
-		brandCommandService = new BrandCommandService(brandCommandRepository);
+		brandCommandService = new BrandCommandService(brandCommandRepository, brandLikeCleanupManager);
 	}
 
 
@@ -233,6 +236,26 @@ class BrandCommandServiceTest {
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_BRAND_VISIBLE_STATUS.getMessage())
 			);
 			verify(brandCommandRepository, never()).save(any(Brand.class));
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("deleteAllBrandLikes() 테스트")
+	class DeleteAllBrandLikesTest {
+
+		@Test
+		@DisplayName("[BrandCommandService.deleteAllBrandLikes()] 유효한 브랜드 ID -> BrandLikeCleanupManager에 위임")
+		void deleteAllBrandLikesSuccess() {
+			// Arrange
+			willDoNothing().given(brandLikeCleanupManager).deleteAllByBrandId(1L);
+
+			// Act
+			brandCommandService.deleteAllBrandLikes(1L);
+
+			// Assert
+			verify(brandLikeCleanupManager).deleteAllByBrandId(1L);
 		}
 
 	}

@@ -2,7 +2,6 @@ package com.loopers.engagement.productlike.application.facade;
 
 import com.loopers.engagement.productlike.application.dto.out.ProductLikeOutDto;
 import com.loopers.engagement.productlike.application.service.ProductLikeCommandService;
-import com.loopers.engagement.productlike.application.service.ProductLikeCountSyncCommandService;
 import com.loopers.engagement.productlike.domain.model.ProductLike;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,7 +16,6 @@ public class ProductLikeCommandFacade {
 
 	// service
 	private final ProductLikeCommandService productLikeCommandService;
-	private final ProductLikeCountSyncCommandService productLikeCountSyncCommandService;
 
 
 	/**
@@ -44,7 +42,7 @@ public class ProductLikeCommandFacade {
 		ProductLike productLike = productLikeCommandService.createLike(userId, targetId);
 
 		// 좋아요 수 증가 (Cross-BC 부수효과)
-		productLikeCountSyncCommandService.increaseLikeCount(targetId);
+		productLikeCommandService.increaseLikeCount(targetId);
 
 		// DTO 변환
 		return ProductLikeOutDto.from(productLike);
@@ -62,7 +60,7 @@ public class ProductLikeCommandFacade {
 		productLikeCommandService.deleteLike(userId, targetId);
 
 		// 좋아요 수 감소 (Cross-BC 부수효과)
-		productLikeCountSyncCommandService.decreaseLikeCount(targetId);
+		productLikeCommandService.decreaseLikeCount(targetId);
 	}
 
 

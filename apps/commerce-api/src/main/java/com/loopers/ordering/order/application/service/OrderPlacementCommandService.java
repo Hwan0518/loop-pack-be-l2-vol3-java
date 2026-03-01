@@ -1,6 +1,7 @@
 package com.loopers.ordering.order.application.service;
 
 
+import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemCleaner;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.domain.model.IdempotencyKey;
@@ -25,11 +26,14 @@ public class OrderPlacementCommandService {
 	// repository
 	private final OrderCommandRepository orderCommandRepository;
 	private final IdempotencyKeyCommandRepository idempotencyKeyCommandRepository;
+	// port
+	private final OrderCartItemCleaner orderCartItemCleaner;
 
 
 	/**
 	 * 주문 생성 명령 서비스
 	 * 1. 주문 생성 (장바구니 항목 + 상품 정보 → 주문 + 멱등성 키 저장)
+	 * 2. 장바구니 항목 삭제
 	 */
 
 	// 1. 주문 생성
@@ -71,6 +75,13 @@ public class OrderPlacementCommandService {
 		idempotencyKeyCommandRepository.save(idempotencyKey);
 
 		return savedOrder;
+	}
+
+
+	// 2. 장바구니 항목 삭제
+	@Transactional
+	public void deleteCartItems(Long userId, List<Long> cartItemIds) {
+		orderCartItemCleaner.deleteCartItems(userId, cartItemIds);
 	}
 
 }

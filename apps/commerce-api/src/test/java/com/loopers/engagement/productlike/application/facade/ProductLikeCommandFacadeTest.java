@@ -3,7 +3,6 @@ package com.loopers.engagement.productlike.application.facade;
 
 import com.loopers.engagement.productlike.application.dto.out.ProductLikeOutDto;
 import com.loopers.engagement.productlike.application.service.ProductLikeCommandService;
-import com.loopers.engagement.productlike.application.service.ProductLikeCountSyncCommandService;
 import com.loopers.engagement.productlike.domain.model.ProductLike;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -32,16 +31,13 @@ class ProductLikeCommandFacadeTest {
 	@Mock
 	private ProductLikeCommandService productLikeCommandService;
 
-	@Mock
-	private ProductLikeCountSyncCommandService productLikeCountSyncCommandService;
-
 	private ProductLikeCommandFacade productLikeCommandFacade;
 
 
 	@BeforeEach
 	void setUp() {
 		productLikeCommandFacade = new ProductLikeCommandFacade(
-			productLikeCommandService, productLikeCountSyncCommandService
+			productLikeCommandService
 		);
 	}
 
@@ -63,7 +59,7 @@ class ProductLikeCommandFacadeTest {
 			given(productLikeCommandService.authenticate(loginId, password)).willReturn(userId);
 			given(productLikeCommandService.findLike(userId, targetId)).willReturn(Optional.empty());
 			given(productLikeCommandService.createLike(userId, targetId)).willReturn(like);
-			willDoNothing().given(productLikeCountSyncCommandService).increaseLikeCount(targetId);
+			willDoNothing().given(productLikeCommandService).increaseLikeCount(targetId);
 
 			// Act
 			ProductLikeOutDto result = productLikeCommandFacade.createLike(loginId, password, targetId);
@@ -74,7 +70,7 @@ class ProductLikeCommandFacadeTest {
 				() -> assertThat(result.userId()).isEqualTo(1L),
 				() -> assertThat(result.targetId()).isEqualTo(100L),
 				() -> verify(productLikeCommandService).createLike(userId, targetId),
-				() -> verify(productLikeCountSyncCommandService).increaseLikeCount(targetId)
+				() -> verify(productLikeCommandService).increaseLikeCount(targetId)
 			);
 		}
 
@@ -98,7 +94,7 @@ class ProductLikeCommandFacadeTest {
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(1L),
 				() -> verify(productLikeCommandService, never()).createLike(any(), any()),
-				() -> verify(productLikeCountSyncCommandService, never()).increaseLikeCount(any())
+				() -> verify(productLikeCommandService, never()).increaseLikeCount(any())
 			);
 		}
 	}
@@ -119,7 +115,7 @@ class ProductLikeCommandFacadeTest {
 
 			given(productLikeCommandService.authenticate(loginId, password)).willReturn(userId);
 			willDoNothing().given(productLikeCommandService).deleteLike(userId, targetId);
-			willDoNothing().given(productLikeCountSyncCommandService).decreaseLikeCount(targetId);
+			willDoNothing().given(productLikeCommandService).decreaseLikeCount(targetId);
 
 			// Act
 			productLikeCommandFacade.deleteLike(loginId, password, targetId);
@@ -127,7 +123,7 @@ class ProductLikeCommandFacadeTest {
 			// Assert
 			verify(productLikeCommandService).authenticate(loginId, password);
 			verify(productLikeCommandService).deleteLike(userId, targetId);
-			verify(productLikeCountSyncCommandService).decreaseLikeCount(targetId);
+			verify(productLikeCommandService).decreaseLikeCount(targetId);
 		}
 	}
 

@@ -6,7 +6,6 @@ import com.loopers.catalog.brand.domain.model.Brand;
 import com.loopers.catalog.product.application.dto.in.AdminProductCreateInDto;
 import com.loopers.catalog.product.application.dto.in.AdminProductUpdateInDto;
 import com.loopers.catalog.product.application.dto.out.AdminProductDetailOutDto;
-import com.loopers.catalog.product.application.service.ProductCleanupCommandService;
 import com.loopers.catalog.product.application.service.ProductCommandService;
 import com.loopers.catalog.product.application.service.ProductQueryService;
 import com.loopers.catalog.product.domain.model.Product;
@@ -21,7 +20,6 @@ public class ProductCommandFacade {
 
 	// service
 	private final ProductCommandService productCommandService;
-	private final ProductCleanupCommandService productCleanupCommandService;
 	private final ProductQueryService productQueryService;
 	private final BrandQueryService brandQueryService;
 
@@ -78,10 +76,10 @@ public class ProductCommandFacade {
 		productCommandService.deleteProduct(product);
 
 		// 상품 좋아요 정리 (Cross-BC 부수효과)
-		productCleanupCommandService.deleteAllProductLikes(product.getId());
+		productCommandService.deleteAllProductLikes(product.getId());
 
 		// 장바구니 항목 정리 (Cross-BC 부수효과)
-		productCleanupCommandService.deleteAllCartItems(product.getId());
+		productCommandService.deleteAllCartItems(product.getId());
 	}
 
 

@@ -5,7 +5,6 @@ import com.loopers.catalog.brand.application.dto.in.AdminBrandCreateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandUpdateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandVisibleStatusUpdateInDto;
 import com.loopers.catalog.brand.application.dto.out.AdminBrandDetailOutDto;
-import com.loopers.catalog.brand.application.service.BrandCleanupCommandService;
 import com.loopers.catalog.brand.application.service.BrandCommandService;
 import com.loopers.catalog.brand.application.service.BrandQueryService;
 import com.loopers.catalog.brand.domain.model.Brand;
@@ -40,9 +39,6 @@ class BrandCommandFacadeTest {
 	private BrandCommandService brandCommandService;
 
 	@Mock
-	private BrandCleanupCommandService brandCleanupCommandService;
-
-	@Mock
 	private BrandQueryService brandQueryService;
 
 	@Mock
@@ -54,8 +50,7 @@ class BrandCommandFacadeTest {
 	@BeforeEach
 	void setUp() {
 		brandCommandFacade = new BrandCommandFacade(
-			brandCommandService, brandCleanupCommandService,
-			brandQueryService, productQueryService
+			brandCommandService, brandQueryService, productQueryService
 		);
 	}
 
@@ -154,7 +149,7 @@ class BrandCommandFacadeTest {
 			given(brandQueryService.getBrandById(1L)).willReturn(brand);
 			given(productQueryService.existsActiveByBrandId(1L)).willReturn(false);
 			willDoNothing().given(brandCommandService).deleteBrand(brand, false);
-			willDoNothing().given(brandCleanupCommandService).deleteAllBrandLikes(1L);
+			willDoNothing().given(brandCommandService).deleteAllBrandLikes(1L);
 
 			// Act
 			assertDoesNotThrow(() -> brandCommandFacade.deleteBrand(1L));
@@ -163,7 +158,7 @@ class BrandCommandFacadeTest {
 			verify(brandQueryService).getBrandById(1L);
 			verify(productQueryService).existsActiveByBrandId(1L);
 			verify(brandCommandService).deleteBrand(brand, false);
-			verify(brandCleanupCommandService).deleteAllBrandLikes(1L);
+			verify(brandCommandService).deleteAllBrandLikes(1L);
 		}
 
 
@@ -188,7 +183,7 @@ class BrandCommandFacadeTest {
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.BRAND_HAS_ACTIVE_PRODUCTS.getMessage())
 			);
 			verify(brandCommandService).deleteBrand(brand, true);
-			verify(brandCleanupCommandService, never()).deleteAllBrandLikes(any());
+			verify(brandCommandService, never()).deleteAllBrandLikes(any());
 		}
 
 
@@ -208,7 +203,7 @@ class BrandCommandFacadeTest {
 			verify(productQueryService, never()).existsActiveByBrandId(any());
 			verify(brandCommandService, never()).deleteBrand(any(), eq(false));
 			verify(brandCommandService, never()).deleteBrand(any(), eq(true));
-			verify(brandCleanupCommandService, never()).deleteAllBrandLikes(any());
+			verify(brandCommandService, never()).deleteAllBrandLikes(any());
 		}
 
 	}

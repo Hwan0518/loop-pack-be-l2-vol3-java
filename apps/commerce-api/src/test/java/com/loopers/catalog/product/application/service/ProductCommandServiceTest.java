@@ -3,6 +3,8 @@ package com.loopers.catalog.product.application.service;
 
 import com.loopers.catalog.product.application.dto.in.AdminProductCreateInDto;
 import com.loopers.catalog.product.application.dto.in.AdminProductUpdateInDto;
+import com.loopers.catalog.product.application.port.out.client.cart.CartItemCleanupManager;
+import com.loopers.catalog.product.application.port.out.client.engagement.ProductLikeCleanupManager;
 import com.loopers.catalog.product.domain.model.Product;
 import com.loopers.catalog.product.domain.model.vo.Money;
 import com.loopers.catalog.product.domain.model.vo.ProductName;
@@ -37,6 +39,10 @@ class ProductCommandServiceTest {
 	private ProductCommandRepository productCommandRepository;
 	@Mock
 	private ProductQueryRepository productQueryRepository;
+	@Mock
+	private ProductLikeCleanupManager productLikeCleanupManager;
+	@Mock
+	private CartItemCleanupManager cartItemCleanupManager;
 
 	private ProductCommandService productCommandService;
 
@@ -44,7 +50,8 @@ class ProductCommandServiceTest {
 	@BeforeEach
 	void setUp() {
 		productCommandService = new ProductCommandService(
-			productCommandRepository, productQueryRepository
+			productCommandRepository, productQueryRepository,
+			productLikeCleanupManager, cartItemCleanupManager
 		);
 	}
 
@@ -262,6 +269,46 @@ class ProductCommandServiceTest {
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.PRODUCT_OUT_OF_STOCK.getMessage())
 			);
 		}
+	}
+
+
+	@Nested
+	@DisplayName("deleteAllProductLikes() 테스트")
+	class DeleteAllProductLikesTest {
+
+		@Test
+		@DisplayName("[deleteAllProductLikes()] 유효한 상품 ID -> ProductLikeCleanupManager에 위임")
+		void deleteAllProductLikesSuccess() {
+			// Arrange
+			willDoNothing().given(productLikeCleanupManager).deleteAllByProductId(1L);
+
+			// Act
+			productCommandService.deleteAllProductLikes(1L);
+
+			// Assert
+			verify(productLikeCleanupManager).deleteAllByProductId(1L);
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("deleteAllCartItems() 테스트")
+	class DeleteAllCartItemsTest {
+
+		@Test
+		@DisplayName("[deleteAllCartItems()] 유효한 상품 ID -> CartItemCleanupManager에 위임")
+		void deleteAllCartItemsSuccess() {
+			// Arrange
+			willDoNothing().given(cartItemCleanupManager).deleteAllByProductId(1L);
+
+			// Act
+			productCommandService.deleteAllCartItems(1L);
+
+			// Assert
+			verify(cartItemCleanupManager).deleteAllByProductId(1L);
+		}
+
 	}
 
 }

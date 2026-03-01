@@ -1,6 +1,7 @@
 package com.loopers.ordering.order.application.service;
 
 
+import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemCleaner;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.domain.model.Order;
@@ -21,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.Mockito.verify;
 
 
@@ -34,12 +36,15 @@ class OrderPlacementCommandServiceTest {
 	@Mock
 	private IdempotencyKeyCommandRepository idempotencyKeyCommandRepository;
 
+	@Mock
+	private OrderCartItemCleaner orderCartItemCleaner;
+
 	private OrderPlacementCommandService orderPlacementCommandService;
 
 	@BeforeEach
 	void setUp() {
 		orderPlacementCommandService = new OrderPlacementCommandService(
-			orderCommandRepository, idempotencyKeyCommandRepository
+			orderCommandRepository, idempotencyKeyCommandRepository, orderCartItemCleaner
 		);
 	}
 
@@ -88,6 +93,28 @@ class OrderPlacementCommandServiceTest {
 				() -> verify(orderCommandRepository).save(any(Order.class)),
 				() -> verify(idempotencyKeyCommandRepository).save(any())
 			);
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("deleteCartItems() - 장바구니 항목 삭제")
+	class DeleteCartItemsTest {
+
+		@Test
+		@DisplayName("[deleteCartItems()] 유효한 사용자 ID + 장바구니 ID 목록 -> OrderCartItemCleaner에 위임")
+		void deleteCartItemsSuccess() {
+			// Arrange
+			Long userId = 1L;
+			List<Long> cartItemIds = List.of(100L, 101L);
+			willDoNothing().given(orderCartItemCleaner).deleteCartItems(userId, cartItemIds);
+
+			// Act
+			orderPlacementCommandService.deleteCartItems(userId, cartItemIds);
+
+			// Assert
+			verify(orderCartItemCleaner).deleteCartItems(userId, cartItemIds);
 		}
 
 	}

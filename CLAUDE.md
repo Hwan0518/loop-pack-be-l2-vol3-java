@@ -285,11 +285,11 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 ##### 호출 순서 및 책임
 
 1. **Facade는 Service만 호출한다.** Port, Repository, DomainService 등을 직접 호출하지 않는다.
-2. **Service가 모든 외부 호출의 주체다.** Repository, Port(Cross-BC), DomainService를 Service에서 호출한다.
+2. **Service가 모든 외부 호출의 주체다.** Repository, Port(Cross-BC), DomainService를 Service에서 호출한다. Service는 Repository와 Port를 자유롭게 조합할 수 있으며, Port 호출만을 위한 별도 wrapper Service 생성은 지양한다.
 3. **호출 순서**: Controller → Facade → Service → (Repository / Port / DomainService). 계층 건너뛰기 금지.
 4. **DomainService는 Repository/Port를 호출하지 않는다.** Service가 데이터를 조회하여 DomainService에 전달한다.
 5. **Domain Model은 순수 비즈니스 로직만 포함한다.** 외부 의존(Repository, Port, Spring 등) 없음.
-6. **Service는 다른 Service를 호출하지 않는다.** Service의 의존 대상은 Repository, Port(Cross-BC), DomainService, EventPublisher로 한정한다. 여러 Service 간 오케스트레이션은 Facade에서 수행한다.
+6. **Service는 다른 Service를 호출하지 않는다.** Service의 의존 대상은 Repository, Port(Cross-BC), DomainService, EventPublisher로 자유롭게 조합할 수 있다. Port만 감싸는 thin wrapper Service를 만들지 않는다. 여러 Service 간 오케스트레이션은 Facade에서 수행한다.
 7. **Service의 public 메서드는 유스케이스 계약과 Facade/EventListener가 조합하는 단계를 노출한다.** 클래스 내부 전용 helper는 `private`로 감춘다.
 
 ##### 비즈니스 로직 분리
@@ -325,6 +325,9 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 - 도메인 이벤트 + `@TransactionalEventListener`
 - 최종적 일관성만 필요한 부수효과에 사용
 - 예: 주문 완료 후 알림 발송, 통계 업데이트
+- **흐름 추적 필수 규칙**: Domain Event 사용 시 아래 두 가지를 반드시 명시한다.
+  1. **Event 클래스 Javadoc에 구독자 목록 명시**: `@subscriber {ListenerClass} - {역할}` 형식으로 모든 구독자를 기록
+  2. **Publisher 쪽 주석에 파생 효과 명시**: 이벤트 발행 라인에 `→ [{Listener}] {효과}` 형식으로 어떤 리스너가 반응하는지 인라인 주석 기록
 
 | 레이어 | 클래스 | 어노테이션 | 역할 |
 |--------|--------|-----------|------|
@@ -332,7 +335,7 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 | Controller | `{Domain}AdminCommandController` / `{Domain}AdminQueryController` | `@RestController` | 관리자 요청 수신 (`/api-admin/v1/`), Facade 호출 |
 | Facade | `{Domain}CommandFacade` | `@Service`, method-level `@Transactional` | 명령 유스케이스 오케스트레이션, 트랜잭션 경계, **Service만 호출** |
 | Facade | `{Domain}QueryFacade` | `@Service`, method-level `@Transactional(readOnly = true)` | 조회 유스케이스 오케스트레이션 |
-| Service | `{Domain}CommandService` | `@Service`, method-level `@Transactional` | 단일 도메인 비즈니스 로직 실행 **(다른 Service 호출 금지, public은 유스케이스 계약만 노출)** |
+| Service | `{Domain}CommandService` | `@Service`, method-level `@Transactional` | 단일 도메인 비즈니스 로직 실행 **(다른 Service 호출 금지, public은 유스케이스 계약만 노출, Repository와 Port 자유 조합 가능, Port만 감싸는 wrapper Service 금지)** |
 | Domain Service | `{Domain}XxxValidator` 등 | (순수 Java, `@Bean` 등록) | 비즈니스 불변식 검증 **(Repository/Port 호출 금지, Service가 데이터 전달)** |
 | Repository(I) | `{Domain}Command/QueryRepository` | (인터페이스, `domain/repository/`) | 명령(save,delete) / 조회(find,exists) 계약 |
 | RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain 변환 후 JPA 호출 |

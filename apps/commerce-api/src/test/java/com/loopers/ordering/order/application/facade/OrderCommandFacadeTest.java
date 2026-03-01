@@ -6,7 +6,6 @@ import com.loopers.ordering.order.application.dto.out.OrderDetailOutDto;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.service.OrderCheckoutCommandService;
-import com.loopers.ordering.order.application.service.OrderCleanupCommandService;
 import com.loopers.ordering.order.application.service.OrderIdempotencyQueryService;
 import com.loopers.ordering.order.application.service.OrderPlacementCommandService;
 import com.loopers.ordering.order.application.service.OrderQueryService;
@@ -51,9 +50,6 @@ class OrderCommandFacadeTest {
 	private OrderPlacementCommandService orderPlacementCommandService;
 
 	@Mock
-	private OrderCleanupCommandService orderCleanupCommandService;
-
-	@Mock
 	private OrderQueryService orderQueryService;
 
 	private OrderCommandFacade orderCommandFacade;
@@ -62,8 +58,7 @@ class OrderCommandFacadeTest {
 	void setUp() {
 		orderCommandFacade = new OrderCommandFacade(
 			orderIdempotencyQueryService, orderCheckoutCommandService,
-			orderPlacementCommandService, orderCleanupCommandService,
-			orderQueryService
+			orderPlacementCommandService, orderQueryService
 		);
 	}
 
@@ -114,7 +109,7 @@ class OrderCommandFacadeTest {
 				eq(userId), eq("req-123"), eq(cartItems), eq(products), eq(resolvedCartItemIds)
 			)).willReturn(savedOrder);
 
-			willDoNothing().given(orderCleanupCommandService).deleteCartItems(userId, resolvedCartItemIds);
+			willDoNothing().given(orderPlacementCommandService).deleteCartItems(userId, resolvedCartItemIds);
 
 			// Act
 			OrderDetailOutDto result = orderCommandFacade.createOrder(loginId, password, inDto);
@@ -127,7 +122,7 @@ class OrderCommandFacadeTest {
 				() -> verify(orderCheckoutCommandService).decreaseStocks(cartItems),
 				() -> verify(orderPlacementCommandService).createOrder(
 					eq(userId), eq("req-123"), eq(cartItems), eq(products), eq(resolvedCartItemIds)),
-				() -> verify(orderCleanupCommandService).deleteCartItems(userId, resolvedCartItemIds)
+				() -> verify(orderPlacementCommandService).deleteCartItems(userId, resolvedCartItemIds)
 			);
 		}
 

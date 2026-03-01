@@ -1,6 +1,7 @@
 package com.loopers.engagement.productlike.application.service;
 
 
+import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeCountSyncer;
 import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeTargetValidator;
 import com.loopers.engagement.productlike.application.port.out.client.user.UserAuthenticator;
 import com.loopers.engagement.productlike.domain.model.ProductLike;
@@ -39,6 +40,8 @@ class ProductLikeCommandServiceTest {
 	private ProductLikeTargetValidator productLikeTargetValidator;
 	@Mock
 	private UserAuthenticator userAuthenticator;
+	@Mock
+	private ProductLikeCountSyncer productLikeCountSyncer;
 
 	private ProductLikeCommandService productLikeCommandService;
 
@@ -49,7 +52,8 @@ class ProductLikeCommandServiceTest {
 			productLikeCommandRepository,
 			productLikeQueryRepository,
 			productLikeTargetValidator,
-			userAuthenticator
+			userAuthenticator,
+			productLikeCountSyncer
 		);
 	}
 
@@ -190,6 +194,46 @@ class ProductLikeCommandServiceTest {
 			// Assert
 			verify(productLikeCommandRepository).deleteAllByTargetId(100L);
 		}
+	}
+
+
+	@Nested
+	@DisplayName("increaseLikeCount() - 좋아요 수 증가")
+	class IncreaseLikeCountTest {
+
+		@Test
+		@DisplayName("[increaseLikeCount()] 유효한 상품 ID -> ProductLikeCountSyncer에 위임")
+		void increaseLikeCountSuccess() {
+			// Arrange
+			willDoNothing().given(productLikeCountSyncer).increaseLikeCount(1L);
+
+			// Act
+			productLikeCommandService.increaseLikeCount(1L);
+
+			// Assert
+			verify(productLikeCountSyncer).increaseLikeCount(1L);
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("decreaseLikeCount() - 좋아요 수 감소")
+	class DecreaseLikeCountTest {
+
+		@Test
+		@DisplayName("[decreaseLikeCount()] 유효한 상품 ID -> ProductLikeCountSyncer에 위임")
+		void decreaseLikeCountSuccess() {
+			// Arrange
+			willDoNothing().given(productLikeCountSyncer).decreaseLikeCount(1L);
+
+			// Act
+			productLikeCommandService.decreaseLikeCount(1L);
+
+			// Assert
+			verify(productLikeCountSyncer).decreaseLikeCount(1L);
+		}
+
 	}
 
 }
