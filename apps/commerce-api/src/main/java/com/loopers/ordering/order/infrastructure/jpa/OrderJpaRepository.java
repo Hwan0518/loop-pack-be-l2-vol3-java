@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.ZonedDateTime;
+import java.util.Optional;
 
 
 public interface OrderJpaRepository extends JpaRepository<OrderEntity, Long> {
@@ -17,6 +18,7 @@ public interface OrderJpaRepository extends JpaRepository<OrderEntity, Long> {
 	 * 주문 JPA 리포지토리
 	 * 1. 사용자별 주문 목록 조회 (페이지네이션)
 	 * 2. 사용자별 주문 목록 조회 (페이지네이션, 날짜 필터)
+	 * 3. userId + requestId로 주문 조회 (멱등성 확인)
 	 */
 
 	// 1. 사용자별 주문 목록 조회 (페이지네이션)
@@ -30,5 +32,8 @@ public interface OrderJpaRepository extends JpaRepository<OrderEntity, Long> {
 		@Param("endDateTime") ZonedDateTime endDateTime,
 		Pageable pageable
 	);
+
+	// 3. userId + requestId로 주문 조회 (멱등성 확인)
+	Optional<OrderEntity> findByUserIdAndRequestId(Long userId, String requestId);
 
 }

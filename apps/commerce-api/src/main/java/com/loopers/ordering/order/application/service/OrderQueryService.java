@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 
 @Service
@@ -29,6 +30,7 @@ public class OrderQueryService {
 	 * 2. ID + 사용자 ID로 주문 조회 (본인 주문만)
 	 * 3. 사용자별 주문 목록 조회
 	 * 4. 전체 주문 목록 조회 (관리자)
+	 * 5. userId + requestId로 주문 조회 (멱등성 확인)
 	 */
 
 	// 1. ID로 주문 조회
@@ -92,6 +94,13 @@ public class OrderQueryService {
 			result.size(),
 			result.totalElements()
 		);
+	}
+
+
+	// 5. userId + requestId로 주문 조회 (멱등성 확인)
+	@Transactional(readOnly = true)
+	public Optional<Order> findByUserIdAndRequestId(Long userId, String requestId) {
+		return orderQueryRepository.findByUserIdAndRequestId(userId, requestId);
 	}
 
 }

@@ -16,6 +16,7 @@ public interface OrderQueryRepository {
 	 * 1. ID로 주문 조회
 	 * 2. 사용자별 주문 목록 조회 (페이지네이션)
 	 * 3. 전체 주문 목록 조회 (관리자, 페이지네이션)
+	 * 4. userId + requestId로 주문 조회 (멱등성 확인)
 	 */
 
 	// 1. ID로 주문 조회
@@ -26,5 +27,8 @@ public interface OrderQueryRepository {
 
 	// 3. 전체 주문 목록 조회 (관리자, 페이지네이션)
 	PageResult<Order> findAll(PageCriteria pageCriteria);
+
+	// 4. userId + requestId로 주문 조회 (멱등성 확인)
+	Optional<Order> findByUserIdAndRequestId(Long userId, String requestId);
 
 }

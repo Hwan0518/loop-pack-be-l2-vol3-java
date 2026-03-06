@@ -60,7 +60,7 @@ class OrderQueryRepositoryTest {
 			OrderItem item1 = OrderItem.create(1L, "상품A", new BigDecimal("10000"), 2L);
 			OrderItem item2 = OrderItem.create(2L, "상품B", new BigDecimal("20000"), 1L);
 			Order savedOrder = orderCommandRepository.save(
-				Order.create(100L, new BigDecimal("40000"), List.of(item1, item2))
+				Order.create(100L, "req-find-1", new BigDecimal("40000"), BigDecimal.ZERO, List.of(item1, item2), null)
 			);
 
 			// Act
@@ -71,6 +71,7 @@ class OrderQueryRepositoryTest {
 				() -> assertThat(result).isPresent(),
 				() -> assertThat(result.get().getId()).isEqualTo(savedOrder.getId()),
 				() -> assertThat(result.get().getUserId()).isEqualTo(100L),
+				() -> assertThat(result.get().getRequestId()).isEqualTo("req-find-1"),
 				() -> assertThat(result.get().getTotalPrice()).isEqualByComparingTo(new BigDecimal("40000")),
 				() -> assertThat(result.get().getItems()).hasSize(2),
 				() -> assertThat(result.get().getCreatedAt()).isNotNull()
@@ -107,14 +108,14 @@ class OrderQueryRepositoryTest {
 			for (int i = 1; i <= 3; i++) {
 				OrderItem item = OrderItem.create((long) i, "상품" + i, new BigDecimal("10000"), 1L);
 				orderCommandRepository.save(
-					Order.create(userId, new BigDecimal("10000"), List.of(item))
+					Order.create(userId, "req-user-" + i, new BigDecimal("10000"), BigDecimal.ZERO, List.of(item), null)
 				);
 			}
 
 			// 다른 사용자 주문 1개 생성
 			OrderItem otherItem = OrderItem.create(99L, "다른상품", new BigDecimal("5000"), 1L);
 			orderCommandRepository.save(
-				Order.create(200L, new BigDecimal("5000"), List.of(otherItem))
+				Order.create(200L, "req-other-1", new BigDecimal("5000"), BigDecimal.ZERO, List.of(otherItem), null)
 			);
 
 			// Act
@@ -147,7 +148,7 @@ class OrderQueryRepositoryTest {
 			for (int i = 1; i <= 2; i++) {
 				OrderItem item = OrderItem.create((long) i, "상품" + i, new BigDecimal("10000"), 1L);
 				orderCommandRepository.save(
-					Order.create(userId, new BigDecimal("10000"), List.of(item))
+					Order.create(userId, "req-date-" + i, new BigDecimal("10000"), BigDecimal.ZERO, List.of(item), null)
 				);
 			}
 
@@ -170,7 +171,7 @@ class OrderQueryRepositoryTest {
 			Long userId = 100L;
 			OrderItem item = OrderItem.create(1L, "상품", new BigDecimal("10000"), 1L);
 			orderCommandRepository.save(
-				Order.create(userId, new BigDecimal("10000"), List.of(item))
+				Order.create(userId, "req-past-1", new BigDecimal("10000"), BigDecimal.ZERO, List.of(item), null)
 			);
 
 			// Act: 과거 날짜로 필터링
@@ -187,6 +188,44 @@ class OrderQueryRepositoryTest {
 
 
 	@Nested
+	@DisplayName("findByUserIdAndRequestId")
+	class FindByUserIdAndRequestId {
+
+		@Test
+		@DisplayName("[OrderQueryRepository.findByUserIdAndRequestId()] 존재하는 userId + requestId -> Order 반환")
+		void findByUserIdAndRequestIdExists() {
+			// Arrange
+			OrderItem item = OrderItem.create(1L, "상품A", new BigDecimal("10000"), 2L);
+			Order savedOrder = orderCommandRepository.save(
+				Order.create(100L, "req-idempotent-1", new BigDecimal("20000"), BigDecimal.ZERO, List.of(item), null)
+			);
+
+			// Act
+			Optional<Order> result = orderQueryRepository.findByUserIdAndRequestId(100L, "req-idempotent-1");
+
+			// Assert
+			assertAll(
+				() -> assertThat(result).isPresent(),
+				() -> assertThat(result.get().getId()).isEqualTo(savedOrder.getId()),
+				() -> assertThat(result.get().getUserId()).isEqualTo(100L),
+				() -> assertThat(result.get().getRequestId()).isEqualTo("req-idempotent-1")
+			);
+		}
+
+
+		@Test
+		@DisplayName("[OrderQueryRepository.findByUserIdAndRequestId()] 존재하지 않는 requestId -> Optional.empty 반환")
+		void findByUserIdAndRequestIdNotExists() {
+			// Act
+			Optional<Order> result = orderQueryRepository.findByUserIdAndRequestId(100L, "req-nonexistent");
+
+			// Assert
+			assertThat(result).isEmpty();
+		}
+	}
+
+
+	@Nested
 	@DisplayName("findAll")
 	class FindAll {
 
@@ -197,7 +236,7 @@ class OrderQueryRepositoryTest {
 			for (int i = 1; i <= 3; i++) {
 				OrderItem item = OrderItem.create((long) i, "상품" + i, new BigDecimal("10000"), 1L);
 				orderCommandRepository.save(
-					Order.create((long) (i * 100), new BigDecimal("10000"), List.of(item))
+					Order.create((long) (i * 100), "req-all-" + i, new BigDecimal("10000"), BigDecimal.ZERO, List.of(item), null)
 				);
 			}
 

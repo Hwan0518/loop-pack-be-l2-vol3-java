@@ -41,6 +41,7 @@ public class OrderQueryRepositoryImpl implements OrderQueryRepository {
 	 * 1. ID로 주문 조회
 	 * 2. 사용자별 주문 목록 조회 (페이지네이션)
 	 * 3. 전체 주문 목록 조회 (관리자, 페이지네이션)
+	 * 4. userId + requestId로 주문 조회 (멱등성 확인)
 	 */
 
 	// 1. ID로 주문 조회
@@ -101,6 +102,17 @@ public class OrderQueryRepositoryImpl implements OrderQueryRepository {
 		List<Order> orders = loadOrdersWithItems(page.getContent());
 
 		return new PageResult<>(orders, page.getNumber(), page.getSize(), page.getTotalElements());
+	}
+
+
+	// 4. userId + requestId로 주문 조회 (멱등성 확인)
+	@Override
+	public Optional<Order> findByUserIdAndRequestId(Long userId, String requestId) {
+		return orderJpaRepository.findByUserIdAndRequestId(userId, requestId)
+			.map(orderEntity -> {
+				List<OrderItemEntity> itemEntities = orderItemJpaRepository.findByOrderId(orderEntity.getId());
+				return orderMapper.toDomain(orderEntity, itemEntities);
+			});
 	}
 
 
