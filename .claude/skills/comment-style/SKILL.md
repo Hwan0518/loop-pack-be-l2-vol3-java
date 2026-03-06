@@ -136,11 +136,48 @@ public void createUser(...) { ...}
 public void updateUser(...) { ...}
 ```
 
-### 6. Domain Model Field Listing
+### 6. Private Method Javadoc
+
+클래스에 private 메서드가 있을 경우, private 메서드 영역 시작 전에 별도 Javadoc 블록으로 목록을 정리한다.
+
+- 헤더: `private method`
+- 형식: `- Korean description` (메서드명 생략, 설명만 나열)
+- 각 private 메서드 위에는 `//` 인라인 주석으로 설명 (Javadoc `/** */` 사용 금지)
+
+```java
+/**
+ * 상품 좋아요 수 명령 파사드 (낙관적 락 + 재시도)
+ * 1. 좋아요 수 증가
+ * 2. 좋아요 수 감소
+ */
+
+// 1. 좋아요 수 증가
+public void increaseLikeCount(Long productId) { ... }
+
+
+// 2. 좋아요 수 감소
+public void decreaseLikeCount(Long productId) { ... }
+
+
+/**
+ * private method
+ * - 낙관적 락 충돌 시 재시도 (최대 MAX_RETRY 시도 후 LOCK_CONFLICT 예외)
+ * - 지수 백오프 + 랜덤 지터 대기
+ */
+
+// 낙관적 락 충돌 시 재시도
+private void executeWithOptimisticRetry(Runnable action) { ... }
+
+
+// 지수 백오프 + 랜덤 지터 대기
+private void sleepWithBackoff(int attempt) { ... }
+```
+
+### 7. Domain Model Field Listing
 
 List fields in Javadoc with `- fieldName: Korean description` format. If self-explanatory, `- 거래번호` format is also acceptable.
 
-### 7. Inline Comments for Multi-Line Methods
+### 8. Inline Comments for Multi-Line Methods
 
 - **1-line methods**: `// N.` comment alone is sufficient
 - **2+ line methods**: mandatory `// Korean description` inline comments for each logical step
@@ -171,7 +208,7 @@ public void createTrade(CreateTradeInDto inDto) {
 | Layer           | Class Comment          | Javadoc Placement            | Method Comment                | Dependency Injection                |
 |-----------------|------------------------|------------------------------|-------------------------------|-------------------------------------|
 | Domain Model    | Javadoc field listing  | Inside class body, before fields | Javadoc logic list + `// N.`  | -                                   |
-| Service/Facade  | Javadoc method listing | Inside class body, after deps | `// N.` matching              | `// service`, `// repository`, etc. |
+| Service/Facade  | Javadoc method listing | Inside class body, after deps | `// N.` matching + private method Javadoc | `// service`, `// repository`, etc. |
 | Controller      | Javadoc API listing    | Inside class body, after deps | `// N.` matching              | `// service`, `// util`, etc.       |
 | Repository Impl | None/brief             | -                            | `//` brief description        | `// jpa`, `// util`, etc.           |
 | Entity          | Javadoc field listing  | Above class declaration      | -                             | -                                   |
@@ -202,6 +239,7 @@ public void createTrade(CreateTradeInDto inDto) {
 1. **Class Javadoc** — field listing (domain) or method listing (service/controller)
 2. **Structural markers** — dependency injection field grouping (when applicable)
 3. **`// N.` numbered comments** — matching class Javadoc list
+3-1. **Private method Javadoc** — `private method` + `- description` 목록 (private 메서드 존재 시)
 4. **Korean** — all business descriptions / **English** — all structural markers
 5. Tests: `// Arrange` / `// Act` / `// Assert` + `@DisplayName` in Korean
 6. Inline comments for each logical step in 2+ line methods
@@ -223,6 +261,7 @@ public void createTrade(CreateTradeInDto inDto) {
 - [ ] **Language**: Business=Korean, Markers=English
 - [ ] **Class-Level**: Javadoc exists + placed inside class body + domain field list or service method list
 - [ ] **Method-Level**: `// N.` numbered matching + inline comments for 2+ lines
+- [ ] **Private Methods**: Javadoc 목록 (`private method` + `- description`) + `//` 인라인 주석 (Javadoc 금지)
 - [ ] **Dependencies**: Structural marker grouping (lowercase English)
 - [ ] **Tests**: `@DisplayName` Korean + `// Arrange/Act/Assert` + fixture Javadoc
 

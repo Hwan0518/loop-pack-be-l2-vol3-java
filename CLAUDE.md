@@ -223,6 +223,43 @@ class SomeIntegrationTest {
 - 비밀번호 일치 검증은 `AuthenticationManager` 포트(현재 `CustomAuthenticationManager`)에 위임하고, 비밀번호 정책 검증은 도메인 VO(`Password.validatePasswordPolicy`)가 담당
 - URL 패턴: 사용자 `/api/v1/{resource}`, 관리자 `/api-admin/v1/{resource}`
 
+#### 낙관적 락 (`@Version`) 충돌 처리 패턴
+
+`@Version` 기반 낙관적 락 충돌(`OptimisticLockingFailureException`) 처리 시, **`@Retryable`을 1순위로 사용**한다.
+
+**1순위: `@Retryable` + `@Recover` (기본)**
+- `@Retryable`은 `@Transactional` **바깥**에서 AOP 프록시로 감싸므로, TX 커밋 시점에 발생하는 `OptimisticLockingFailureException`을 자연스럽게 catch한다.
+- 재시도 시 새 TX가 열려 DB에서 최신 version을 다시 읽으므로 정합성이 보장된다.
+- 재시도 소진 시 `@Recover` 메서드에서 도메인 전용 `CoreException`으로 변환한다.
+
+```java
+// Facade — @Retryable이 @Transactional 바깥에서 감싸 TX 커밋 예외를 catch
+@Retryable(
+    retryFor = OptimisticLockingFailureException.class,
+    recover = "recoverXxxConflict",
+    maxAttempts = 3,
+    backoff = @Backoff(delay = 50, multiplier = 2, maxDelay = 200, random = true)
+)
+@Transactional
+public Result doSomething(...) { ... }
+
+@Recover
+public Result recoverXxxConflict(OptimisticLockingFailureException e, ...) {
+    throw new CoreException(ErrorType.XXX_CONFLICT);
+}
+```
+
+**2순위: try-catch + `saveAndFlush()` (예외적)**
+- `@Retryable` 사용이 불가능한 경우에만 사용한다 (예: 이미 `@Retryable`이 적용된 메서드 내부에서 별도 낙관적 락 처리가 필요한 경우).
+- `saveAndFlush()`로 즉시 SQL을 실행하여 try-catch 범위 내에서 예외를 잡는다.
+- 이 패턴은 구조적 우회이므로, 반드시 주석으로 `@Retryable` 미사용 사유를 명시한다.
+
+**사용 금지: try-catch + `save()` (flush 없이)**
+- `save()`는 영속성 컨텍스트에 merge만 수행하고, 실제 SQL은 TX 커밋 시점에 실행된다.
+- 따라서 Facade 내부의 try-catch로는 `OptimisticLockingFailureException`을 잡을 수 없다.
+
+**참고 — 안전망**: `GlobalExceptionHandler`에 `OptimisticLockingFailureException` → 409 핸들러가 존재한다. `@Retryable`이나 Facade에서 잡히지 않는 경우 최종 방어선으로 동작한다.
+
 ### 4.7 도메인 모델 패턴
 
 #### 팩토리 메서드
