@@ -29,8 +29,7 @@ public class ProductEntityMapper {
 			product.getPrice().value(),
 			product.getStock().value(),
 			product.getDescription() != null ? product.getDescription().value() : null,
-			product.getLikeCount(),
-			product.getVersion()
+			product.getLikeCount()
 		);
 
 		// 소프트 삭제 상태 반영
@@ -52,7 +51,6 @@ public class ProductEntityMapper {
 			Stock.from(entity.getStock()),
 			ProductDescription.from(entity.getDescription()),
 			entity.getLikeCount(),
-			entity.getVersion(),
 			entity.getDeletedAt()
 		);
 	}

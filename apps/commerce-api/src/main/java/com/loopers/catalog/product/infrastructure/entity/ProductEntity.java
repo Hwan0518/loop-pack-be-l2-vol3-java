@@ -18,7 +18,6 @@ import java.math.BigDecimal;
  * - stock: 재고
  * - description: 상품 설명
  * - likeCount: 좋아요 수
- * - version: 낙관적 락 버전 (@Version — JPA가 UPDATE 시 WHERE version = ? 자동 추가)
  */
 @Entity
 @Table(name = "products")
@@ -44,13 +43,9 @@ public class ProductEntity extends SoftDeleteBaseEntity {
 	@Column(name = "like_count", nullable = false)
 	private Long likeCount;
 
-	@Version
-	@Column(name = "version")
-	private Long version;
-
 
 	private ProductEntity(Long id, Long brandId, String name, BigDecimal price, Long stock,
-		String description, Long likeCount, Long version) {
+		String description, Long likeCount) {
 		super(id);
 		this.brandId = brandId;
 		this.name = name;
@@ -58,20 +53,19 @@ public class ProductEntity extends SoftDeleteBaseEntity {
 		this.stock = stock;
 		this.description = description;
 		this.likeCount = likeCount;
-		this.version = version;
 	}
 
 
-	// DB 복원용 (id + version 포함)
+	// DB 복원용 (id 포함)
 	public static ProductEntity of(Long id, Long brandId, String name, BigDecimal price, Long stock,
-		String description, Long likeCount, Long version) {
-		return new ProductEntity(id, brandId, name, price, stock, description, likeCount, version);
+		String description, Long likeCount) {
+		return new ProductEntity(id, brandId, name, price, stock, description, likeCount);
 	}
 
-	// 신규 생성용 (id = null, version = null — JPA가 persist 시 0으로 초기화)
+	// 신규 생성용 (id = null)
 	public static ProductEntity of(Long brandId, String name, BigDecimal price, Long stock,
 		String description, Long likeCount) {
-		return of(null, brandId, name, price, stock, description, likeCount, null);
+		return of(null, brandId, name, price, stock, description, likeCount);
 	}
 
 }

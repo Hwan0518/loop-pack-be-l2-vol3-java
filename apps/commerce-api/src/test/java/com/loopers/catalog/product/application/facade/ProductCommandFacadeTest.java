@@ -57,7 +57,7 @@ class ProductCommandFacadeTest {
 			ProductName.from("테스트 상품"),
 			Money.from(new BigDecimal("10000")),
 			Stock.from(100L),
-			null, 0L, 0L, null);
+			null, 0L, null);
 	}
 
 
@@ -115,7 +115,7 @@ class ProductCommandFacadeTest {
 				ProductName.from("수정 상품"),
 				Money.from(new BigDecimal("20000")),
 				Stock.from(200L),
-				null, 0L, 0L, null);
+				null, 0L, null);
 			Brand brand = createTestBrand();
 
 			given(productQueryService.findActiveById(1L)).willReturn(product);

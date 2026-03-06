@@ -65,11 +65,22 @@ public class OrderCommandFacade {
 		try {
 			return orderCommandService.createOrder(userId, inDto, cartItems, products, resolvedCartItemIds);
 		} catch (DataIntegrityViolationException e) {
-			// 유니크 제약 위반 race: TX 롤백(재고/쿠폰 복원) 후 기존 주문 반환
-			Order racedOrder = orderQueryService.findByUserIdAndRequestId(userId, inDto.requestId())
-				.orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
-			return OrderDetailOutDto.from(racedOrder);
+			// 유니크 제약 위반(user_id + request_id) race인 경우에만 멱등 처리
+			if (isDuplicateKeyViolation(e)) {
+				Order racedOrder = orderQueryService.findByUserIdAndRequestId(userId, inDto.requestId())
+					.orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+				return OrderDetailOutDto.from(racedOrder);
+			}
+			// 그 외 무결성 오류(FK, NOT NULL 등)는 그대로 전파
+			throw e;
 		}
+	}
+
+
+	// MySQL "Duplicate entry" 메시지로 유니크 제약 위반 여부 판별
+	private boolean isDuplicateKeyViolation(DataIntegrityViolationException e) {
+		String rootMessage = e.getMostSpecificCause().getMessage();
+		return rootMessage != null && rootMessage.contains("Duplicate entry");
 	}
 
 }

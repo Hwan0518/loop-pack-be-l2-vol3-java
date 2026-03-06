@@ -26,7 +26,6 @@ public class Product {
 	 * - stock: 재고
 	 * - description: 상품 설명
 	 * - likeCount: 좋아요 수
-	 * - version: 낙관적 락 버전
 	 * - deletedAt: 삭제 일시 (soft delete)
 	 */
 
@@ -37,13 +36,12 @@ public class Product {
 	private Stock stock;
 	private ProductDescription description;
 	private Long likeCount;
-	private Long version;
 	private ZonedDateTime deletedAt;
 
 
 	// 생성자
 	private Product(Long id, Long brandId, ProductName name, Money price, Stock stock,
-		ProductDescription description, Long likeCount, Long version, ZonedDateTime deletedAt) {
+		ProductDescription description, Long likeCount, ZonedDateTime deletedAt) {
 		this.id = id;
 		this.brandId = brandId;
 		this.name = name;
@@ -51,7 +49,6 @@ public class Product {
 		this.stock = stock;
 		this.description = description;
 		this.likeCount = likeCount;
-		this.version = version;
 		this.deletedAt = deletedAt;
 	}
 
@@ -81,15 +78,15 @@ public class Product {
 		Stock productStock = Stock.create(stock);
 		ProductDescription productDescription = ProductDescription.create(description);
 
-		// 상품 생성 (기본 좋아요 수: 0, version: null — 신규)
-		return new Product(null, brandId, productName, productPrice, productStock, productDescription, 0L, null, null);
+		// 상품 생성 (기본 좋아요 수: 0)
+		return new Product(null, brandId, productName, productPrice, productStock, productDescription, 0L, null);
 	}
 
 
 	// 2. 상품 재생성 (Entity -> Model 매핑용도)
 	public static Product reconstruct(Long id, Long brandId, ProductName name, Money price, Stock stock,
-		ProductDescription description, Long likeCount, Long version, ZonedDateTime deletedAt) {
-		return new Product(id, brandId, name, price, stock, description, likeCount, version, deletedAt);
+		ProductDescription description, Long likeCount, ZonedDateTime deletedAt) {
+		return new Product(id, brandId, name, price, stock, description, likeCount, deletedAt);
 	}
 
 

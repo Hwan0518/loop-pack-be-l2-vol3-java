@@ -28,18 +28,18 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(ErrorType.BAD_REQUEST.getStatus()).body(response);
 	}
 
-	// 낙관적 락 충돌 → 409 Conflict
+	// 낙관적 락 충돌 안전망 → 409 Conflict (예상 지점에서 잡히지 않은 경우 범용 메시지)
 	@ExceptionHandler(OptimisticLockingFailureException.class)
 	public ResponseEntity<ErrorResponse> handleOptimisticLockException(OptimisticLockingFailureException e) {
-		ErrorType errorType = ErrorType.PRODUCT_CONCURRENT_MODIFICATION;
+		ErrorType errorType = ErrorType.OPTIMISTIC_LOCK_CONFLICT;
 		ErrorResponse response = ErrorResponse.from(errorType);
 		return ResponseEntity.status(errorType.getStatus()).body(response);
 	}
 
-	// 비관적 락 충돌 (락 타임아웃/획득 실패 포함) → 409 Conflict
+	// 비관적 락 충돌 안전망 (락 타임아웃/획득 실패 포함) → 409 Conflict
 	@ExceptionHandler(PessimisticLockingFailureException.class)
 	public ResponseEntity<ErrorResponse> handlePessimisticLockException(PessimisticLockingFailureException e) {
-		ErrorType errorType = ErrorType.ORDER_STOCK_LOCK_CONFLICT;
+		ErrorType errorType = ErrorType.PESSIMISTIC_LOCK_CONFLICT;
 		ErrorResponse response = ErrorResponse.from(errorType);
 		return ResponseEntity.status(errorType.getStatus()).body(response);
 	}

@@ -45,7 +45,7 @@ class ProductEntityMapperTest {
 				Money.from(new BigDecimal("10000")),
 				Stock.from(100L),
 				ProductDescription.from("설명"),
-				5L, 0L, null
+				5L, null
 			);
 
 			// Act
@@ -72,7 +72,7 @@ class ProductEntityMapperTest {
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(10L),
-				null, 0L, 0L, null
+				null, 0L, null
 			);
 
 			// Act
@@ -92,7 +92,7 @@ class ProductEntityMapperTest {
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(10L),
-				null, 0L, 0L, ZonedDateTime.now()
+				null, 0L, ZonedDateTime.now()
 			);
 
 			// Act
@@ -114,7 +114,7 @@ class ProductEntityMapperTest {
 		void toDomainSuccess() {
 			// Arrange
 			ProductEntity entity = ProductEntity.of(
-				1L, 2L, "테스트 상품", new BigDecimal("10000"), 100L, "설명", 5L, 0L
+				1L, 2L, "테스트 상품", new BigDecimal("10000"), 100L, "설명", 5L
 			);
 
 			// Act
@@ -137,7 +137,7 @@ class ProductEntityMapperTest {
 		void toDomainWithNullDescription() {
 			// Arrange
 			ProductEntity entity = ProductEntity.of(
-				1L, 2L, "상품", BigDecimal.TEN, 10L, null, 0L, 0L
+				1L, 2L, "상품", BigDecimal.TEN, 10L, null, 0L
 			);
 
 			// Act

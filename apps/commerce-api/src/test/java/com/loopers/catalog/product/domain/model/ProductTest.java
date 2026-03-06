@@ -26,7 +26,7 @@ class ProductTest {
 	class CreateTest {
 
 		@Test
-		@DisplayName("[create()] 유효한 입력 -> Product 생성 성공. id=null, likeCount=0, version=null, deletedAt=null")
+		@DisplayName("[create()] 유효한 입력 -> Product 생성 성공. id=null, likeCount=0, deletedAt=null")
 		void createSuccess() {
 			// Act
 			Product product = Product.create(1L, "테스트 상품", new BigDecimal("10000"), 100L, "설명");
@@ -40,7 +40,6 @@ class ProductTest {
 				() -> assertThat(product.getStock().value()).isEqualTo(100L),
 				() -> assertThat(product.getDescription().value()).isEqualTo("설명"),
 				() -> assertThat(product.getLikeCount()).isEqualTo(0L),
-				() -> assertThat(product.getVersion()).isNull(),
 				() -> assertThat(product.getDeletedAt()).isNull()
 			);
 		}
@@ -121,7 +120,7 @@ class ProductTest {
 				Money.from(new BigDecimal("5000")),
 				Stock.from(50L),
 				ProductDescription.from("설명"),
-				10L, 0L,
+				10L,
 				deletedAt
 			);
 
@@ -134,7 +133,6 @@ class ProductTest {
 				() -> assertThat(product.getStock().value()).isEqualTo(50L),
 				() -> assertThat(product.getDescription().value()).isEqualTo("설명"),
 				() -> assertThat(product.getLikeCount()).isEqualTo(10L),
-				() -> assertThat(product.getVersion()).isEqualTo(0L),
 				() -> assertThat(product.getDeletedAt()).isEqualTo(deletedAt)
 			);
 		}
@@ -301,7 +299,7 @@ class ProductTest {
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(100L),
-				null, 0L, 0L, ZonedDateTime.now()
+				null, 0L, ZonedDateTime.now()
 			);
 
 			// Act
@@ -338,7 +336,7 @@ class ProductTest {
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(100L),
-				null, 0L, 0L, ZonedDateTime.now()
+				null, 0L, ZonedDateTime.now()
 			);
 
 			// Assert

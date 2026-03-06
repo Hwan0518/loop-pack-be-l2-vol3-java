@@ -44,8 +44,6 @@ public enum ErrorType {
 	INVALID_PRODUCT_STOCK(HttpStatus.BAD_REQUEST, "INVALID_PRODUCT_STOCK", "올바른 재고 수량을 입력해주세요."),
 	INVALID_PRODUCT_DESCRIPTION(HttpStatus.BAD_REQUEST, "INVALID_PRODUCT_DESCRIPTION", "올바른 상품 설명을 입력해주세요."),
 	PRODUCT_OUT_OF_STOCK(HttpStatus.CONFLICT, "PRODUCT_OUT_OF_STOCK", "재고가 부족합니다."),
-	PRODUCT_CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "PRODUCT_CONCURRENT_MODIFICATION",
-		"상품 정보가 동시에 변경되어 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요."),
 
 	/** Like 에러 */
 	LIKE_NOT_FOUND(HttpStatus.NOT_FOUND, "LIKE_NOT_FOUND", "좋아요를 찾을 수 없습니다."),
@@ -68,8 +66,11 @@ public enum ErrorType {
 	ORDER_EMPTY_ITEMS(HttpStatus.BAD_REQUEST, "ORDER_EMPTY_ITEMS", "주문 항목이 비어있습니다."),
 	ORDER_OUT_OF_STOCK(HttpStatus.CONFLICT, "ORDER_OUT_OF_STOCK", "재고가 부족하여 주문할 수 없습니다."),
 
-	/** 동시성 에러 */
-	ORDER_STOCK_LOCK_CONFLICT(HttpStatus.CONFLICT, "ORDER_STOCK_LOCK_CONFLICT", "상품 재고가 부족합니다. 다시 확인해주세요."),
+	/** 동시성 에러 (GlobalExceptionHandler 안전망 — 예상 지점에서 try-catch로 비즈니스 메시지 전달) */
+	OPTIMISTIC_LOCK_CONFLICT(HttpStatus.CONFLICT, "OPTIMISTIC_LOCK_CONFLICT",
+		"데이터가 동시에 변경되어 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요."),
+	PESSIMISTIC_LOCK_CONFLICT(HttpStatus.CONFLICT, "PESSIMISTIC_LOCK_CONFLICT",
+		"동시 요청이 집중되어 처리하지 못했습니다. 잠시 후 다시 시도해주세요."),
 
 	/** Coupon - CouponTemplate 에러 */
 	COUPON_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_TEMPLATE_NOT_FOUND", "쿠폰 템플릿이 존재하지 않습니다."),

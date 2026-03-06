@@ -194,7 +194,7 @@ class GlobalExceptionHandlerTest {
 
 		@Test
 		@DisplayName("[handlePessimisticLockException()] PessimisticLockingFailureException 발생 -> 409 Conflict 반환. "
-			+ "ORDER_STOCK_LOCK_CONFLICT 코드와 메시지가 정확히 매핑됨")
+			+ "PESSIMISTIC_LOCK_CONFLICT 범용 코드와 메시지가 정확히 매핑됨")
 		void handlePessimisticLockingFailureException() {
 			// Arrange
 			PessimisticLockingFailureException exception =
@@ -207,8 +207,8 @@ class GlobalExceptionHandlerTest {
 			assertAll(
 				() -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT),
 				() -> assertThat(response.getBody()).isNotNull(),
-				() -> assertThat(response.getBody().code()).isEqualTo("ORDER_STOCK_LOCK_CONFLICT"),
-				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.ORDER_STOCK_LOCK_CONFLICT.getMessage())
+				() -> assertThat(response.getBody().code()).isEqualTo("PESSIMISTIC_LOCK_CONFLICT"),
+				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.PESSIMISTIC_LOCK_CONFLICT.getMessage())
 			);
 		}
 
@@ -228,15 +228,15 @@ class GlobalExceptionHandlerTest {
 			assertAll(
 				() -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT),
 				() -> assertThat(response.getBody()).isNotNull(),
-				() -> assertThat(response.getBody().code()).isEqualTo("ORDER_STOCK_LOCK_CONFLICT"),
-				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.ORDER_STOCK_LOCK_CONFLICT.getMessage())
+				() -> assertThat(response.getBody().code()).isEqualTo("PESSIMISTIC_LOCK_CONFLICT"),
+				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.PESSIMISTIC_LOCK_CONFLICT.getMessage())
 			);
 		}
 
 
 		@Test
 		@DisplayName("[handleOptimisticLockException()] OptimisticLockingFailureException 발생 -> 409 Conflict 반환. "
-			+ "PRODUCT_CONCURRENT_MODIFICATION 코드와 메시지가 정확히 매핑됨")
+			+ "OPTIMISTIC_LOCK_CONFLICT 범용 코드와 메시지가 정확히 매핑됨")
 		void handleOptimisticLockingFailureException() {
 			// Arrange
 			OptimisticLockingFailureException exception =
@@ -249,8 +249,8 @@ class GlobalExceptionHandlerTest {
 			assertAll(
 				() -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT),
 				() -> assertThat(response.getBody()).isNotNull(),
-				() -> assertThat(response.getBody().code()).isEqualTo("PRODUCT_CONCURRENT_MODIFICATION"),
-				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.PRODUCT_CONCURRENT_MODIFICATION.getMessage())
+				() -> assertThat(response.getBody().code()).isEqualTo("OPTIMISTIC_LOCK_CONFLICT"),
+				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.OPTIMISTIC_LOCK_CONFLICT.getMessage())
 			);
 		}
 
@@ -270,8 +270,8 @@ class GlobalExceptionHandlerTest {
 			assertAll(
 				() -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT),
 				() -> assertThat(response.getBody()).isNotNull(),
-				() -> assertThat(response.getBody().code()).isEqualTo("PRODUCT_CONCURRENT_MODIFICATION"),
-				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.PRODUCT_CONCURRENT_MODIFICATION.getMessage())
+				() -> assertThat(response.getBody().code()).isEqualTo("OPTIMISTIC_LOCK_CONFLICT"),
+				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.OPTIMISTIC_LOCK_CONFLICT.getMessage())
 			);
 		}
 

@@ -39,14 +39,14 @@ public interface ProductJpaRepository extends JpaRepository<ProductEntity, Long>
 	// 4. ID 목록으로 활성 상품 엔티티 일괄 조회
 	List<ProductEntity> findByIdInAndDeletedAtIsNull(List<Long> ids);
 
-	// 5. 좋아요 수 원자적 증가 (단일 SQL — version도 함께 증가)
+	// 5. 좋아요 수 원자적 증가 (단일 SQL)
 	@Modifying
-	@Query(value = "UPDATE products SET like_count = like_count + 1, version = version + 1 WHERE id = :id AND deleted_at IS NULL", nativeQuery = true)
+	@Query(value = "UPDATE products SET like_count = like_count + 1 WHERE id = :id AND deleted_at IS NULL", nativeQuery = true)
 	int increaseLikeCount(@Param("id") Long id);
 
-	// 6. 좋아요 수 원자적 감소 (0 이하로 내려가지 않음, version도 함께 증가)
+	// 6. 좋아요 수 원자적 감소 (0 이하로 내려가지 않음)
 	@Modifying
-	@Query(value = "UPDATE products SET like_count = CASE WHEN like_count > 0 THEN like_count - 1 ELSE 0 END, version = version + 1 WHERE id = :id AND deleted_at IS NULL", nativeQuery = true)
+	@Query(value = "UPDATE products SET like_count = CASE WHEN like_count > 0 THEN like_count - 1 ELSE 0 END WHERE id = :id AND deleted_at IS NULL", nativeQuery = true)
 	int decreaseLikeCount(@Param("id") Long id);
 
 }

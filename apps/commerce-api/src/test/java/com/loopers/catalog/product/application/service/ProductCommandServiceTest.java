@@ -70,7 +70,7 @@ class ProductCommandServiceTest {
 			given(productCommandRepository.save(any(Product.class))).willAnswer(invocation -> {
 				Product p = invocation.getArgument(0);
 				return Product.reconstruct(1L, p.getBrandId(), p.getName(), p.getPrice(),
-					p.getStock(), p.getDescription(), p.getLikeCount(), p.getVersion(), p.getDeletedAt());
+					p.getStock(), p.getDescription(), p.getLikeCount(), p.getDeletedAt());
 			});
 
 			// Act
@@ -100,7 +100,7 @@ class ProductCommandServiceTest {
 				ProductName.from("원래 상품"),
 				Money.from(new BigDecimal("10000")),
 				Stock.from(100L),
-				null, 0L, 0L, null);
+				null, 0L, null);
 			AdminProductUpdateInDto inDto = new AdminProductUpdateInDto(
 				"수정 상품", new BigDecimal("20000"), 200L, "수정 설명"
 			);
@@ -133,7 +133,7 @@ class ProductCommandServiceTest {
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(100L),
-				null, 0L, 0L, null);
+				null, 0L, null);
 
 			// Act
 			productCommandService.deleteProduct(product);
@@ -200,7 +200,7 @@ class ProductCommandServiceTest {
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(100L),
-				null, 0L, 0L, null);
+				null, 0L, null);
 			given(productQueryRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(product));
 			given(productCommandRepository.save(any(Product.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -240,7 +240,7 @@ class ProductCommandServiceTest {
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(5L),
-				null, 0L, 0L, null);
+				null, 0L, null);
 			given(productQueryRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(product));
 
 			// Act
