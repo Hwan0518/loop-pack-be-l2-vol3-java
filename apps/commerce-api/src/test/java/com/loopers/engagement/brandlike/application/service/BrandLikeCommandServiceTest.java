@@ -55,6 +55,44 @@ class BrandLikeCommandServiceTest {
 
 
 	@Nested
+	@DisplayName("findLike() - 좋아요 조회")
+	class FindLikeTest {
+
+		@Test
+		@DisplayName("[findLike()] 좋아요 존재 -> Optional 반환")
+		void findLikeExists() {
+			// Arrange
+			Long userId = 1L;
+			Long targetId = 100L;
+			BrandLike existingLike = BrandLike.reconstruct(1L, userId, targetId, LocalDateTime.now());
+			given(brandLikeQueryRepository.findByUserIdAndTargetId(userId, targetId))
+				.willReturn(Optional.of(existingLike));
+
+			// Act
+			Optional<BrandLike> result = brandLikeCommandService.findLike(userId, targetId);
+
+			// Assert
+			assertThat(result).isPresent();
+			assertThat(result.get().getId()).isEqualTo(1L);
+		}
+
+		@Test
+		@DisplayName("[findLike()] 좋아요 미존재 -> Optional.empty 반환")
+		void findLikeNotExists() {
+			// Arrange
+			given(brandLikeQueryRepository.findByUserIdAndTargetId(1L, 100L))
+				.willReturn(Optional.empty());
+
+			// Act
+			Optional<BrandLike> result = brandLikeCommandService.findLike(1L, 100L);
+
+			// Assert
+			assertThat(result).isEmpty();
+		}
+	}
+
+
+	@Nested
 	@DisplayName("createLike() - 브랜드 좋아요 생성")
 	class CreateLikeTest {
 
@@ -67,8 +105,6 @@ class BrandLikeCommandServiceTest {
 			BrandLike savedLike = BrandLike.reconstruct(1L, userId, targetId, LocalDateTime.now());
 
 			willDoNothing().given(brandLikeTargetValidator).validate(targetId);
-			given(brandLikeQueryRepository.findByUserIdAndTargetId(userId, targetId))
-				.willReturn(Optional.empty());
 			given(brandLikeCommandRepository.save(any(BrandLike.class))).willReturn(savedLike);
 
 			// Act
@@ -77,26 +113,6 @@ class BrandLikeCommandServiceTest {
 			// Assert
 			assertThat(result.getId()).isEqualTo(1L);
 			verify(brandLikeCommandRepository).save(any(BrandLike.class));
-		}
-
-		@Test
-		@DisplayName("[createLike()] 기존 좋아요 존재 -> 기존 좋아요 반환 (멱등)")
-		void createLikeIdempotent() {
-			// Arrange
-			Long userId = 1L;
-			Long targetId = 100L;
-			BrandLike existingLike = BrandLike.reconstruct(1L, userId, targetId, LocalDateTime.now());
-
-			willDoNothing().given(brandLikeTargetValidator).validate(targetId);
-			given(brandLikeQueryRepository.findByUserIdAndTargetId(userId, targetId))
-				.willReturn(Optional.of(existingLike));
-
-			// Act
-			BrandLike result = brandLikeCommandService.createLike(userId, targetId);
-
-			// Assert
-			assertThat(result.getId()).isEqualTo(1L);
-			verify(brandLikeCommandRepository, never()).save(any());
 		}
 
 		@Test

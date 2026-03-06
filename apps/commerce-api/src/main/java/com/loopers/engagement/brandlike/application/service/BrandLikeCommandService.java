@@ -29,9 +29,10 @@ public class BrandLikeCommandService {
 	/**
 	 * 브랜드 좋아요 명령 서비스
 	 * 1. 사용자 인증
-	 * 2. 브랜드 좋아요 생성 (멱등)
-	 * 3. 브랜드 좋아요 삭제
-	 * 4. 브랜드 ID로 브랜드 좋아요 전체 삭제
+	 * 2. 좋아요 조회
+	 * 3. 브랜드 좋아요 생성
+	 * 4. 브랜드 좋아요 삭제
+	 * 5. 브랜드 ID로 브랜드 좋아요 전체 삭제
 	 */
 
 	// 1. 사용자 인증
@@ -40,7 +41,15 @@ public class BrandLikeCommandService {
 		return userAuthenticator.authenticate(loginId, password);
 	}
 
-	// 2. 브랜드 좋아요 생성 (멱등)
+
+	// 2. 좋아요 조회
+	@Transactional(readOnly = true)
+	public Optional<BrandLike> findLike(Long userId, Long targetId) {
+		return brandLikeQueryRepository.findByUserIdAndTargetId(userId, targetId);
+	}
+
+
+	// 3. 브랜드 좋아요 생성
 	@Transactional
 	public BrandLike createLike(Long userId, Long targetId) {
 
@@ -51,20 +60,13 @@ public class BrandLikeCommandService {
 			throw new CoreException(ErrorType.LIKE_TARGET_NOT_FOUND);
 		}
 
-		// 기존 좋아요 존재 시 기존 좋아요 반환 (멱등)
-		Optional<BrandLike> existing = brandLikeQueryRepository
-			.findByUserIdAndTargetId(userId, targetId);
-		if (existing.isPresent()) {
-			return existing.get();
-		}
-
 		// 좋아요 생성 및 저장
 		BrandLike brandLike = BrandLike.create(userId, targetId);
 		return brandLikeCommandRepository.save(brandLike);
 	}
 
 
-	// 3. 브랜드 좋아요 삭제
+	// 4. 브랜드 좋아요 삭제
 	@Transactional
 	public void deleteLike(Long userId, Long targetId) {
 
@@ -78,7 +80,7 @@ public class BrandLikeCommandService {
 	}
 
 
-	// 4. 브랜드 ID로 브랜드 좋아요 전체 삭제
+	// 5. 브랜드 ID로 브랜드 좋아요 전체 삭제
 	@Transactional
 	public void deleteAllByTargetId(Long targetId) {
 		brandLikeCommandRepository.deleteAllByTargetId(targetId);

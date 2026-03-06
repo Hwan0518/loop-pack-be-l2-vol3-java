@@ -13,11 +13,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 
@@ -42,11 +45,12 @@ class BrandLikeCommandFacadeTest {
 	class CreateLikeTest {
 
 		@Test
-		@DisplayName("[createLike()] 유효한 요청 -> OutDto 반환. id, userId, targetId 포함")
+		@DisplayName("[createLike()] 신규 좋아요 -> OutDto 반환. id, userId, targetId 포함")
 		void createLike() {
 			// Arrange
 			BrandLike like = BrandLike.reconstruct(1L, 1L, 100L, LocalDateTime.now());
 			given(brandLikeCommandService.authenticate("loginId", "password")).willReturn(1L);
+			given(brandLikeCommandService.findLike(1L, 100L)).willReturn(Optional.empty());
 			given(brandLikeCommandService.createLike(1L, 100L)).willReturn(like);
 
 			// Act
@@ -56,9 +60,29 @@ class BrandLikeCommandFacadeTest {
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(1L),
 				() -> assertThat(result.userId()).isEqualTo(1L),
-				() -> assertThat(result.targetId()).isEqualTo(100L)
+				() -> assertThat(result.targetId()).isEqualTo(100L),
+				() -> verify(brandLikeCommandService).createLike(1L, 100L)
 			);
 		}
+
+		@Test
+		@DisplayName("[createLike()] 기존 좋아요 존재 -> 기존 반환 (멱등). 좋아요 생성 미호출")
+		void createLikeIdempotent() {
+			// Arrange
+			BrandLike existingLike = BrandLike.reconstruct(1L, 1L, 100L, LocalDateTime.now());
+			given(brandLikeCommandService.authenticate("loginId", "password")).willReturn(1L);
+			given(brandLikeCommandService.findLike(1L, 100L)).willReturn(Optional.of(existingLike));
+
+			// Act
+			BrandLikeOutDto result = brandLikeCommandFacade.createLike("loginId", "password", 100L);
+
+			// Assert
+			assertAll(
+				() -> assertThat(result.id()).isEqualTo(1L),
+				() -> verify(brandLikeCommandService, never()).createLike(any(), any())
+			);
+		}
+
 	}
 
 

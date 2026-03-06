@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 
 @Service
 @RequiredArgsConstructor
@@ -18,22 +20,26 @@ public class BrandLikeCommandFacade {
 
 	/**
 	 * 브랜드 좋아요 명령 퍼사드
-	 * 1. 브랜드 좋아요 생성
+	 * 1. 브랜드 좋아요 생성 (멱등 — DB 유니크 제약으로 중복 방지)
 	 * 2. 브랜드 좋아요 삭제
 	 * 3. 브랜드 ID로 브랜드 좋아요 전체 삭제 (Cross-BC 전용 — ACL에서 호출)
 	 */
 
-	// 1. 브랜드 좋아요 생성
+	// 1. 브랜드 좋아요 생성 (멱등 — 사전 조회로 99.9% 중복 차단, DB 유니크 제약이 데이터 무결성 보장)
 	@Transactional
 	public BrandLikeOutDto createLike(String loginId, String password, Long targetId) {
 
 		// 사용자 인증
 		Long userId = brandLikeCommandService.authenticate(loginId, password);
 
-		// 좋아요 생성
-		BrandLike brandLike = brandLikeCommandService.createLike(userId, targetId);
+		// 기존 좋아요 존재 시 기존 반환 (멱등 — 따닥 등 대부분의 중복 요청을 여기서 차단)
+		Optional<BrandLike> existing = brandLikeCommandService.findLike(userId, targetId);
+		if (existing.isPresent()) {
+			return BrandLikeOutDto.from(existing.get());
+		}
 
-		// DTO 변환
+		// 좋아요 생성 (0.01% 레이스 시 DB 유니크 제약이 안전망 역할 — 500 → 클라이언트 재시도 → 사전 조회에서 멱등 반환)
+		BrandLike brandLike = brandLikeCommandService.createLike(userId, targetId);
 		return BrandLikeOutDto.from(brandLike);
 	}
 
