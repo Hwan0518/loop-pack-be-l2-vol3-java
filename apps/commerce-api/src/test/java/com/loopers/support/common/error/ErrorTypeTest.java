@@ -126,16 +126,42 @@ class ErrorTypeTest {
 
 			// 동시성
 			Arguments.of(ErrorType.LOCK_CONFLICT, HttpStatus.CONFLICT,
-				"LOCK_CONFLICT", "다른 요청과 충돌이 발생했습니다. 잠시 후 다시 시도해주세요.")
+				"LOCK_CONFLICT", "다른 요청과 충돌이 발생했습니다. 잠시 후 다시 시도해주세요."),
+
+			// Coupon - CouponTemplate
+			Arguments.of(ErrorType.COUPON_TEMPLATE_NOT_FOUND, HttpStatus.NOT_FOUND,
+				"COUPON_TEMPLATE_NOT_FOUND", "쿠폰 템플릿이 존재하지 않습니다."),
+			Arguments.of(ErrorType.INVALID_COUPON_NAME, HttpStatus.BAD_REQUEST,
+				"INVALID_COUPON_NAME", "쿠폰 이름은 1~100자 입니다."),
+			Arguments.of(ErrorType.INVALID_COUPON_VALUE, HttpStatus.BAD_REQUEST,
+				"INVALID_COUPON_VALUE", "유효하지 않은 할인 값입니다."),
+			Arguments.of(ErrorType.INVALID_COUPON_EXPIRED_AT, HttpStatus.BAD_REQUEST,
+				"INVALID_COUPON_EXPIRED_AT", "만료일은 현재 시각 이후여야 합니다."),
+			Arguments.of(ErrorType.COUPON_VALUE_EXCEEDS_MIN_ORDER_AMOUNT, HttpStatus.BAD_REQUEST,
+				"COUPON_VALUE_EXCEEDS_MIN_ORDER_AMOUNT", "할인액이 최소 주문 금액보다 클 수 없습니다."),
+
+			// Coupon - IssuedCoupon
+			Arguments.of(ErrorType.ISSUED_COUPON_NOT_FOUND, HttpStatus.NOT_FOUND,
+				"ISSUED_COUPON_NOT_FOUND", "발급된 쿠폰을 찾을 수 없습니다."),
+			Arguments.of(ErrorType.COUPON_NOT_OWNED_BY_USER, HttpStatus.FORBIDDEN,
+				"COUPON_NOT_OWNED_BY_USER", "해당 쿠폰의 소유자가 아닙니다."),
+			Arguments.of(ErrorType.COUPON_ALREADY_USED, HttpStatus.CONFLICT,
+				"COUPON_ALREADY_USED", "이미 사용된 쿠폰입니다."),
+			Arguments.of(ErrorType.COUPON_EXPIRED, HttpStatus.CONFLICT,
+				"COUPON_EXPIRED", "만료된 쿠폰입니다."),
+			Arguments.of(ErrorType.COUPON_MIN_ORDER_AMOUNT_NOT_MET, HttpStatus.BAD_REQUEST,
+				"COUPON_MIN_ORDER_AMOUNT_NOT_MET", "최소 주문 금액 조건을 충족하지 못했습니다."),
+			Arguments.of(ErrorType.COUPON_ISSUE_DUPLICATED, HttpStatus.CONFLICT,
+				"COUPON_ISSUE_DUPLICATED", "이미 발급된 쿠폰입니다.")
 		);
 	}
 
 
 	@Test
-	@DisplayName("[ErrorType] enum 상수 개수가 40개임을 보장")
+	@DisplayName("[ErrorType] enum 상수 개수가 52개임을 보장")
 	void enumConstantCount() {
 		// Assert
-		assertThat(ErrorType.values()).hasSize(41);
+		assertThat(ErrorType.values()).hasSize(52);
 	}
 
 
