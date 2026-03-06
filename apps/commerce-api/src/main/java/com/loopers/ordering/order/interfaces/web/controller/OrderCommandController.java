@@ -40,7 +40,7 @@ public class OrderCommandController {
 		HeaderValidator.validate(loginId, password);
 
 		// InDto 생성
-		OrderCreateInDto inDto = new OrderCreateInDto(request.cartItemIds(), request.requestId());
+		OrderCreateInDto inDto = new OrderCreateInDto(request.cartItemIds(), request.requestId(), request.couponId());
 
 		// 주문 생성
 		OrderDetailOutDto outDto = orderCommandFacade.createOrder(loginId, password, inDto);

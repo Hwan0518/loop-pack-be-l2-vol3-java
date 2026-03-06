@@ -45,12 +45,13 @@ class OrderQueryFacadeTest {
 
 
 	private Order createTestOrder(Long id, Long userId) {
-		return Order.reconstruct(id, userId, new BigDecimal("200000"),
+		return Order.reconstruct(id, userId, "req-test-" + id, new BigDecimal("200000"),
+			BigDecimal.ZERO, new BigDecimal("200000"),
 			List.of(OrderItem.reconstruct(1L, 1L,
 				SnapshotName.from("나이키 에어맥스"),
 				SnapshotPrice.from(new BigDecimal("100000")),
 				2L)),
-			LocalDateTime.now()
+			null, LocalDateTime.now()
 		);
 	}
 

@@ -48,12 +48,12 @@ class OrderProductReaderImplTest {
 			ProductName.from("나이키 에어맥스"),
 			Money.from(new BigDecimal("100000")),
 			Stock.from(10L),
-			null, 0L, null);
+			null, 0L, null, null);
 		Product p2 = Product.reconstruct(2L, 1L,
 			ProductName.from("아디다스 울트라부스트"),
 			Money.from(new BigDecimal("200000")),
 			Stock.from(5L),
-			null, 0L, null);
+			null, 0L, null, null);
 		given(productQueryFacade.findActiveByIds(productIds)).willReturn(List.of(p1, p2));
 
 		// Act

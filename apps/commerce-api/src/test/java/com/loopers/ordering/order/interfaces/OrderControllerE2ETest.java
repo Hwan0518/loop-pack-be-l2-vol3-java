@@ -2,10 +2,8 @@ package com.loopers.ordering.order.interfaces;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.ordering.order.infrastructure.entity.IdempotencyKeyEntity;
 import com.loopers.ordering.order.infrastructure.entity.OrderEntity;
 import com.loopers.ordering.order.infrastructure.entity.OrderItemEntity;
-import com.loopers.ordering.order.infrastructure.jpa.IdempotencyKeyJpaRepository;
 import com.loopers.ordering.order.infrastructure.jpa.OrderItemJpaRepository;
 import com.loopers.ordering.order.infrastructure.jpa.OrderJpaRepository;
 import com.loopers.ordering.order.interfaces.web.request.OrderCreateRequest;
@@ -56,9 +54,6 @@ class OrderControllerE2ETest {
 	@Autowired
 	private OrderItemJpaRepository orderItemJpaRepository;
 
-	@Autowired
-	private IdempotencyKeyJpaRepository idempotencyKeyJpaRepository;
-
 	private static final String USER_LOGIN_ID_HEADER = "X-Loopers-LoginId";
 	private static final String USER_LOGIN_PW_HEADER = "X-Loopers-LoginPw";
 	private static final String ADMIN_LDAP_HEADER = "X-Loopers-Ldap";
@@ -79,7 +74,7 @@ class OrderControllerE2ETest {
 		@DisplayName("[POST /api/v1/orders] 유효한 요청 -> 201 Created. id, userId, totalPrice, items 포함")
 		void createOrderSuccess() throws Exception {
 			// Arrange
-			OrderCreateRequest request = new OrderCreateRequest(List.of(1L, 2L), "req-001");
+			OrderCreateRequest request = new OrderCreateRequest(List.of(1L, 2L), "req-001", null);
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/orders")
@@ -99,7 +94,7 @@ class OrderControllerE2ETest {
 		@DisplayName("[POST /api/v1/orders] 동일 requestId 재요청 -> 201 Created. 동일한 주문 반환 (멱등성)")
 		void createOrderIdempotent() throws Exception {
 			// Arrange
-			OrderCreateRequest request = new OrderCreateRequest(List.of(1L, 2L), "req-idempotent");
+			OrderCreateRequest request = new OrderCreateRequest(List.of(1L, 2L), "req-idempotent", null);
 
 			// 1차 주문 생성
 			MvcResult firstResult = mockMvc.perform(post("/api/v1/orders")
@@ -127,7 +122,7 @@ class OrderControllerE2ETest {
 		@DisplayName("[POST /api/v1/orders] 인증 헤더 누락 -> 401 Unauthorized")
 		void createOrderUnauthorized() throws Exception {
 			// Arrange
-			OrderCreateRequest request = new OrderCreateRequest(List.of(1L, 2L), "req-001");
+			OrderCreateRequest request = new OrderCreateRequest(List.of(1L, 2L), "req-001", null);
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/orders")
@@ -429,7 +424,7 @@ class OrderControllerE2ETest {
 	 */
 
 	private void createOrder(String requestId, Long userId) throws Exception {
-		OrderCreateRequest request = new OrderCreateRequest(List.of(1L, 2L), requestId);
+		OrderCreateRequest request = new OrderCreateRequest(List.of(1L, 2L), requestId, null);
 		mockMvc.perform(post("/api/v1/orders")
 				.header(USER_LOGIN_ID_HEADER, "testuser" + userId)
 				.header(USER_LOGIN_PW_HEADER, "password")
@@ -440,7 +435,7 @@ class OrderControllerE2ETest {
 
 
 	private Long createOrderAndGetId(String requestId, Long userId) throws Exception {
-		OrderCreateRequest request = new OrderCreateRequest(List.of(1L, 2L), requestId);
+		OrderCreateRequest request = new OrderCreateRequest(List.of(1L, 2L), requestId, null);
 		MvcResult result = mockMvc.perform(post("/api/v1/orders")
 				.header(USER_LOGIN_ID_HEADER, "testuser" + userId)
 				.header(USER_LOGIN_PW_HEADER, "password")
