@@ -44,6 +44,8 @@ public enum ErrorType {
 	INVALID_PRODUCT_STOCK(HttpStatus.BAD_REQUEST, "INVALID_PRODUCT_STOCK", "올바른 재고 수량을 입력해주세요."),
 	INVALID_PRODUCT_DESCRIPTION(HttpStatus.BAD_REQUEST, "INVALID_PRODUCT_DESCRIPTION", "올바른 상품 설명을 입력해주세요."),
 	PRODUCT_OUT_OF_STOCK(HttpStatus.CONFLICT, "PRODUCT_OUT_OF_STOCK", "재고가 부족합니다."),
+	PRODUCT_CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "PRODUCT_CONCURRENT_MODIFICATION",
+		"상품 정보가 동시에 변경되어 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요."),
 
 	/** Like 에러 */
 	LIKE_NOT_FOUND(HttpStatus.NOT_FOUND, "LIKE_NOT_FOUND", "좋아요를 찾을 수 없습니다."),

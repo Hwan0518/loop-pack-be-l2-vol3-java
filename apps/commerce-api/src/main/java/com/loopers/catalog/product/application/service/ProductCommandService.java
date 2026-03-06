@@ -43,8 +43,8 @@ public class ProductCommandService {
 	 * 1. 상품 생성
 	 * 2. 상품 수정
 	 * 3. 상품 삭제
-	 * 4. 좋아요 수 증가
-	 * 5. 좋아요 수 감소
+	 * 4. 좋아요 수 증가 (원자적 카운터)
+	 * 5. 좋아요 수 감소 (원자적 카운터)
 	 * 6. 상품 재고 차감 (비관적 쓰기 락)
 	 * 7. 상품 좋아요 전체 삭제
 	 * 8. 장바구니 항목 전체 삭제
@@ -95,27 +95,17 @@ public class ProductCommandService {
 	}
 
 
-	// 4. 좋아요 수 증가
+	// 4. 좋아요 수 증가 (원자적 카운터 — 단일 UPDATE SQL로 동시성 안전)
 	@Transactional
-	public void increaseLikeCount(Product product) {
-
-		// 좋아요 수 증가
-		product.increaseLikeCount();
-
-		// 저장
-		productCommandRepository.save(product);
+	public void increaseLikeCount(Long productId) {
+		productCommandRepository.increaseLikeCount(productId);
 	}
 
 
-	// 5. 좋아요 수 감소
+	// 5. 좋아요 수 감소 (원자적 카운터 — 단일 UPDATE SQL로 동시성 안전)
 	@Transactional
-	public void decreaseLikeCount(Product product) {
-
-		// 좋아요 수 감소
-		product.decreaseLikeCount();
-
-		// 저장
-		productCommandRepository.save(product);
+	public void decreaseLikeCount(Long productId) {
+		productCommandRepository.decreaseLikeCount(productId);
 	}
 
 

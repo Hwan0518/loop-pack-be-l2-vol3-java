@@ -87,6 +87,8 @@ class ErrorTypeTest {
 				"INVALID_PRODUCT_DESCRIPTION", "올바른 상품 설명을 입력해주세요."),
 			Arguments.of(ErrorType.PRODUCT_OUT_OF_STOCK, HttpStatus.CONFLICT,
 				"PRODUCT_OUT_OF_STOCK", "재고가 부족합니다."),
+			Arguments.of(ErrorType.PRODUCT_CONCURRENT_MODIFICATION, HttpStatus.CONFLICT,
+				"PRODUCT_CONCURRENT_MODIFICATION", "상품 정보가 동시에 변경되어 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요."),
 
 			// Like
 			Arguments.of(ErrorType.LIKE_NOT_FOUND, HttpStatus.NOT_FOUND,
@@ -161,7 +163,7 @@ class ErrorTypeTest {
 	@DisplayName("[ErrorType] enum 상수 개수가 52개임을 보장")
 	void enumConstantCount() {
 		// Assert
-		assertThat(ErrorType.values()).hasSize(52);
+		assertThat(ErrorType.values()).hasSize(53);
 	}
 
 

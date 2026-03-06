@@ -70,7 +70,7 @@ class ProductCommandServiceTest {
 			given(productCommandRepository.save(any(Product.class))).willAnswer(invocation -> {
 				Product p = invocation.getArgument(0);
 				return Product.reconstruct(1L, p.getBrandId(), p.getName(), p.getPrice(),
-					p.getStock(), p.getDescription(), p.getLikeCount(), p.getDeletedAt());
+					p.getStock(), p.getDescription(), p.getLikeCount(), p.getVersion(), p.getDeletedAt());
 			});
 
 			// Act
@@ -100,7 +100,7 @@ class ProductCommandServiceTest {
 				ProductName.from("원래 상품"),
 				Money.from(new BigDecimal("10000")),
 				Stock.from(100L),
-				null, 0L, null);
+				null, 0L, 0L, null);
 			AdminProductUpdateInDto inDto = new AdminProductUpdateInDto(
 				"수정 상품", new BigDecimal("20000"), 200L, "수정 설명"
 			);
@@ -133,7 +133,7 @@ class ProductCommandServiceTest {
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(100L),
-				null, 0L, null);
+				null, 0L, 0L, null);
 
 			// Act
 			productCommandService.deleteProduct(product);
@@ -153,24 +153,16 @@ class ProductCommandServiceTest {
 	class IncreaseLikeCountTest {
 
 		@Test
-		@DisplayName("[increaseLikeCount()] 상품 좋아요 증가 -> likeCount + 1 저장")
+		@DisplayName("[increaseLikeCount()] 유효한 상품 ID -> 원자적 카운터로 좋아요 수 증가 위임")
 		void increaseLikeCountSuccess() {
 			// Arrange
-			Product product = Product.reconstruct(1L, 1L,
-				ProductName.from("상품"),
-				Money.from(BigDecimal.TEN),
-				Stock.from(100L),
-				null, 5L, null);
-			given(productCommandRepository.save(any(Product.class))).willAnswer(invocation -> invocation.getArgument(0));
+			willDoNothing().given(productCommandRepository).increaseLikeCount(1L);
 
 			// Act
-			productCommandService.increaseLikeCount(product);
+			productCommandService.increaseLikeCount(1L);
 
 			// Assert
-			assertAll(
-				() -> assertThat(product.getLikeCount()).isEqualTo(6L),
-				() -> verify(productCommandRepository).save(product)
-			);
+			verify(productCommandRepository).increaseLikeCount(1L);
 		}
 
 	}
@@ -181,24 +173,16 @@ class ProductCommandServiceTest {
 	class DecreaseLikeCountTest {
 
 		@Test
-		@DisplayName("[decreaseLikeCount()] 상품 좋아요 감소 -> likeCount - 1 저장")
+		@DisplayName("[decreaseLikeCount()] 유효한 상품 ID -> 원자적 카운터로 좋아요 수 감소 위임")
 		void decreaseLikeCountSuccess() {
 			// Arrange
-			Product product = Product.reconstruct(1L, 1L,
-				ProductName.from("상품"),
-				Money.from(BigDecimal.TEN),
-				Stock.from(100L),
-				null, 5L, null);
-			given(productCommandRepository.save(any(Product.class))).willAnswer(invocation -> invocation.getArgument(0));
+			willDoNothing().given(productCommandRepository).decreaseLikeCount(1L);
 
 			// Act
-			productCommandService.decreaseLikeCount(product);
+			productCommandService.decreaseLikeCount(1L);
 
 			// Assert
-			assertAll(
-				() -> assertThat(product.getLikeCount()).isEqualTo(4L),
-				() -> verify(productCommandRepository).save(product)
-			);
+			verify(productCommandRepository).decreaseLikeCount(1L);
 		}
 
 	}
@@ -216,7 +200,7 @@ class ProductCommandServiceTest {
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(100L),
-				null, 0L, null);
+				null, 0L, 0L, null);
 			given(productQueryRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(product));
 			given(productCommandRepository.save(any(Product.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -256,7 +240,7 @@ class ProductCommandServiceTest {
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(5L),
-				null, 0L, null);
+				null, 0L, 0L, null);
 			given(productQueryRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(product));
 
 			// Act

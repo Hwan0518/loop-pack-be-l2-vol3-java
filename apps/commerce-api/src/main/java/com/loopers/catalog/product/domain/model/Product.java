@@ -26,6 +26,7 @@ public class Product {
 	 * - stock: 재고
 	 * - description: 상품 설명
 	 * - likeCount: 좋아요 수
+	 * - version: 낙관적 락 버전
 	 * - deletedAt: 삭제 일시 (soft delete)
 	 */
 
@@ -36,12 +37,13 @@ public class Product {
 	private Stock stock;
 	private ProductDescription description;
 	private Long likeCount;
+	private Long version;
 	private ZonedDateTime deletedAt;
 
 
 	// 생성자
 	private Product(Long id, Long brandId, ProductName name, Money price, Stock stock,
-		ProductDescription description, Long likeCount, ZonedDateTime deletedAt) {
+		ProductDescription description, Long likeCount, Long version, ZonedDateTime deletedAt) {
 		this.id = id;
 		this.brandId = brandId;
 		this.name = name;
@@ -49,6 +51,7 @@ public class Product {
 		this.stock = stock;
 		this.description = description;
 		this.likeCount = likeCount;
+		this.version = version;
 		this.deletedAt = deletedAt;
 	}
 
@@ -62,10 +65,8 @@ public class Product {
 	 * 5. 재고 변경
 	 * 6. 설명 변경
 	 * 7. 재고 차감
-	 * 8. 좋아요 수 증가
-	 * 9. 좋아요 수 감소
-	 * 10. 삭제 (soft delete)
-	 * 11. 삭제 여부 확인
+	 * 8. 삭제 (soft delete)
+	 * 9. 삭제 여부 확인
 	 */
 
 	// 1. 상품 생성
@@ -80,15 +81,15 @@ public class Product {
 		Stock productStock = Stock.create(stock);
 		ProductDescription productDescription = ProductDescription.create(description);
 
-		// 상품 생성 (기본 좋아요 수: 0)
-		return new Product(null, brandId, productName, productPrice, productStock, productDescription, 0L, null);
+		// 상품 생성 (기본 좋아요 수: 0, version: null — 신규)
+		return new Product(null, brandId, productName, productPrice, productStock, productDescription, 0L, null, null);
 	}
 
 
 	// 2. 상품 재생성 (Entity -> Model 매핑용도)
 	public static Product reconstruct(Long id, Long brandId, ProductName name, Money price, Stock stock,
-		ProductDescription description, Long likeCount, ZonedDateTime deletedAt) {
-		return new Product(id, brandId, name, price, stock, description, likeCount, deletedAt);
+		ProductDescription description, Long likeCount, Long version, ZonedDateTime deletedAt) {
+		return new Product(id, brandId, name, price, stock, description, likeCount, version, deletedAt);
 	}
 
 
@@ -122,23 +123,7 @@ public class Product {
 	}
 
 
-	// 8. 좋아요 수 증가
-	public void increaseLikeCount() {
-		this.likeCount++;
-	}
-
-
-	// 9. 좋아요 수 감소
-	public void decreaseLikeCount() {
-
-		// 좋아요 수가 0 이하일 경우 감소하지 않음
-		if (this.likeCount > 0) {
-			this.likeCount--;
-		}
-	}
-
-
-	// 10. 삭제 (soft delete)
+	// 8. 삭제 (soft delete)
 	public void delete() {
 
 		// 이미 삭제된 경우 예외
@@ -150,7 +135,7 @@ public class Product {
 	}
 
 
-	// 11. 삭제 여부 확인
+	// 9. 삭제 여부 확인
 	public boolean isDeleted() {
 		return this.deletedAt != null;
 	}

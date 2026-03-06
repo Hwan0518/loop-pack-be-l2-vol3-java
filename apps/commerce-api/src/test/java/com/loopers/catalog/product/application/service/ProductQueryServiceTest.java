@@ -59,7 +59,7 @@ class ProductQueryServiceTest {
 			ProductName.from("테스트 상품"),
 			Money.from(new BigDecimal("10000")),
 			Stock.from(100L),
-			null, 0L, null);
+			null, 0L, 0L, null);
 	}
 
 
