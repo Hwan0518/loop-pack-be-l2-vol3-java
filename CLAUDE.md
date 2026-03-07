@@ -260,6 +260,56 @@ public Result recoverXxxConflict(OptimisticLockingFailureException e, ...) {
 
 **참고 — 안전망**: `GlobalExceptionHandler`에 `OptimisticLockingFailureException` → 409 핸들러가 존재한다. `@Retryable`이나 Facade에서 잡히지 않는 경우 최종 방어선으로 동작한다.
 
+#### INSERT 유일성 (UNIQUE constraint) 동시성 처리 패턴
+
+비즈니스 규칙상 중복 INSERT가 허용되지 않는 경우의 처리 원칙이다.
+
+**3계층 방어 구조:**
+1. **사전 조회 (select-before-insert)**: Service/Facade에서 비즈니스 검증 목적으로 중복 확인. 정상 흐름에서 의미 있는 에러/멱등 반환 제공. 단, TOCTOU gap이 존재하므로 동시성 방어는 불가.
+2. **DB UNIQUE constraint**: 데이터 무결성 안전망. 동시성 제어 수단이 아닌 **무결성 보장** 수단으로 항상 적용.
+3. **race 시 응답**: 사전 조회를 통과한 0.01% race에서 unique 위반 발생 시, 부수 효과 비용에 따라 처리 방식이 다름.
+
+**race 시 처리 기준:**
+
+| 기준 | 500 허용 | Facade try-catch 유지 |
+|------|:--------:|:--------------------:|
+| 부수 효과 없거나 미미 | O | |
+| 부수 효과가 크고 비가역적 | | O |
+| 사용자가 재시도 안 해도 무해 | O | |
+| 사용자가 재시도 안 하면 데이터 불일치 | | O |
+
+**RepositoryImpl에서 `DataIntegrityViolationException` try-catch 금지:**
+- Repository는 데이터를 반환하는 역할만 담당한다. 비즈니스 예외 발생은 Service의 책임이다.
+- race 시 `DataIntegrityViolationException`은 500으로 전파되거나, Facade에서 catch하여 멱등 반환한다.
+
+**예시 — 500 허용 (좋아요, 장바구니, 쿠폰, 회원가입):**
+```java
+// Facade — try-catch 없음. 사전 조회가 비즈니스 검증 담당, unique 제약은 안전망
+@Transactional
+public ProductLikeOutDto createLike(...) {
+    Optional<ProductLike> existing = service.findLike(userId, targetId);
+    if (existing.isPresent()) {
+        return ProductLikeOutDto.from(existing.get()); // 멱등 반환
+    }
+    ProductLike like = service.createLike(userId, targetId);
+    // race 시 DataIntegrityViolationException → 500 → 재시도 시 사전 조회에서 멱등 반환
+    return ProductLikeOutDto.from(like);
+}
+```
+
+**예시 — Facade try-catch (주문 — 부수 효과가 비가역적):**
+```java
+// Facade — 부수 효과(재고 차감, 장바구니 삭제)가 이미 커밋된 상태에서 500 반환 시 사용자 혼란 방지
+try {
+    return orderCommandService.createOrder(userId, inDto, ...);
+} catch (DataIntegrityViolationException e) {
+    if (isDuplicateKeyViolation(e)) {
+        return OrderDetailOutDto.from(orderQueryService.findByUserIdAndRequestId(...));
+    }
+    throw e;
+}
+```
+
 ### 4.7 도메인 모델 패턴
 
 #### 팩토리 메서드

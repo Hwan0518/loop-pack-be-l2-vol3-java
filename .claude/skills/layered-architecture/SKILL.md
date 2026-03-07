@@ -37,7 +37,7 @@ Client Request
 | Domain Service | `{Domain}XxxValidator`, etc. | Pure class (`@Bean` registration) | Stateless, mediates domain object collaboration within same BC, business invariant verification |
 | Repository (I) | `{Domain}CommandRepository` | Interface | Command contract (save, delete) |
 | Repository (I) | `{Domain}QueryRepository` | Interface | Query contract (find, exists) |
-| RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain conversion then JPA call |
+| RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain conversion then JPA call. **데이터 반환만 담당, 비즈니스 예외 발생 및 `DataIntegrityViolationException` try-catch 금지** |
 | Entity | `{Domain}Entity` | `@Entity` | `of(...)` 팩토리 메서드 |
 | EntityMapper | `{Domain}EntityMapper` | `@Component` | `toEntity(Domain)` + `toDomain(Entity)` 변환 |
 | QueryPort (I) | `{Domain}QueryPort` | Interface (`application/port/out/query/`) | Use-case specific complex query contract |
@@ -218,6 +218,7 @@ mapper.toEntity(domain with id) → jpaRepository.save(entity) → mapper.toDoma
 - Controller directly calling Repository
 - Input normalization in Facade/Service (domain model responsibility)
 - Using dirty checking (`findById` + mutate + flush) as the default update strategy
+- RepositoryImpl에서 `DataIntegrityViolationException` catch하여 비즈니스 예외 변환 (Repository는 데이터 반환만 담당, 비즈니스 예외는 Service 책임)
 - Writing business logic in Controller/Facade
 - Using framework annotations on domain models
 - Class-level `@Transactional` annotation (must be method-level)

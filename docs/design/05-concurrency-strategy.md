@@ -28,17 +28,26 @@ Q0. 애초에 동시성 경합이 현실적으로 발생하는가?
 ### 1-2. INSERT — 의사결정 트리
 
 ```
-Q1. 중복의 원인이 무엇인가?
-  ├── 비즈니스 규칙 위반 (같은 걸 두 번 하면 안 됨)
-  │     └── UNIQUE constraint
-  └── 네트워크 문제 재전송 (같은 요청이 두 번 도착)
-        └── Idempotency key
+Q1. 비즈니스 규칙상 중복이 허용되지 않는가?
+  ├── Yes
+  │     ├── DB UNIQUE constraint (데이터 무결성 안전망 — 항상 적용)
+  │     └── 사전 조회 select-before-insert (비즈니스 검증 — 의미 있는 에러 메시지 제공)
+  │           ※ TOCTOU gap이 존재하므로 동시성 방어는 불가, 비즈니스 검증 목적만 담당
+  │
+  └── Q2. 사전 조회를 통과한 0.01% race에서 unique 위반 발생 시, 어떻게 처리하는가?
+        ├── 부수 효과 없거나 미미 → 500 허용 (재시도 시 사전 조회에서 정상 응답)
+        └── 부수 효과가 크고 비가역적 → Facade에서 try-catch + 멱등 반환
 ```
 
-| 방식 | 목적 | 중복 시 응답 |
-|------|------|-------------|
-| UNIQUE constraint | 비즈니스 규칙 위반 방지 | 에러 |
-| Idempotency key | 네트워크 재전송 방어 | 기존 결과 반환 |
+#### INSERT 동시성 처리 원칙
+
+| 원칙 | 설명 |
+|------|------|
+| DB UNIQUE constraint | 데이터 무결성 안전망. 동시성 제어 수단이 아닌 **무결성 보장** 수단으로 항상 적용 |
+| 사전 조회 (select-before-insert) | 비즈니스 검증 목적. 정상 흐름에서 의미 있는 에러/멱등 반환 제공 |
+| RepositoryImpl try-catch 금지 | Repository는 데이터를 반환하는 역할만 담당. 비즈니스 예외 발생은 Service 책임 |
+| race 시 500 허용 기준 | 부수 효과가 없거나 미미한 경우. 재시도 시 사전 조회에서 올바른 응답 보장 |
+| race 시 try-catch 유지 기준 | 부수 효과가 크고 비가역적인 경우 (재고 차감, 장바구니 삭제 등이 이미 커밋된 상태에서 500 반환 시 사용자가 결과를 인지 못하는 비용이 큰 경우) |
 
 ---
 
@@ -49,15 +58,28 @@ Q1. 중복의 원인이 무엇인가?
 | 좋아요 수 증감 | UPDATE | 원자적 카운터 | 단순 `+1/-1`, 검증 없음, 높은 경합, 즉시 응답 기대 |
 | 재고 차감 | UPDATE | 비관적 락 | Stock VO 검증 필요, 높은 경합, 정확성 절대적 |
 | 쿠폰 사용 | UPDATE | 락 불필요 | 1쿠폰 = 1사용자, 경합 자체가 성립하지 않음 |
-| 쿠폰 발급 | INSERT | UNIQUE constraint | `(user_id, coupon_template_id)` 복합 유니크, 비즈니스 규칙 위반 |
-| 주문 생성 | INSERT | Idempotency key | `(user_id, request_id)` 유니크, Order가 requestId 직접 소유 |
-| 좋아요 행 | INSERT | UNIQUE constraint | `(user_id, target_type, target_id)` 복합 유니크, 비즈니스 규칙 위반 |
+| 쿠폰 발급 | INSERT | UNIQUE constraint | `(user_id, coupon_template_id)` 복합 유니크. race 시 500 허용 |
+| 주문 생성 | INSERT | Idempotency key + try-catch | `(user_id, request_id)` 유니크. race 시 Facade catch → 멱등 반환 (부수 효과 비가역적) |
+| 좋아요 행 | INSERT | UNIQUE constraint | `(user_id, target_type, target_id)` 복합 유니크. race 시 500 허용 |
+| 장바구니 항목 | INSERT | UNIQUE constraint | `(user_id, product_id)` 복합 유니크. race 시 500 허용 |
+| 회원가입 | INSERT | UNIQUE constraint | `uk_active_login_id` 유니크. race 시 500 허용 |
 
 ### INSERT 중복 방어 구조
 
-- **쿠폰 발급**: 1차 로컬 캐시(Caffeine) → 2차 DB 존재 확인(existsBy) → 3차 DB 복합 유니크 제약(안전망)
-- **좋아요 행**: 사전 조회(findLike) → DB 복합 유니크 제약(안전망)
-- **주문 생성**: 사전 조회(findByUserIdAndRequestId) → DB 유니크 제약 위반 시 기존 주문 반환
+- **쿠폰 발급**: 1차 로컬 캐시(Caffeine) → 2차 DB 존재 확인(existsBy) → 3차 DB 복합 유니크 제약(안전망). race 시 500 허용
+- **좋아요 행**: 사전 조회(findLike) → DB 복합 유니크 제약(안전망). race 시 500 허용 (멱등 연산, 부수 효과 미미)
+- **장바구니 항목**: 사전 조회(findByUserIdAndProductId) → DB 복합 유니크 제약(안전망). race 시 500 허용
+- **회원가입**: 사전 조회(loginIdDuplicationCheck) → DB 유니크 제약(안전망). race 시 500 허용
+- **주문 생성**: 사전 조회(findByUserIdAndRequestId) → DB 유니크 제약 위반 시 Facade에서 catch → 기존 주문 멱등 반환. **부수 효과(재고 차감, 장바구니 삭제, 쿠폰 사용)가 비가역적이므로 try-catch 유지**
+
+### race 시 try-catch 유지 판단 기준
+
+| 기준 | 500 허용 | try-catch 유지 |
+|------|:--------:|:-------------:|
+| 부수 효과 없거나 미미 | O | |
+| 부수 효과가 크고 비가역적 | | O |
+| 사용자가 재시도 안 해도 무해 | O | |
+| 사용자가 재시도 안 하면 데이터 불일치 | | O |
 
 ---
 
