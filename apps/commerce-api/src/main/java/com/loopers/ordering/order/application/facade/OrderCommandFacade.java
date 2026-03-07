@@ -35,12 +35,9 @@ public class OrderCommandFacade {
 	 */
 
 	// 1. 주문 생성
-	public OrderDetailOutDto createOrder(String loginId, String password, OrderCreateInDto inDto) {
+	public OrderDetailOutDto createOrder(Long userId, OrderCreateInDto inDto) {
 
 		// Phase 1: 읽기 (NO TX — 각 Service가 자체 readOnly TX 보유)
-
-		// 사용자 인증
-		Long userId = orderCheckoutCommandService.authenticate(loginId, password);
 
 		// 멱등성 검사: 동일 userId + requestId로 이미 주문이 존재하면 기존 주문 반환
 		Optional<Order> existingOrder = orderQueryService.findByUserIdAndRequestId(userId, inDto.requestId());

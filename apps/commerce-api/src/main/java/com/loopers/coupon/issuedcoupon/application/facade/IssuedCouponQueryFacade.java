@@ -31,12 +31,9 @@ public class IssuedCouponQueryFacade {
 	 * 2. 특정 쿠폰 템플릿의 발급 내역 조회 (관리자)
 	 */
 
-	// 1. 내 쿠폰 목록 조회 (사용자 인증 후 조회)
+	// 1. 내 쿠폰 목록 조회
 	@Transactional(readOnly = true)
-	public List<IssuedCouponOutDto> getMyIssuedCoupons(String loginId, String password) {
-
-		// 사용자 인증
-		Long userId = issuedCouponQueryService.authenticate(loginId, password);
+	public List<IssuedCouponOutDto> getMyIssuedCoupons(Long userId) {
 
 		// 발급 쿠폰 목록 조회
 		List<IssuedCoupon> issuedCoupons = issuedCouponQueryService.getAllByUserId(userId);

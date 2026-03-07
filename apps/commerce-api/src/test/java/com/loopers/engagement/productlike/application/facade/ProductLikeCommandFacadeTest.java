@@ -50,19 +50,16 @@ class ProductLikeCommandFacadeTest {
 		@DisplayName("[createLike()] 신규 좋아요 -> OutDto 반환 + 좋아요 수 증가 호출")
 		void createLike() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 1L;
 			Long targetId = 100L;
 			ProductLike like = ProductLike.reconstruct(1L, userId, targetId, LocalDateTime.now());
 
-			given(productLikeCommandService.authenticate(loginId, password)).willReturn(userId);
 			given(productLikeCommandService.findLike(userId, targetId)).willReturn(Optional.empty());
 			given(productLikeCommandService.createLike(userId, targetId)).willReturn(like);
 			willDoNothing().given(productLikeCommandService).increaseLikeCount(targetId);
 
 			// Act
-			ProductLikeOutDto result = productLikeCommandFacade.createLike(loginId, password, targetId);
+			ProductLikeOutDto result = productLikeCommandFacade.createLike(userId, targetId);
 
 			// Assert
 			assertAll(
@@ -78,17 +75,14 @@ class ProductLikeCommandFacadeTest {
 		@DisplayName("[createLike()] 기존 좋아요 존재 -> 기존 반환 (멱등). 좋아요 수 증가 미호출")
 		void createLikeIdempotent() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 1L;
 			Long targetId = 100L;
 			ProductLike existingLike = ProductLike.reconstruct(1L, userId, targetId, LocalDateTime.now());
 
-			given(productLikeCommandService.authenticate(loginId, password)).willReturn(userId);
 			given(productLikeCommandService.findLike(userId, targetId)).willReturn(Optional.of(existingLike));
 
 			// Act
-			ProductLikeOutDto result = productLikeCommandFacade.createLike(loginId, password, targetId);
+			ProductLikeOutDto result = productLikeCommandFacade.createLike(userId, targetId);
 
 			// Assert
 			assertAll(
@@ -109,20 +103,16 @@ class ProductLikeCommandFacadeTest {
 		@DisplayName("[deleteLike()] 유효한 요청 -> 서비스 위임 + 좋아요 수 감소 호출")
 		void deleteLike() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 1L;
 			Long targetId = 100L;
 
-			given(productLikeCommandService.authenticate(loginId, password)).willReturn(userId);
 			willDoNothing().given(productLikeCommandService).deleteLike(userId, targetId);
 			willDoNothing().given(productLikeCommandService).decreaseLikeCount(targetId);
 
 			// Act
-			productLikeCommandFacade.deleteLike(loginId, password, targetId);
+			productLikeCommandFacade.deleteLike(userId, targetId);
 
 			// Assert
-			verify(productLikeCommandService).authenticate(loginId, password);
 			verify(productLikeCommandService).deleteLike(userId, targetId);
 			verify(productLikeCommandService).decreaseLikeCount(targetId);
 		}

@@ -4,7 +4,6 @@ package com.loopers.coupon.issuedcoupon.application.service;
 import com.loopers.coupon.coupontemplate.domain.model.CouponTemplate;
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponApplyResult;
 import com.loopers.coupon.issuedcoupon.application.port.out.cache.CouponIssueDuplicateGuard;
-import com.loopers.coupon.issuedcoupon.application.port.out.client.user.UserAuthenticator;
 import com.loopers.coupon.issuedcoupon.domain.model.IssuedCoupon;
 import com.loopers.coupon.issuedcoupon.domain.model.enums.IssuedCouponStatus;
 import com.loopers.coupon.issuedcoupon.domain.repository.IssuedCouponCommandRepository;
@@ -25,29 +24,19 @@ public class IssuedCouponCommandService {
 	// repository
 	private final IssuedCouponCommandRepository issuedCouponCommandRepository;
 	private final IssuedCouponQueryRepository issuedCouponQueryRepository;
-	// port
-	private final UserAuthenticator userAuthenticator;
 	// cache
 	private final CouponIssueDuplicateGuard couponIssueDuplicateGuard;
 
 
 	/**
 	 * 발급 쿠폰 명령 서비스
-	 * 1. 사용자 인증
-	 * 2. 중복 발급 차단 (1차: 로컬 캐시, 2차: DB 존재 확인)
-	 * 3. 발급 쿠폰 저장
-	 * 4. 발급 쿠폰 조회 (비관적 쓰기 락)
-	 * 5. 쿠폰 적용 (주문 BC에서 호출)
+	 * 1. 중복 발급 차단 (1차: 로컬 캐시, 2차: DB 존재 확인)
+	 * 2. 발급 쿠폰 저장
+	 * 3. 발급 쿠폰 조회 (비관적 쓰기 락)
+	 * 4. 쿠폰 적용 (주문 BC에서 호출)
 	 */
 
-	// 1. 사용자 인증
-	@Transactional(readOnly = true)
-	public Long authenticate(String loginId, String password) {
-		return userAuthenticator.authenticate(loginId, password);
-	}
-
-
-	// 2. 중복 발급 차단 (1차: 로컬 캐시 — 따닥 차단, 2차: DB 존재 확인 — 캐시 TTL 만료 후 재요청 방어)
+	// 1. 중복 발급 차단 (1차: 로컬 캐시 — 따닥 차단, 2차: DB 존재 확인 — 캐시 TTL 만료 후 재요청 방어)
 	public void validateNotDuplicateIssue(Long userId, Long couponTemplateId) {
 
 		// 1차: 로컬 캐시 (동일 JVM 내 따닥 차단)
@@ -62,14 +51,14 @@ public class IssuedCouponCommandService {
 	}
 
 
-	// 3. 발급 쿠폰 저장
+	// 2. 발급 쿠폰 저장
 	@Transactional
 	public IssuedCoupon save(IssuedCoupon issuedCoupon) {
 		return issuedCouponCommandRepository.save(issuedCoupon);
 	}
 
 
-	// 4. 발급 쿠폰 조회 (비관적 쓰기 락 — 동일 사용자 멀티 디바이스 동시 주문 시 이중 사용 방지)
+	// 3. 발급 쿠폰 조회 (비관적 쓰기 락 — 동일 사용자 멀티 디바이스 동시 주문 시 이중 사용 방지)
 	@Transactional
 	public IssuedCoupon getByIdForUpdate(Long issuedCouponId) {
 		return issuedCouponQueryRepository.findByIdForUpdate(issuedCouponId)
@@ -77,7 +66,7 @@ public class IssuedCouponCommandService {
 	}
 
 
-	// 5. 쿠폰 적용 (Facade에서 비관적 락으로 조회한 쿠폰을 전달받아 검증 + 상태 변경 + 할인 계산)
+	// 4. 쿠폰 적용 (Facade에서 비관적 락으로 조회한 쿠폰을 전달받아 검증 + 상태 변경 + 할인 계산)
 	@Transactional
 	public CouponApplyResult applyToCoupon(IssuedCoupon issuedCoupon, Long userId, BigDecimal totalPrice, CouponTemplate template) {
 

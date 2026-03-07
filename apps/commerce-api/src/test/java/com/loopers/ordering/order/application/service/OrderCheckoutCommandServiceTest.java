@@ -5,7 +5,6 @@ import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItem
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemReader;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductReader;
-import com.loopers.ordering.order.application.port.out.client.user.UserAuthenticator;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,35 +34,13 @@ class OrderCheckoutCommandServiceTest {
 	@Mock
 	private OrderProductReader orderProductReader;
 
-	@Mock
-	private UserAuthenticator userAuthenticator;
-
 	private OrderCheckoutCommandService orderCheckoutCommandService;
 
 	@BeforeEach
 	void setUp() {
 		orderCheckoutCommandService = new OrderCheckoutCommandService(
-			orderCartItemReader, orderProductReader, userAuthenticator
+			orderCartItemReader, orderProductReader
 		);
-	}
-
-
-	@Nested
-	@DisplayName("authenticate() 테스트")
-	class AuthenticateTest {
-
-		@Test
-		@DisplayName("[authenticate()] 유효한 자격 증명 -> userId 반환")
-		void authenticateSuccess() {
-			// Arrange
-			given(userAuthenticator.authenticate("loginId", "password")).willReturn(1L);
-
-			// Act
-			Long result = orderCheckoutCommandService.authenticate("loginId", "password");
-
-			// Assert
-			assertThat(result).isEqualTo(1L);
-		}
 	}
 
 

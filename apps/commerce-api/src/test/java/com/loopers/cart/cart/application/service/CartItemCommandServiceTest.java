@@ -6,7 +6,6 @@ import com.loopers.cart.cart.application.dto.in.CartItemSelectionInDto;
 import com.loopers.cart.cart.application.dto.in.CartItemUpdateQuantityInDto;
 import com.loopers.cart.cart.application.dto.out.CartItemSelectionOutDto;
 import com.loopers.cart.cart.application.port.out.client.catalog.CartProductReader;
-import com.loopers.cart.cart.application.port.out.client.user.UserAuthenticator;
 import com.loopers.cart.cart.domain.model.CartItem;
 import com.loopers.cart.cart.domain.model.vo.Quantity;
 import com.loopers.cart.cart.domain.repository.CartItemCommandRepository;
@@ -49,16 +48,13 @@ class CartItemCommandServiceTest {
 	@Mock
 	private CartProductReader cartProductReader;
 
-	@Mock
-	private UserAuthenticator userAuthenticator;
-
 	private CartItemCommandService cartItemCommandService;
 
 
 	@BeforeEach
 	void setUp() {
 		cartItemCommandService = new CartItemCommandService(
-			cartItemCommandRepository, cartItemQueryRepository, cartProductReader, userAuthenticator
+			cartItemCommandRepository, cartItemQueryRepository, cartProductReader
 		);
 	}
 

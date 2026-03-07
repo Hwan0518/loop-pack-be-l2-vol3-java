@@ -4,7 +4,7 @@ package com.loopers.coupon.issuedcoupon.interfaces.web.controller;
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponIssueOutDto;
 import com.loopers.coupon.issuedcoupon.application.facade.IssuedCouponCommandFacade;
 import com.loopers.coupon.issuedcoupon.interfaces.web.response.IssuedCouponIssueResponse;
-import com.loopers.user.user.support.common.HeaderValidator;
+import com.loopers.support.common.auth.AuthenticationResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +18,8 @@ public class IssuedCouponCommandController {
 
 	// facade
 	private final IssuedCouponCommandFacade issuedCouponCommandFacade;
+	// auth
+	private final AuthenticationResolver authenticationResolver;
 
 
 	/**
@@ -33,11 +35,11 @@ public class IssuedCouponCommandController {
 		@PathVariable Long couponId
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// 쿠폰 발급
-		CouponIssueOutDto outDto = issuedCouponCommandFacade.issueCoupon(loginId, password, couponId);
+		CouponIssueOutDto outDto = issuedCouponCommandFacade.issueCoupon(userId, couponId);
 
 		// 201 Created (발급된 쿠폰 ID 반환)
 		return ResponseEntity.status(HttpStatus.CREATED).body(IssuedCouponIssueResponse.from(outDto));

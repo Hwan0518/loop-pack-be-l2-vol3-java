@@ -31,10 +31,7 @@ public class IssuedCouponCommandFacade {
 
 	// 1. 쿠폰 발급 (1차: 로컬 캐시, 2차: DB 존재 확인으로 중복 차단, DB 복합 유니크 제약이 데이터 무결성 보장)
 	@Transactional
-	public CouponIssueOutDto issueCoupon(String loginId, String password, Long couponTemplateId) {
-
-		// 사용자 인증
-		Long userId = issuedCouponCommandService.authenticate(loginId, password);
+	public CouponIssueOutDto issueCoupon(Long userId, Long couponTemplateId) {
 
 		// 중복 발급 차단 (1차: 로컬 캐시 따닥 차단, 2차: DB 존재 확인으로 캐시 TTL 만료 후 재요청 방어)
 		issuedCouponCommandService.validateNotDuplicateIssue(userId, couponTemplateId);

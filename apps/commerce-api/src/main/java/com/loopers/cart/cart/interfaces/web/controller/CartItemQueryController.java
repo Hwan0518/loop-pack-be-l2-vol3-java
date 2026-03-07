@@ -6,7 +6,7 @@ import com.loopers.cart.cart.application.dto.out.CartStatusOutDto;
 import com.loopers.cart.cart.application.facade.CartItemQueryFacade;
 import com.loopers.cart.cart.interfaces.web.response.CartResponse;
 import com.loopers.cart.cart.interfaces.web.response.CartStatusResponse;
-import com.loopers.user.user.support.common.HeaderValidator;
+import com.loopers.support.common.auth.AuthenticationResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +22,8 @@ public class CartItemQueryController {
 
 	// facade
 	private final CartItemQueryFacade cartItemQueryFacade;
+	// auth
+	private final AuthenticationResolver authenticationResolver;
 
 
 	/**
@@ -37,11 +39,11 @@ public class CartItemQueryController {
 		@RequestHeader(value = "X-Loopers-LoginPw", required = false) String password
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// 장바구니 조회
-		CartOutDto outDto = cartItemQueryFacade.getCart(loginId, password);
+		CartOutDto outDto = cartItemQueryFacade.getCart(userId);
 
 		// 응답 변환
 		CartResponse response = CartResponse.from(outDto);
@@ -58,11 +60,11 @@ public class CartItemQueryController {
 		@RequestHeader(value = "X-Loopers-LoginPw", required = false) String password
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// 장바구니 상태 조회
-		CartStatusOutDto outDto = cartItemQueryFacade.getCartStatus(loginId, password);
+		CartStatusOutDto outDto = cartItemQueryFacade.getCartStatus(userId);
 
 		// 응답 변환
 		CartStatusResponse response = CartStatusResponse.from(outDto);

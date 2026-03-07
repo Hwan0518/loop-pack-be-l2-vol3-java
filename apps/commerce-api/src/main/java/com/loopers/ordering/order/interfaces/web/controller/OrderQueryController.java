@@ -6,7 +6,7 @@ import com.loopers.ordering.order.application.dto.out.OrderPageOutDto;
 import com.loopers.ordering.order.application.facade.OrderQueryFacade;
 import com.loopers.ordering.order.interfaces.web.response.OrderDetailResponse;
 import com.loopers.ordering.order.interfaces.web.response.OrderPageResponse;
-import com.loopers.user.user.support.common.HeaderValidator;
+import com.loopers.support.common.auth.AuthenticationResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +22,8 @@ public class OrderQueryController {
 
 	// facade
 	private final OrderQueryFacade orderQueryFacade;
+	// auth
+	private final AuthenticationResolver authenticationResolver;
 
 
 	/**
@@ -41,11 +43,11 @@ public class OrderQueryController {
 		@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// 주문 목록 조회 (날짜 필터 포함)
-		OrderPageOutDto outDto = orderQueryFacade.getOrders(loginId, password, page, size, startDate, endDate);
+		OrderPageOutDto outDto = orderQueryFacade.getOrders(userId, page, size, startDate, endDate);
 
 		// 응답 변환
 		OrderPageResponse response = OrderPageResponse.from(outDto);
@@ -63,11 +65,11 @@ public class OrderQueryController {
 		@PathVariable Long orderId
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// 주문 상세 조회
-		OrderDetailOutDto outDto = orderQueryFacade.getOrder(loginId, password, orderId);
+		OrderDetailOutDto outDto = orderQueryFacade.getOrder(userId, orderId);
 
 		// 응답 변환
 		OrderDetailResponse response = OrderDetailResponse.from(outDto);

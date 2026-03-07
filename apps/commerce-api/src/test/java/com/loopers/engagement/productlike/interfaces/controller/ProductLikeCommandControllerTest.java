@@ -4,6 +4,7 @@ package com.loopers.engagement.productlike.interfaces.controller;
 import com.loopers.engagement.productlike.application.dto.out.ProductLikeOutDto;
 import com.loopers.engagement.productlike.application.facade.ProductLikeCommandFacade;
 import com.loopers.engagement.productlike.interfaces.web.controller.ProductLikeCommandController;
+import com.loopers.support.common.auth.AuthenticationResolver;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -32,10 +33,14 @@ class ProductLikeCommandControllerTest {
 	@MockitoBean
 	private ProductLikeCommandFacade productLikeCommandFacade;
 
+	@MockitoBean
+	private AuthenticationResolver authenticationResolver;
+
 	private static final String LOGIN_ID_HEADER = "X-Loopers-LoginId";
 	private static final String LOGIN_PW_HEADER = "X-Loopers-LoginPw";
 	private static final String LOGIN_ID = "testuser";
 	private static final String LOGIN_PW = "password123";
+	private static final Long USER_ID = 1L;
 
 
 	@Nested
@@ -46,8 +51,9 @@ class ProductLikeCommandControllerTest {
 		@DisplayName("[POST /api/v1/products/{id}/likes] 유효한 요청 -> 200 OK. id, targetId 포함")
 		void createSuccess() throws Exception {
 			// Arrange
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
 			ProductLikeOutDto outDto = new ProductLikeOutDto(1L, 1L, 100L, LocalDateTime.now());
-			given(productLikeCommandFacade.createLike(anyString(), anyString(), eq(100L))).willReturn(outDto);
+			given(productLikeCommandFacade.createLike(anyLong(), eq(100L))).willReturn(outDto);
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/products/{id}/likes", 100L)
@@ -61,6 +67,11 @@ class ProductLikeCommandControllerTest {
 		@Test
 		@DisplayName("[POST /api/v1/products/{id}/likes] 인증 헤더 누락 -> 401 Unauthorized")
 		void createUnauthorized() throws Exception {
+			// Arrange
+			given(authenticationResolver.resolve(isNull(), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
+
+			// Act & Assert
 			mockMvc.perform(post("/api/v1/products/{id}/likes", 100L))
 				.andExpect(status().isUnauthorized());
 		}
@@ -69,7 +80,8 @@ class ProductLikeCommandControllerTest {
 		@DisplayName("[POST /api/v1/products/{id}/likes] 대상 상품 미존재 -> 404 Not Found. LIKE_TARGET_NOT_FOUND")
 		void createTargetNotFound() throws Exception {
 			// Arrange
-			given(productLikeCommandFacade.createLike(anyString(), anyString(), eq(999L)))
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
+			given(productLikeCommandFacade.createLike(anyLong(), eq(999L)))
 				.willThrow(new CoreException(ErrorType.LIKE_TARGET_NOT_FOUND));
 
 			// Act & Assert
@@ -90,7 +102,8 @@ class ProductLikeCommandControllerTest {
 		@DisplayName("[DELETE /api/v1/products/{id}/likes] 유효한 요청 -> 200 OK")
 		void deleteSuccess() throws Exception {
 			// Arrange
-			willDoNothing().given(productLikeCommandFacade).deleteLike(anyString(), anyString(), eq(100L));
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
+			willDoNothing().given(productLikeCommandFacade).deleteLike(anyLong(), eq(100L));
 
 			// Act & Assert
 			mockMvc.perform(delete("/api/v1/products/{id}/likes", 100L)
@@ -102,6 +115,11 @@ class ProductLikeCommandControllerTest {
 		@Test
 		@DisplayName("[DELETE /api/v1/products/{id}/likes] 인증 헤더 누락 -> 401 Unauthorized")
 		void deleteUnauthorized() throws Exception {
+			// Arrange
+			given(authenticationResolver.resolve(isNull(), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
+
+			// Act & Assert
 			mockMvc.perform(delete("/api/v1/products/{id}/likes", 100L))
 				.andExpect(status().isUnauthorized());
 		}
@@ -110,8 +128,9 @@ class ProductLikeCommandControllerTest {
 		@DisplayName("[DELETE /api/v1/products/{id}/likes] 좋아요 미존재 -> 404 Not Found. LIKE_NOT_FOUND")
 		void deleteNotFound() throws Exception {
 			// Arrange
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
 			willThrow(new CoreException(ErrorType.LIKE_NOT_FOUND))
-				.given(productLikeCommandFacade).deleteLike(anyString(), anyString(), eq(100L));
+				.given(productLikeCommandFacade).deleteLike(anyLong(), eq(100L));
 
 			// Act & Assert
 			mockMvc.perform(delete("/api/v1/products/{id}/likes", 100L)

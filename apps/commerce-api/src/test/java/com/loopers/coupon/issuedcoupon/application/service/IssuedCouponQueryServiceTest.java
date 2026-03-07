@@ -1,7 +1,6 @@
 package com.loopers.coupon.issuedcoupon.application.service;
 
 
-import com.loopers.coupon.issuedcoupon.application.port.out.client.user.UserAuthenticator;
 import com.loopers.coupon.issuedcoupon.domain.model.IssuedCoupon;
 import com.loopers.coupon.issuedcoupon.domain.model.enums.IssuedCouponStatus;
 import com.loopers.coupon.issuedcoupon.domain.repository.IssuedCouponQueryRepository;
@@ -30,8 +29,6 @@ class IssuedCouponQueryServiceTest {
 
 	@Mock
 	private IssuedCouponQueryRepository issuedCouponQueryRepository;
-	@Mock
-	private UserAuthenticator userAuthenticator;
 
 	private IssuedCouponQueryService issuedCouponQueryService;
 
@@ -39,29 +36,8 @@ class IssuedCouponQueryServiceTest {
 	@BeforeEach
 	void setUp() {
 		issuedCouponQueryService = new IssuedCouponQueryService(
-			issuedCouponQueryRepository, userAuthenticator
+			issuedCouponQueryRepository
 		);
-	}
-
-
-	@Nested
-	@DisplayName("authenticate()")
-	class AuthenticateTest {
-
-		@Test
-		@DisplayName("[authenticate()] 유효한 인증 정보 -> userId 반환. UserAuthenticator에 위임하여 사용자 ID를 반환한다")
-		void authenticateSuccess() {
-			// Arrange
-			given(userAuthenticator.authenticate("user1", "pw1")).willReturn(100L);
-
-			// Act
-			Long userId = issuedCouponQueryService.authenticate("user1", "pw1");
-
-			// Assert
-			assertThat(userId).isEqualTo(100L);
-			verify(userAuthenticator).authenticate("user1", "pw1");
-		}
-
 	}
 
 

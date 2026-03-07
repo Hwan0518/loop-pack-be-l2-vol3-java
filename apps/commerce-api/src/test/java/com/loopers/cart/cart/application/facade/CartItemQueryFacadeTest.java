@@ -4,7 +4,6 @@ package com.loopers.cart.cart.application.facade;
 import com.loopers.cart.cart.application.dto.out.CartOutDto;
 import com.loopers.cart.cart.application.dto.out.CartStatusOutDto;
 import com.loopers.cart.cart.application.dto.out.CartStatusItemOutDto;
-import com.loopers.cart.cart.application.service.CartItemCommandService;
 import com.loopers.cart.cart.application.service.CartItemQueryService;
 import com.loopers.cart.cart.domain.model.CartItem;
 import com.loopers.cart.cart.domain.model.vo.Quantity;
@@ -29,21 +28,16 @@ import static org.mockito.BDDMockito.given;
 class CartItemQueryFacadeTest {
 
 	@Mock
-	private CartItemCommandService cartItemCommandService;
-
-	@Mock
 	private CartItemQueryService cartItemQueryService;
 
 	private CartItemQueryFacade cartItemQueryFacade;
 
-	private static final String LOGIN_ID = "testuser";
-	private static final String PASSWORD = "password123";
 	private static final Long USER_ID = 1L;
 
 
 	@BeforeEach
 	void setUp() {
-		cartItemQueryFacade = new CartItemQueryFacade(cartItemCommandService, cartItemQueryService);
+		cartItemQueryFacade = new CartItemQueryFacade(cartItemQueryService);
 	}
 
 
@@ -60,11 +54,10 @@ class CartItemQueryFacadeTest {
 			CartItem item2 = CartItem.reconstruct(2L, USER_ID, 200L, Quantity.from(2L), false,
 				LocalDateTime.now(), LocalDateTime.now());
 
-			given(cartItemCommandService.authenticate(LOGIN_ID, PASSWORD)).willReturn(USER_ID);
 			given(cartItemQueryService.getCartByUserId(USER_ID)).willReturn(List.of(item1, item2));
 
 			// Act
-			CartOutDto result = cartItemQueryFacade.getCart(LOGIN_ID, PASSWORD);
+			CartOutDto result = cartItemQueryFacade.getCart(USER_ID);
 
 			// Assert
 			assertAll(
@@ -79,11 +72,10 @@ class CartItemQueryFacadeTest {
 		void getCartEmpty() {
 			// Arrange
 			Long emptyUserId = 999L;
-			given(cartItemCommandService.authenticate(LOGIN_ID, PASSWORD)).willReturn(emptyUserId);
 			given(cartItemQueryService.getCartByUserId(emptyUserId)).willReturn(List.of());
 
 			// Act
-			CartOutDto result = cartItemQueryFacade.getCart(LOGIN_ID, PASSWORD);
+			CartOutDto result = cartItemQueryFacade.getCart(emptyUserId);
 
 			// Assert
 			assertAll(
@@ -110,11 +102,10 @@ class CartItemQueryFacadeTest {
 					new CartStatusItemOutDto(3L, 300L, 3L, false)
 				));
 
-			given(cartItemCommandService.authenticate(LOGIN_ID, PASSWORD)).willReturn(USER_ID);
 			given(cartItemQueryService.getCartStatus(USER_ID)).willReturn(statusOutDto);
 
 			// Act
-			CartStatusOutDto result = cartItemQueryFacade.getCartStatus(LOGIN_ID, PASSWORD);
+			CartStatusOutDto result = cartItemQueryFacade.getCartStatus(USER_ID);
 
 			// Assert
 			assertAll(

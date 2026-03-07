@@ -27,10 +27,7 @@ public class BrandLikeCommandFacade {
 
 	// 1. 브랜드 좋아요 생성 (멱등 — 사전 조회로 99.9% 중복 차단, DB 유니크 제약이 데이터 무결성 보장)
 	@Transactional
-	public BrandLikeOutDto createLike(String loginId, String password, Long targetId) {
-
-		// 사용자 인증
-		Long userId = brandLikeCommandService.authenticate(loginId, password);
+	public BrandLikeOutDto createLike(Long userId, Long targetId) {
 
 		// 기존 좋아요 존재 시 기존 반환 (멱등 — 따닥 등 대부분의 중복 요청을 여기서 차단)
 		Optional<BrandLike> existing = brandLikeCommandService.findLike(userId, targetId);
@@ -46,10 +43,7 @@ public class BrandLikeCommandFacade {
 
 	// 2. 브랜드 좋아요 삭제
 	@Transactional
-	public void deleteLike(String loginId, String password, Long targetId) {
-
-		// 사용자 인증
-		Long userId = brandLikeCommandService.authenticate(loginId, password);
+	public void deleteLike(Long userId, Long targetId) {
 
 		// 좋아요 삭제
 		brandLikeCommandService.deleteLike(userId, targetId);

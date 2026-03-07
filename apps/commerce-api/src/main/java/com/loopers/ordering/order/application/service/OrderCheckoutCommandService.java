@@ -5,7 +5,6 @@ import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItem
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemReader;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductReader;
-import com.loopers.ordering.order.application.port.out.client.user.UserAuthenticator;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -22,23 +21,15 @@ public class OrderCheckoutCommandService {
 	// port
 	private final OrderCartItemReader orderCartItemReader;
 	private final OrderProductReader orderProductReader;
-	private final UserAuthenticator userAuthenticator;
 
 
 	/**
 	 * 주문 체크아웃 조회 서비스
-	 * 1. 사용자 인증
-	 * 2. 장바구니 항목 ID 목록으로 조회
-	 * 3. 상품 정보 조회
+	 * 1. 장바구니 항목 ID 목록으로 조회
+	 * 2. 상품 정보 조회
 	 */
 
-	// 1. 사용자 인증
-	@Transactional(readOnly = true)
-	public Long authenticate(String loginId, String password) {
-		return userAuthenticator.authenticate(loginId, password);
-	}
-
-	// 2. 장바구니 항목 ID 목록으로 조회
+	// 1. 장바구니 항목 ID 목록으로 조회
 	@Transactional(readOnly = true)
 	public List<OrderCartItemInfo> readCartItemsByIds(Long userId, List<Long> cartItemIds) {
 
@@ -54,7 +45,7 @@ public class OrderCheckoutCommandService {
 	}
 
 
-	// 3. 상품 정보 조회
+	// 2. 상품 정보 조회
 	@Transactional(readOnly = true)
 	public List<OrderProductInfo> readProducts(List<Long> productIds) {
 

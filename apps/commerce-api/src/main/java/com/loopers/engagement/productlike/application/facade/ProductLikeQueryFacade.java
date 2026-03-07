@@ -1,7 +1,6 @@
 package com.loopers.engagement.productlike.application.facade;
 
 import com.loopers.engagement.productlike.application.dto.out.ProductLikePageOutDto;
-import com.loopers.engagement.productlike.application.service.ProductLikeCommandService;
 import com.loopers.engagement.productlike.application.service.ProductLikeQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -13,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductLikeQueryFacade {
 
 	// service
-	private final ProductLikeCommandService productLikeCommandService;
 	private final ProductLikeQueryService productLikeQueryService;
 
 
@@ -25,10 +23,7 @@ public class ProductLikeQueryFacade {
 
 	// 1. 사용자의 상품 좋아요 목록 조회
 	@Transactional(readOnly = true)
-	public ProductLikePageOutDto getLikesByUserId(String loginId, String password, int page, int size) {
-
-		// 사용자 인증
-		Long userId = productLikeCommandService.authenticate(loginId, password);
+	public ProductLikePageOutDto getLikesByUserId(Long userId, int page, int size) {
 
 		return productLikeQueryService.getLikesByUserId(userId, page, size);
 	}
@@ -36,10 +31,7 @@ public class ProductLikeQueryFacade {
 
 	// 2. 사용자의 상품 좋아요 여부 확인
 	@Transactional(readOnly = true)
-	public boolean isLikedByUser(String loginId, String password, Long targetId) {
-
-		// 사용자 인증
-		Long userId = productLikeCommandService.authenticate(loginId, password);
+	public boolean isLikedByUser(Long userId, Long targetId) {
 
 		return productLikeQueryService.isLikedByUser(userId, targetId);
 	}

@@ -36,8 +36,6 @@ class CartItemCommandFacadeTest {
 
 	private CartItemCommandFacade cartItemCommandFacade;
 
-	private static final String LOGIN_ID = "testuser";
-	private static final String PASSWORD = "password123";
 	private static final Long USER_ID = 1L;
 
 
@@ -59,11 +57,10 @@ class CartItemCommandFacadeTest {
 			CartItem savedItem = CartItem.reconstruct(1L, USER_ID, 100L, Quantity.from(3L), true,
 				LocalDateTime.now(), LocalDateTime.now());
 
-			given(cartItemCommandService.authenticate(LOGIN_ID, PASSWORD)).willReturn(USER_ID);
 			given(cartItemCommandService.addItem(eq(USER_ID), any(CartItemAddInDto.class))).willReturn(savedItem);
 
 			// Act
-			CartItemOutDto result = cartItemCommandFacade.addItem(LOGIN_ID, PASSWORD, inDto);
+			CartItemOutDto result = cartItemCommandFacade.addItem(USER_ID, inDto);
 
 			// Assert
 			assertAll(
@@ -89,12 +86,11 @@ class CartItemCommandFacadeTest {
 			CartItem updatedItem = CartItem.reconstruct(cartItemId, USER_ID, 100L, Quantity.from(10L), true,
 				LocalDateTime.now(), LocalDateTime.now());
 
-			given(cartItemCommandService.authenticate(LOGIN_ID, PASSWORD)).willReturn(USER_ID);
 			given(cartItemCommandService.updateQuantity(eq(cartItemId), eq(USER_ID), any(CartItemUpdateQuantityInDto.class)))
 				.willReturn(updatedItem);
 
 			// Act
-			CartItemOutDto result = cartItemCommandFacade.updateQuantity(LOGIN_ID, PASSWORD, cartItemId, inDto);
+			CartItemOutDto result = cartItemCommandFacade.updateQuantity(USER_ID, cartItemId, inDto);
 
 			// Assert
 			assertThat(result.quantity()).isEqualTo(10L);
@@ -111,11 +107,10 @@ class CartItemCommandFacadeTest {
 		@DisplayName("[deleteItem()] 유효한 요청 -> 서비스 deleteItem 호출")
 		void deleteItemSuccess() {
 			// Arrange
-			given(cartItemCommandService.authenticate(LOGIN_ID, PASSWORD)).willReturn(USER_ID);
 			willDoNothing().given(cartItemCommandService).deleteItem(1L, USER_ID);
 
 			// Act
-			cartItemCommandFacade.deleteItem(LOGIN_ID, PASSWORD, 1L);
+			cartItemCommandFacade.deleteItem(USER_ID, 1L);
 
 			// Assert
 			verify(cartItemCommandService).deleteItem(1L, USER_ID);
@@ -135,12 +130,11 @@ class CartItemCommandFacadeTest {
 			CartItemSelectionInDto inDto = new CartItemSelectionInDto(List.of(1L, 3L));
 			CartItemSelectionOutDto outDto = new CartItemSelectionOutDto(List.of(1L, 3L), List.of(2L));
 
-			given(cartItemCommandService.authenticate(LOGIN_ID, PASSWORD)).willReturn(USER_ID);
 			given(cartItemCommandService.updateSelection(eq(USER_ID), any(CartItemSelectionInDto.class)))
 				.willReturn(outDto);
 
 			// Act
-			CartItemSelectionOutDto result = cartItemCommandFacade.updateSelection(LOGIN_ID, PASSWORD, inDto);
+			CartItemSelectionOutDto result = cartItemCommandFacade.updateSelection(USER_ID, inDto);
 
 			// Assert
 			assertAll(

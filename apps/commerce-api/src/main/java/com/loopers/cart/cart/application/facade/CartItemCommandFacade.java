@@ -34,10 +34,7 @@ public class CartItemCommandFacade {
 
 	// 1. 장바구니 항목 추가
 	@Transactional
-	public CartItemOutDto addItem(String loginId, String password, CartItemAddInDto inDto) {
-
-		// 사용자 인증
-		Long userId = cartItemCommandService.authenticate(loginId, password);
+	public CartItemOutDto addItem(Long userId, CartItemAddInDto inDto) {
 
 		// 상품 존재 여부 검증 + 장바구니 항목 추가
 		CartItem cartItem = cartItemCommandService.addItem(userId, inDto);
@@ -49,10 +46,7 @@ public class CartItemCommandFacade {
 
 	// 2. 장바구니 항목 수량 변경
 	@Transactional
-	public CartItemOutDto updateQuantity(String loginId, String password, Long cartItemId, CartItemUpdateQuantityInDto inDto) {
-
-		// 사용자 인증
-		Long userId = cartItemCommandService.authenticate(loginId, password);
+	public CartItemOutDto updateQuantity(Long userId, Long cartItemId, CartItemUpdateQuantityInDto inDto) {
 
 		// 수량 변경
 		CartItem cartItem = cartItemCommandService.updateQuantity(cartItemId, userId, inDto);
@@ -64,10 +58,7 @@ public class CartItemCommandFacade {
 
 	// 3. 장바구니 항목 삭제
 	@Transactional
-	public void deleteItem(String loginId, String password, Long cartItemId) {
-
-		// 사용자 인증
-		Long userId = cartItemCommandService.authenticate(loginId, password);
+	public void deleteItem(Long userId, Long cartItemId) {
 
 		// 장바구니 항목 삭제
 		cartItemCommandService.deleteItem(cartItemId, userId);
@@ -76,10 +67,7 @@ public class CartItemCommandFacade {
 
 	// 4. 장바구니 항목 선택 상태 변경
 	@Transactional
-	public CartItemSelectionOutDto updateSelection(String loginId, String password, CartItemSelectionInDto inDto) {
-
-		// 사용자 인증
-		Long userId = cartItemCommandService.authenticate(loginId, password);
+	public CartItemSelectionOutDto updateSelection(Long userId, CartItemSelectionInDto inDto) {
 
 		return cartItemCommandService.updateSelection(userId, inDto);
 	}

@@ -12,7 +12,7 @@ import com.loopers.cart.cart.interfaces.web.request.CartItemSelectionRequest;
 import com.loopers.cart.cart.interfaces.web.request.CartItemUpdateQuantityRequest;
 import com.loopers.cart.cart.interfaces.web.response.CartItemResponse;
 import com.loopers.cart.cart.interfaces.web.response.CartItemSelectionResponse;
-import com.loopers.user.user.support.common.HeaderValidator;
+import com.loopers.support.common.auth.AuthenticationResolver;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,6 +27,8 @@ public class CartItemCommandController {
 
 	// facade
 	private final CartItemCommandFacade cartItemCommandFacade;
+	// auth
+	private final AuthenticationResolver authenticationResolver;
 
 
 	/**
@@ -45,14 +47,14 @@ public class CartItemCommandController {
 		@Valid @RequestBody CartItemAddRequest request
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// InDto 생성
 		CartItemAddInDto inDto = new CartItemAddInDto(request.productId(), request.quantity());
 
 		// 장바구니 항목 추가
-		CartItemOutDto outDto = cartItemCommandFacade.addItem(loginId, password, inDto);
+		CartItemOutDto outDto = cartItemCommandFacade.addItem(userId, inDto);
 
 		// 응답 변환
 		CartItemResponse response = CartItemResponse.from(outDto);
@@ -71,14 +73,14 @@ public class CartItemCommandController {
 		@Valid @RequestBody CartItemUpdateQuantityRequest request
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// InDto 생성
 		CartItemUpdateQuantityInDto inDto = new CartItemUpdateQuantityInDto(request.quantity());
 
 		// 수량 변경
-		CartItemOutDto outDto = cartItemCommandFacade.updateQuantity(loginId, password, cartItemId, inDto);
+		CartItemOutDto outDto = cartItemCommandFacade.updateQuantity(userId, cartItemId, inDto);
 
 		// 응답 변환
 		CartItemResponse response = CartItemResponse.from(outDto);
@@ -96,11 +98,11 @@ public class CartItemCommandController {
 		@PathVariable Long cartItemId
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// 장바구니 항목 삭제
-		cartItemCommandFacade.deleteItem(loginId, password, cartItemId);
+		cartItemCommandFacade.deleteItem(userId, cartItemId);
 
 		// 204 No Content 반환
 		return ResponseEntity.noContent().build();
@@ -115,14 +117,14 @@ public class CartItemCommandController {
 		@Valid @RequestBody CartItemSelectionRequest request
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// InDto 생성
 		CartItemSelectionInDto inDto = new CartItemSelectionInDto(request.selectedCartItemIds());
 
 		// 선택 상태 변경
-		CartItemSelectionOutDto outDto = cartItemCommandFacade.updateSelection(loginId, password, inDto);
+		CartItemSelectionOutDto outDto = cartItemCommandFacade.updateSelection(userId, inDto);
 
 		// 응답 변환
 		CartItemSelectionResponse response = CartItemSelectionResponse.from(outDto);

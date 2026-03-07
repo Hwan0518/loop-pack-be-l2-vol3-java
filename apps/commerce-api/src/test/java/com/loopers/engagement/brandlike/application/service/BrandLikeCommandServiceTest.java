@@ -2,7 +2,6 @@ package com.loopers.engagement.brandlike.application.service;
 
 
 import com.loopers.engagement.brandlike.application.port.out.client.catalog.BrandLikeTargetValidator;
-import com.loopers.engagement.brandlike.application.port.out.client.user.UserAuthenticator;
 import com.loopers.engagement.brandlike.domain.model.BrandLike;
 import com.loopers.engagement.brandlike.domain.repository.BrandLikeCommandRepository;
 import com.loopers.engagement.brandlike.domain.repository.BrandLikeQueryRepository;
@@ -37,8 +36,6 @@ class BrandLikeCommandServiceTest {
 	private BrandLikeQueryRepository brandLikeQueryRepository;
 	@Mock
 	private BrandLikeTargetValidator brandLikeTargetValidator;
-	@Mock
-	private UserAuthenticator userAuthenticator;
 
 	private BrandLikeCommandService brandLikeCommandService;
 
@@ -48,8 +45,7 @@ class BrandLikeCommandServiceTest {
 		brandLikeCommandService = new BrandLikeCommandService(
 			brandLikeCommandRepository,
 			brandLikeQueryRepository,
-			brandLikeTargetValidator,
-			userAuthenticator
+			brandLikeTargetValidator
 		);
 	}
 

@@ -2,7 +2,6 @@ package com.loopers.ordering.order.application.facade;
 
 
 import com.loopers.ordering.order.application.dto.out.*;
-import com.loopers.ordering.order.application.service.OrderCheckoutCommandService;
 import com.loopers.ordering.order.application.service.OrderQueryService;
 import com.loopers.ordering.order.domain.model.Order;
 import com.loopers.ordering.order.domain.model.OrderItem;
@@ -31,16 +30,13 @@ import static org.mockito.BDDMockito.given;
 class OrderQueryFacadeTest {
 
 	@Mock
-	private OrderCheckoutCommandService orderCheckoutCommandService;
-
-	@Mock
 	private OrderQueryService orderQueryService;
 
 	private OrderQueryFacade orderQueryFacade;
 
 	@BeforeEach
 	void setUp() {
-		orderQueryFacade = new OrderQueryFacade(orderCheckoutCommandService, orderQueryService);
+		orderQueryFacade = new OrderQueryFacade(orderQueryService);
 	}
 
 
@@ -61,19 +57,16 @@ class OrderQueryFacadeTest {
 	class GetOrderTest {
 
 		@Test
-		@DisplayName("[getOrder()] 유효한 loginId + password + orderId -> OrderDetailOutDto 반환. 인증 후 본인 주문 조회")
+		@DisplayName("[getOrder()] 유효한 userId + orderId -> OrderDetailOutDto 반환. 본인 주문 조회")
 		void getOrderSuccess() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 100L;
-			given(orderCheckoutCommandService.authenticate(loginId, password)).willReturn(userId);
 
 			Order order = createTestOrder(1L, userId);
 			given(orderQueryService.findByIdAndUserId(1L, userId)).willReturn(order);
 
 			// Act
-			OrderDetailOutDto result = orderQueryFacade.getOrder(loginId, password, 1L);
+			OrderDetailOutDto result = orderQueryFacade.getOrder(userId, 1L);
 
 			// Assert
 			assertAll(
@@ -91,13 +84,10 @@ class OrderQueryFacadeTest {
 	class GetOrdersTest {
 
 		@Test
-		@DisplayName("[getOrders()] 날짜 필터 없이 사용자 주문 조회 -> OrderPageOutDto 반환. 인증 후 본인 주문 목록 조회")
+		@DisplayName("[getOrders()] 날짜 필터 없이 사용자 주문 조회 -> OrderPageOutDto 반환. 본인 주문 목록 조회")
 		void getOrdersWithoutDateFilter() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 100L;
-			given(orderCheckoutCommandService.authenticate(loginId, password)).willReturn(userId);
 
 			OrderPageOutDto pageOutDto = new OrderPageOutDto(
 				List.of(OrderOutDto.from(createTestOrder(1L, userId))),
@@ -106,7 +96,7 @@ class OrderQueryFacadeTest {
 			given(orderQueryService.getOrdersByUserId(userId, 0, 20, null, null)).willReturn(pageOutDto);
 
 			// Act
-			OrderPageOutDto result = orderQueryFacade.getOrders(loginId, password, 0, 20, null, null);
+			OrderPageOutDto result = orderQueryFacade.getOrders(userId, 0, 20, null, null);
 
 			// Assert
 			assertAll(
@@ -117,13 +107,10 @@ class OrderQueryFacadeTest {
 
 
 		@Test
-		@DisplayName("[getOrders()] 날짜 필터 포함 사용자 주문 조회 -> OrderPageOutDto 반환. 인증 후 startDate~endDate 범위 전달")
+		@DisplayName("[getOrders()] 날짜 필터 포함 사용자 주문 조회 -> OrderPageOutDto 반환. startDate~endDate 범위 전달")
 		void getOrdersWithDateFilter() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 100L;
-			given(orderCheckoutCommandService.authenticate(loginId, password)).willReturn(userId);
 
 			LocalDate startDate = LocalDate.of(2026, 1, 1);
 			LocalDate endDate = LocalDate.of(2026, 1, 31);
@@ -134,7 +121,7 @@ class OrderQueryFacadeTest {
 			given(orderQueryService.getOrdersByUserId(userId, 0, 20, startDate, endDate)).willReturn(pageOutDto);
 
 			// Act
-			OrderPageOutDto result = orderQueryFacade.getOrders(loginId, password, 0, 20, startDate, endDate);
+			OrderPageOutDto result = orderQueryFacade.getOrders(userId, 0, 20, startDate, endDate);
 
 			// Assert
 			assertAll(

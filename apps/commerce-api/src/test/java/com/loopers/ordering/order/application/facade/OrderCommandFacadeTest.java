@@ -76,16 +76,12 @@ class OrderCommandFacadeTest {
 	class CreateOrderTest {
 
 		@Test
-		@DisplayName("[createOrder()] 유효한 요청 + 기존 주문 없음 -> 주문 생성. 인증 → 멱등성 확인 → 장바구니 조회 → 상품 조회 → 주문 생성")
+		@DisplayName("[createOrder()] 유효한 요청 + 기존 주문 없음 -> 주문 생성. 멱등성 확인 → 장바구니 조회 → 상품 조회 → 주문 생성")
 		void createOrderSuccess() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 1L;
 			List<Long> cartItemIds = List.of(100L);
 			OrderCreateInDto inDto = new OrderCreateInDto(cartItemIds, "req-123", null);
-
-			given(orderCheckoutCommandService.authenticate(loginId, password)).willReturn(userId);
 
 			given(orderQueryService.findByUserIdAndRequestId(userId, "req-123"))
 				.willReturn(Optional.empty());
@@ -106,13 +102,12 @@ class OrderCommandFacadeTest {
 				.willReturn(expectedDto);
 
 			// Act
-			OrderDetailOutDto result = orderCommandFacade.createOrder(loginId, password, inDto);
+			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto);
 
 			// Assert
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(10L),
 				() -> assertThat(result.userId()).isEqualTo(1L),
-				() -> verify(orderCheckoutCommandService).authenticate(loginId, password),
 				() -> verify(orderQueryService).findByUserIdAndRequestId(userId, "req-123"),
 				() -> verify(orderCommandService).createOrder(eq(userId), eq(inDto), eq(cartItems), eq(products), eq(resolvedCartItemIds))
 			);
@@ -123,19 +118,15 @@ class OrderCommandFacadeTest {
 		@DisplayName("[createOrder()] 동일 requestId로 재요청 -> 기존 주문 반환 (멱등성). createOrder 호출 없음")
 		void createOrderIdempotent() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 1L;
 			OrderCreateInDto inDto = new OrderCreateInDto(List.of(100L), "req-123", null);
-
-			given(orderCheckoutCommandService.authenticate(loginId, password)).willReturn(userId);
 
 			Order existingOrder = createTestOrder(10L, userId);
 			given(orderQueryService.findByUserIdAndRequestId(userId, "req-123"))
 				.willReturn(Optional.of(existingOrder));
 
 			// Act
-			OrderDetailOutDto result = orderCommandFacade.createOrder(loginId, password, inDto);
+			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto);
 
 			// Assert
 			assertAll(
@@ -149,13 +140,9 @@ class OrderCommandFacadeTest {
 		@DisplayName("[createOrder()] 장바구니가 비어있음 -> EMPTY_CART 예외. createOrder 미호출")
 		void createOrderEmptyCart() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 1L;
 			List<Long> cartItemIds = List.of(100L);
 			OrderCreateInDto inDto = new OrderCreateInDto(cartItemIds, "req-123", null);
-
-			given(orderCheckoutCommandService.authenticate(loginId, password)).willReturn(userId);
 
 			given(orderQueryService.findByUserIdAndRequestId(userId, "req-123"))
 				.willReturn(Optional.empty());
@@ -165,7 +152,7 @@ class OrderCommandFacadeTest {
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> orderCommandFacade.createOrder(loginId, password, inDto));
+				() -> orderCommandFacade.createOrder(userId, inDto));
 
 			// Assert
 			assertAll(
@@ -179,13 +166,9 @@ class OrderCommandFacadeTest {
 		@DisplayName("[createOrder()] DataIntegrityViolation 발생 (유니크 제약 race) -> 기존 주문 조회하여 반환")
 		void createOrderRaceCondition() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 1L;
 			List<Long> cartItemIds = List.of(100L);
 			OrderCreateInDto inDto = new OrderCreateInDto(cartItemIds, "req-123", null);
-
-			given(orderCheckoutCommandService.authenticate(loginId, password)).willReturn(userId);
 
 			given(orderQueryService.findByUserIdAndRequestId(userId, "req-123"))
 				.willReturn(Optional.empty())  // 첫 번째 호출: 멱등성 검사 시 없음
@@ -205,7 +188,7 @@ class OrderCommandFacadeTest {
 				.willThrow(new DataIntegrityViolationException("Duplicate entry"));
 
 			// Act
-			OrderDetailOutDto result = orderCommandFacade.createOrder(loginId, password, inDto);
+			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto);
 
 			// Assert
 			assertAll(

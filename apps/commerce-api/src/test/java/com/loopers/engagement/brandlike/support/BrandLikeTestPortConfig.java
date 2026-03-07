@@ -2,7 +2,6 @@ package com.loopers.engagement.brandlike.support;
 
 
 import com.loopers.engagement.brandlike.application.port.out.client.catalog.BrandLikeTargetValidator;
-import com.loopers.engagement.brandlike.application.port.out.client.user.UserAuthenticator;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -14,15 +13,6 @@ import org.springframework.context.annotation.Primary;
  */
 @TestConfiguration
 public class BrandLikeTestPortConfig {
-
-	@Bean
-	@Primary
-	public UserAuthenticator testBrandLikeUserAuthenticator() {
-		return (loginId, password) -> {
-			// 테스트용: loginId를 해시하여 userId로 사용
-			return (long) loginId.hashCode();
-		};
-	}
 
 	@Bean
 	@Primary

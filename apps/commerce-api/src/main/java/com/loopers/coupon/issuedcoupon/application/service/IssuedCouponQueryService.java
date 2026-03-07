@@ -1,7 +1,6 @@
 package com.loopers.coupon.issuedcoupon.application.service;
 
 
-import com.loopers.coupon.issuedcoupon.application.port.out.client.user.UserAuthenticator;
 import com.loopers.coupon.issuedcoupon.domain.model.IssuedCoupon;
 import com.loopers.coupon.issuedcoupon.domain.repository.IssuedCouponQueryRepository;
 import com.loopers.support.common.error.CoreException;
@@ -19,26 +18,16 @@ public class IssuedCouponQueryService {
 
 	// repository
 	private final IssuedCouponQueryRepository issuedCouponQueryRepository;
-	// port
-	private final UserAuthenticator userAuthenticator;
 
 
 	/**
 	 * 발급 쿠폰 조회 서비스
-	 * 1. 사용자 인증
-	 * 2. ID로 발급 쿠폰 조회 (없으면 예외)
-	 * 3. 사용자 ID로 발급 쿠폰 목록 조회
-	 * 4. 쿠폰 템플릿 ID로 발급 쿠폰 목록 조회
+	 * 1. ID로 발급 쿠폰 조회 (없으면 예외)
+	 * 2. 사용자 ID로 발급 쿠폰 목록 조회
+	 * 3. 쿠폰 템플릿 ID로 발급 쿠폰 목록 조회
 	 */
 
-	// 1. 사용자 인증
-	@Transactional(readOnly = true)
-	public Long authenticate(String loginId, String password) {
-		return userAuthenticator.authenticate(loginId, password);
-	}
-
-
-	// 2. ID로 발급 쿠폰 조회 (없으면 예외)
+	// 1. ID로 발급 쿠폰 조회 (없으면 예외)
 	@Transactional(readOnly = true)
 	public IssuedCoupon getById(Long id) {
 		return issuedCouponQueryRepository.findById(id)
@@ -46,14 +35,14 @@ public class IssuedCouponQueryService {
 	}
 
 
-	// 3. 사용자 ID로 발급 쿠폰 목록 조회
+	// 2. 사용자 ID로 발급 쿠폰 목록 조회
 	@Transactional(readOnly = true)
 	public List<IssuedCoupon> getAllByUserId(Long userId) {
 		return issuedCouponQueryRepository.findAllByUserId(userId);
 	}
 
 
-	// 4. 쿠폰 템플릿 ID로 발급 쿠폰 목록 조회 (관리자용)
+	// 3. 쿠폰 템플릿 ID로 발급 쿠폰 목록 조회 (관리자용)
 	@Transactional(readOnly = true)
 	public List<IssuedCoupon> getAllByCouponTemplateId(Long couponTemplateId) {
 		return issuedCouponQueryRepository.findAllByCouponTemplateId(couponTemplateId);

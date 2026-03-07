@@ -5,7 +5,6 @@ import com.loopers.coupon.coupontemplate.domain.model.CouponTemplate;
 import com.loopers.coupon.coupontemplate.domain.model.enums.CouponType;
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponApplyResult;
 import com.loopers.coupon.issuedcoupon.application.port.out.cache.CouponIssueDuplicateGuard;
-import com.loopers.coupon.issuedcoupon.application.port.out.client.user.UserAuthenticator;
 import com.loopers.coupon.issuedcoupon.domain.model.IssuedCoupon;
 import com.loopers.coupon.issuedcoupon.domain.model.enums.IssuedCouponStatus;
 import com.loopers.coupon.issuedcoupon.domain.repository.IssuedCouponCommandRepository;
@@ -41,8 +40,6 @@ class IssuedCouponCommandServiceTest {
 	@Mock
 	private IssuedCouponQueryRepository issuedCouponQueryRepository;
 	@Mock
-	private UserAuthenticator userAuthenticator;
-	@Mock
 	private CouponIssueDuplicateGuard couponIssueDuplicateGuard;
 
 	private IssuedCouponCommandService issuedCouponCommandService;
@@ -51,7 +48,7 @@ class IssuedCouponCommandServiceTest {
 	@BeforeEach
 	void setUp() {
 		issuedCouponCommandService = new IssuedCouponCommandService(
-			issuedCouponCommandRepository, issuedCouponQueryRepository, userAuthenticator, couponIssueDuplicateGuard
+			issuedCouponCommandRepository, issuedCouponQueryRepository, couponIssueDuplicateGuard
 		);
 	}
 
@@ -78,26 +75,6 @@ class IssuedCouponCommandServiceTest {
 			1L, "최소금액 쿠폰", CouponType.FIXED, new BigDecimal("3000"),
 			minOrderAmount, LocalDateTime.now().plusDays(30), null
 		);
-	}
-
-
-	@Nested
-	@DisplayName("authenticate()")
-	class AuthenticateTest {
-
-		@Test
-		@DisplayName("[authenticate()] 유효한 인증 정보 -> userId 반환")
-		void authenticateSuccess() {
-			// Arrange
-			given(userAuthenticator.authenticate("user1", "pw1")).willReturn(100L);
-
-			// Act
-			Long userId = issuedCouponCommandService.authenticate("user1", "pw1");
-
-			// Assert
-			assertThat(userId).isEqualTo(100L);
-		}
-
 	}
 
 

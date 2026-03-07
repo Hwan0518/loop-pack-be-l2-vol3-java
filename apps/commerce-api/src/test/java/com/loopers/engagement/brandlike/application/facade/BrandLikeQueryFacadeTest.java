@@ -3,7 +3,6 @@ package com.loopers.engagement.brandlike.application.facade;
 
 import com.loopers.engagement.brandlike.application.dto.out.BrandLikeOutDto;
 import com.loopers.engagement.brandlike.application.dto.out.BrandLikePageOutDto;
-import com.loopers.engagement.brandlike.application.service.BrandLikeCommandService;
 import com.loopers.engagement.brandlike.application.service.BrandLikeQueryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,8 +24,6 @@ import static org.mockito.BDDMockito.given;
 class BrandLikeQueryFacadeTest {
 
 	@Mock
-	private BrandLikeCommandService brandLikeCommandService;
-	@Mock
 	private BrandLikeQueryService brandLikeQueryService;
 
 	private BrandLikeQueryFacade brandLikeQueryFacade;
@@ -34,7 +31,7 @@ class BrandLikeQueryFacadeTest {
 
 	@BeforeEach
 	void setUp() {
-		brandLikeQueryFacade = new BrandLikeQueryFacade(brandLikeCommandService, brandLikeQueryService);
+		brandLikeQueryFacade = new BrandLikeQueryFacade(brandLikeQueryService);
 	}
 
 
@@ -46,15 +43,15 @@ class BrandLikeQueryFacadeTest {
 		@DisplayName("[getLikesByUserId()] 조회 요청 -> 페이지 결과 반환")
 		void getLikesByUserId() {
 			// Arrange
+			Long userId = 1L;
 			BrandLikePageOutDto outDto = new BrandLikePageOutDto(
-				List.of(new BrandLikeOutDto(1L, 1L, 100L, LocalDateTime.now())),
+				List.of(new BrandLikeOutDto(1L, userId, 100L, LocalDateTime.now())),
 				0, 20, 1
 			);
-			given(brandLikeCommandService.authenticate("loginId", "password")).willReturn(1L);
-			given(brandLikeQueryService.getLikesByUserId(1L, 0, 20)).willReturn(outDto);
+			given(brandLikeQueryService.getLikesByUserId(userId, 0, 20)).willReturn(outDto);
 
 			// Act
-			BrandLikePageOutDto result = brandLikeQueryFacade.getLikesByUserId("loginId", "password", 0, 20);
+			BrandLikePageOutDto result = brandLikeQueryFacade.getLikesByUserId(userId, 0, 20);
 
 			// Assert
 			assertThat(result.content()).hasSize(1);
@@ -70,11 +67,12 @@ class BrandLikeQueryFacadeTest {
 		@DisplayName("[isLikedByUser()] 좋아요 존재 -> true")
 		void isLikedTrue() {
 			// Arrange
-			given(brandLikeCommandService.authenticate("loginId", "password")).willReturn(1L);
-			given(brandLikeQueryService.isLikedByUser(1L, 100L)).willReturn(true);
+			Long userId = 1L;
+			Long targetId = 100L;
+			given(brandLikeQueryService.isLikedByUser(userId, targetId)).willReturn(true);
 
 			// Act & Assert
-			assertThat(brandLikeQueryFacade.isLikedByUser("loginId", "password", 100L)).isTrue();
+			assertThat(brandLikeQueryFacade.isLikedByUser(userId, targetId)).isTrue();
 		}
 
 
@@ -82,11 +80,12 @@ class BrandLikeQueryFacadeTest {
 		@DisplayName("[isLikedByUser()] 좋아요 미존재 -> false")
 		void isLikedFalse() {
 			// Arrange
-			given(brandLikeCommandService.authenticate("loginId", "password")).willReturn(1L);
-			given(brandLikeQueryService.isLikedByUser(1L, 100L)).willReturn(false);
+			Long userId = 1L;
+			Long targetId = 100L;
+			given(brandLikeQueryService.isLikedByUser(userId, targetId)).willReturn(false);
 
 			// Act & Assert
-			assertThat(brandLikeQueryFacade.isLikedByUser("loginId", "password", 100L)).isFalse();
+			assertThat(brandLikeQueryFacade.isLikedByUser(userId, targetId)).isFalse();
 		}
 	}
 

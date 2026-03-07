@@ -54,23 +54,23 @@ class IssuedCouponQueryFacadeTest {
 	class GetMyIssuedCouponsTest {
 
 		@Test
-		@DisplayName("[getMyIssuedCoupons()] 인증 성공 + 발급 쿠폰 존재 -> List<IssuedCouponOutDto> 반환. 인증 → 목록 조회 → 템플릿 일괄 조회 → DTO 변환")
+		@DisplayName("[getMyIssuedCoupons()] 유효한 userId + 발급 쿠폰 존재 -> List<IssuedCouponOutDto> 반환. 목록 조회 → 템플릿 일괄 조회 → DTO 변환")
 		void getMyIssuedCouponsSuccess() {
 			// Arrange
+			Long userId = 100L;
 			CouponTemplate template = CouponTemplate.reconstruct(
 				1L, "테스트 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
 				null, LocalDateTime.now().plusDays(30), null
 			);
 			IssuedCoupon issuedCoupon = IssuedCoupon.reconstruct(
-				10L, 1L, 100L, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now()
+				10L, 1L, userId, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now()
 			);
 
-			given(issuedCouponQueryService.authenticate("user1", "password1")).willReturn(100L);
-			given(issuedCouponQueryService.getAllByUserId(100L)).willReturn(List.of(issuedCoupon));
+			given(issuedCouponQueryService.getAllByUserId(userId)).willReturn(List.of(issuedCoupon));
 			given(couponTemplateQueryService.getByIdIncludeDeleted(1L)).willReturn(template);
 
 			// Act
-			List<IssuedCouponOutDto> result = issuedCouponQueryFacade.getMyIssuedCoupons("user1", "password1");
+			List<IssuedCouponOutDto> result = issuedCouponQueryFacade.getMyIssuedCoupons(userId);
 
 			// Assert
 			assertAll(
@@ -80,26 +80,24 @@ class IssuedCouponQueryFacadeTest {
 				() -> assertThat(result.get(0).type()).isEqualTo(CouponType.FIXED),
 				() -> assertThat(result.get(0).value()).isEqualByComparingTo(new BigDecimal("5000"))
 			);
-			verify(issuedCouponQueryService).authenticate("user1", "password1");
-			verify(issuedCouponQueryService).getAllByUserId(100L);
+			verify(issuedCouponQueryService).getAllByUserId(userId);
 			verify(couponTemplateQueryService).getByIdIncludeDeleted(1L);
 		}
 
 
 		@Test
-		@DisplayName("[getMyIssuedCoupons()] 인증 성공 + 발급 쿠폰 없음 -> 빈 리스트 반환. 템플릿 조회 미호출")
+		@DisplayName("[getMyIssuedCoupons()] 유효한 userId + 발급 쿠폰 없음 -> 빈 리스트 반환. 템플릿 조회 미호출")
 		void getMyIssuedCouponsEmpty() {
 			// Arrange
-			given(issuedCouponQueryService.authenticate("user1", "password1")).willReturn(100L);
-			given(issuedCouponQueryService.getAllByUserId(100L)).willReturn(List.of());
+			Long userId = 100L;
+			given(issuedCouponQueryService.getAllByUserId(userId)).willReturn(List.of());
 
 			// Act
-			List<IssuedCouponOutDto> result = issuedCouponQueryFacade.getMyIssuedCoupons("user1", "password1");
+			List<IssuedCouponOutDto> result = issuedCouponQueryFacade.getMyIssuedCoupons(userId);
 
 			// Assert
 			assertThat(result).isEmpty();
-			verify(issuedCouponQueryService).authenticate("user1", "password1");
-			verify(issuedCouponQueryService).getAllByUserId(100L);
+			verify(issuedCouponQueryService).getAllByUserId(userId);
 		}
 
 	}

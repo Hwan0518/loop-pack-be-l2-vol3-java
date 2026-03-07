@@ -3,7 +3,6 @@ package com.loopers.engagement.productlike.application.facade;
 
 import com.loopers.engagement.productlike.application.dto.out.ProductLikeOutDto;
 import com.loopers.engagement.productlike.application.dto.out.ProductLikePageOutDto;
-import com.loopers.engagement.productlike.application.service.ProductLikeCommandService;
 import com.loopers.engagement.productlike.application.service.ProductLikeQueryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,8 +24,6 @@ import static org.mockito.BDDMockito.given;
 class ProductLikeQueryFacadeTest {
 
 	@Mock
-	private ProductLikeCommandService productLikeCommandService;
-	@Mock
 	private ProductLikeQueryService productLikeQueryService;
 
 	private ProductLikeQueryFacade productLikeQueryFacade;
@@ -34,7 +31,7 @@ class ProductLikeQueryFacadeTest {
 
 	@BeforeEach
 	void setUp() {
-		productLikeQueryFacade = new ProductLikeQueryFacade(productLikeCommandService, productLikeQueryService);
+		productLikeQueryFacade = new ProductLikeQueryFacade(productLikeQueryService);
 	}
 
 
@@ -46,18 +43,15 @@ class ProductLikeQueryFacadeTest {
 		@DisplayName("[getLikesByUserId()] 조회 요청 -> 페이지 결과 반환")
 		void getLikesByUserId() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 1L;
 			ProductLikePageOutDto outDto = new ProductLikePageOutDto(
-				List.of(new ProductLikeOutDto(1L, 1L, 100L, LocalDateTime.now())),
+				List.of(new ProductLikeOutDto(1L, userId, 100L, LocalDateTime.now())),
 				0, 20, 1
 			);
-			given(productLikeCommandService.authenticate(loginId, password)).willReturn(userId);
 			given(productLikeQueryService.getLikesByUserId(userId, 0, 20)).willReturn(outDto);
 
 			// Act
-			ProductLikePageOutDto result = productLikeQueryFacade.getLikesByUserId(loginId, password, 0, 20);
+			ProductLikePageOutDto result = productLikeQueryFacade.getLikesByUserId(userId, 0, 20);
 
 			// Assert
 			assertThat(result.content()).hasSize(1);
@@ -73,15 +67,13 @@ class ProductLikeQueryFacadeTest {
 		@DisplayName("[isLikedByUser()] 좋아요 존재 -> true")
 		void isLikedTrue() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 1L;
+			Long targetId = 100L;
 
-			given(productLikeCommandService.authenticate(loginId, password)).willReturn(userId);
-			given(productLikeQueryService.isLikedByUser(userId, 100L)).willReturn(true);
+			given(productLikeQueryService.isLikedByUser(userId, targetId)).willReturn(true);
 
 			// Act & Assert
-			assertThat(productLikeQueryFacade.isLikedByUser(loginId, password, 100L)).isTrue();
+			assertThat(productLikeQueryFacade.isLikedByUser(userId, targetId)).isTrue();
 		}
 
 
@@ -89,15 +81,13 @@ class ProductLikeQueryFacadeTest {
 		@DisplayName("[isLikedByUser()] 좋아요 미존재 -> false")
 		void isLikedFalse() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 1L;
+			Long targetId = 100L;
 
-			given(productLikeCommandService.authenticate(loginId, password)).willReturn(userId);
-			given(productLikeQueryService.isLikedByUser(userId, 100L)).willReturn(false);
+			given(productLikeQueryService.isLikedByUser(userId, targetId)).willReturn(false);
 
 			// Act & Assert
-			assertThat(productLikeQueryFacade.isLikedByUser(loginId, password, 100L)).isFalse();
+			assertThat(productLikeQueryFacade.isLikedByUser(userId, targetId)).isFalse();
 		}
 	}
 

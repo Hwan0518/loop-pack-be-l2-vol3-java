@@ -3,7 +3,7 @@ package com.loopers.engagement.productlike.interfaces.web.controller;
 import com.loopers.engagement.productlike.application.dto.out.ProductLikeOutDto;
 import com.loopers.engagement.productlike.application.facade.ProductLikeCommandFacade;
 import com.loopers.engagement.productlike.interfaces.web.response.ProductLikeResponse;
-import com.loopers.user.user.support.common.HeaderValidator;
+import com.loopers.support.common.auth.AuthenticationResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +15,8 @@ public class ProductLikeCommandController {
 
 	// facade
 	private final ProductLikeCommandFacade productLikeCommandFacade;
+	// auth
+	private final AuthenticationResolver authenticationResolver;
 
 
 	/**
@@ -31,11 +33,11 @@ public class ProductLikeCommandController {
 		@PathVariable Long id
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// 좋아요 생성
-		ProductLikeOutDto outDto = productLikeCommandFacade.createLike(loginId, password, id);
+		ProductLikeOutDto outDto = productLikeCommandFacade.createLike(userId, id);
 
 		// 응답 변환
 		ProductLikeResponse response = ProductLikeResponse.from(outDto);
@@ -53,11 +55,11 @@ public class ProductLikeCommandController {
 		@PathVariable Long id
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// 좋아요 삭제
-		productLikeCommandFacade.deleteLike(loginId, password, id);
+		productLikeCommandFacade.deleteLike(userId, id);
 
 		// 200 OK 반환
 		return ResponseEntity.ok().build();

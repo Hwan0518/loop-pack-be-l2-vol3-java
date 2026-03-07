@@ -48,20 +48,21 @@ class BrandLikeCommandFacadeTest {
 		@DisplayName("[createLike()] 신규 좋아요 -> OutDto 반환. id, userId, targetId 포함")
 		void createLike() {
 			// Arrange
-			BrandLike like = BrandLike.reconstruct(1L, 1L, 100L, LocalDateTime.now());
-			given(brandLikeCommandService.authenticate("loginId", "password")).willReturn(1L);
-			given(brandLikeCommandService.findLike(1L, 100L)).willReturn(Optional.empty());
-			given(brandLikeCommandService.createLike(1L, 100L)).willReturn(like);
+			Long userId = 1L;
+			Long targetId = 100L;
+			BrandLike like = BrandLike.reconstruct(1L, userId, targetId, LocalDateTime.now());
+			given(brandLikeCommandService.findLike(userId, targetId)).willReturn(Optional.empty());
+			given(brandLikeCommandService.createLike(userId, targetId)).willReturn(like);
 
 			// Act
-			BrandLikeOutDto result = brandLikeCommandFacade.createLike("loginId", "password", 100L);
+			BrandLikeOutDto result = brandLikeCommandFacade.createLike(userId, targetId);
 
 			// Assert
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(1L),
-				() -> assertThat(result.userId()).isEqualTo(1L),
-				() -> assertThat(result.targetId()).isEqualTo(100L),
-				() -> verify(brandLikeCommandService).createLike(1L, 100L)
+				() -> assertThat(result.userId()).isEqualTo(userId),
+				() -> assertThat(result.targetId()).isEqualTo(targetId),
+				() -> verify(brandLikeCommandService).createLike(userId, targetId)
 			);
 		}
 
@@ -69,12 +70,13 @@ class BrandLikeCommandFacadeTest {
 		@DisplayName("[createLike()] 기존 좋아요 존재 -> 기존 반환 (멱등). 좋아요 생성 미호출")
 		void createLikeIdempotent() {
 			// Arrange
-			BrandLike existingLike = BrandLike.reconstruct(1L, 1L, 100L, LocalDateTime.now());
-			given(brandLikeCommandService.authenticate("loginId", "password")).willReturn(1L);
-			given(brandLikeCommandService.findLike(1L, 100L)).willReturn(Optional.of(existingLike));
+			Long userId = 1L;
+			Long targetId = 100L;
+			BrandLike existingLike = BrandLike.reconstruct(1L, userId, targetId, LocalDateTime.now());
+			given(brandLikeCommandService.findLike(userId, targetId)).willReturn(Optional.of(existingLike));
 
 			// Act
-			BrandLikeOutDto result = brandLikeCommandFacade.createLike("loginId", "password", 100L);
+			BrandLikeOutDto result = brandLikeCommandFacade.createLike(userId, targetId);
 
 			// Assert
 			assertAll(
@@ -94,14 +96,15 @@ class BrandLikeCommandFacadeTest {
 		@DisplayName("[deleteLike()] 유효한 요청 -> 서비스 위임")
 		void deleteLike() {
 			// Arrange
-			given(brandLikeCommandService.authenticate("loginId", "password")).willReturn(1L);
-			willDoNothing().given(brandLikeCommandService).deleteLike(1L, 100L);
+			Long userId = 1L;
+			Long targetId = 100L;
+			willDoNothing().given(brandLikeCommandService).deleteLike(userId, targetId);
 
 			// Act
-			brandLikeCommandFacade.deleteLike("loginId", "password", 100L);
+			brandLikeCommandFacade.deleteLike(userId, targetId);
 
 			// Assert
-			verify(brandLikeCommandService).deleteLike(1L, 100L);
+			verify(brandLikeCommandService).deleteLike(userId, targetId);
 		}
 	}
 

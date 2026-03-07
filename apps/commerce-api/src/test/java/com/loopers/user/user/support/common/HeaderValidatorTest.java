@@ -1,6 +1,7 @@
 package com.loopers.user.user.support.common;
 
 
+import com.loopers.support.common.auth.HeaderValidator;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;

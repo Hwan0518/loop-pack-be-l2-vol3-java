@@ -4,7 +4,7 @@ package com.loopers.coupon.issuedcoupon.interfaces.web.controller;
 import com.loopers.coupon.issuedcoupon.application.dto.out.IssuedCouponOutDto;
 import com.loopers.coupon.issuedcoupon.application.facade.IssuedCouponQueryFacade;
 import com.loopers.coupon.issuedcoupon.interfaces.web.response.IssuedCouponResponse;
-import com.loopers.user.user.support.common.HeaderValidator;
+import com.loopers.support.common.auth.AuthenticationResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +19,8 @@ public class UserIssuedCouponQueryController {
 
 	// facade
 	private final IssuedCouponQueryFacade issuedCouponQueryFacade;
+	// auth
+	private final AuthenticationResolver authenticationResolver;
 
 
 	/**
@@ -33,11 +35,11 @@ public class UserIssuedCouponQueryController {
 		@RequestHeader(value = "X-Loopers-LoginPw", required = false) String password
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// 내 쿠폰 목록 조회
-		List<IssuedCouponOutDto> outDtos = issuedCouponQueryFacade.getMyIssuedCoupons(loginId, password);
+		List<IssuedCouponOutDto> outDtos = issuedCouponQueryFacade.getMyIssuedCoupons(userId);
 
 		// 응답 변환
 		List<IssuedCouponResponse> responses = outDtos.stream()

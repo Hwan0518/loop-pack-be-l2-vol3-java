@@ -5,6 +5,9 @@ import com.loopers.engagement.productlike.application.dto.out.ProductLikeOutDto;
 import com.loopers.engagement.productlike.application.dto.out.ProductLikePageOutDto;
 import com.loopers.engagement.productlike.application.facade.ProductLikeQueryFacade;
 import com.loopers.engagement.productlike.interfaces.web.controller.ProductLikeQueryController;
+import com.loopers.support.common.auth.AuthenticationResolver;
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -33,10 +36,14 @@ class ProductLikeQueryControllerTest {
 	@MockitoBean
 	private ProductLikeQueryFacade productLikeQueryFacade;
 
+	@MockitoBean
+	private AuthenticationResolver authenticationResolver;
+
 	private static final String LOGIN_ID_HEADER = "X-Loopers-LoginId";
 	private static final String LOGIN_PW_HEADER = "X-Loopers-LoginPw";
 	private static final String LOGIN_ID = "testuser";
 	private static final String LOGIN_PW = "password123";
+	private static final Long USER_ID = 1L;
 
 
 	@Nested
@@ -47,13 +54,14 @@ class ProductLikeQueryControllerTest {
 		@DisplayName("[GET /api/v1/users/me/product-likes] 좋아요 2건 -> 200 OK. content 크기 2")
 		void getMyLikesSuccess() throws Exception {
 			// Arrange
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
 			ProductLikePageOutDto outDto = new ProductLikePageOutDto(
 				List.of(
 					new ProductLikeOutDto(1L, 1L, 100L, LocalDateTime.now()),
 					new ProductLikeOutDto(2L, 1L, 200L, LocalDateTime.now())
 				), 0, 20, 2
 			);
-			given(productLikeQueryFacade.getLikesByUserId(anyString(), anyString(), eq(0), eq(20)))
+			given(productLikeQueryFacade.getLikesByUserId(anyLong(), eq(0), eq(20)))
 				.willReturn(outDto);
 
 			// Act & Assert
@@ -68,6 +76,11 @@ class ProductLikeQueryControllerTest {
 		@Test
 		@DisplayName("[GET /api/v1/users/me/product-likes] 인증 헤더 누락 -> 401 Unauthorized")
 		void getMyLikesUnauthorized() throws Exception {
+			// Arrange
+			given(authenticationResolver.resolve(isNull(), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
+
+			// Act & Assert
 			mockMvc.perform(get("/api/v1/users/me/product-likes"))
 				.andExpect(status().isUnauthorized());
 		}
@@ -82,7 +95,8 @@ class ProductLikeQueryControllerTest {
 		@DisplayName("[GET /api/v1/users/me/product-likes/check] 좋아요 존재 -> 200 OK. liked=true")
 		void checkLikedTrue() throws Exception {
 			// Arrange
-			given(productLikeQueryFacade.isLikedByUser(anyString(), anyString(), eq(100L))).willReturn(true);
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
+			given(productLikeQueryFacade.isLikedByUser(anyLong(), eq(100L))).willReturn(true);
 
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/users/me/product-likes/check")
@@ -97,7 +111,8 @@ class ProductLikeQueryControllerTest {
 		@DisplayName("[GET /api/v1/users/me/product-likes/check] 좋아요 미존재 -> 200 OK. liked=false")
 		void checkLikedFalse() throws Exception {
 			// Arrange
-			given(productLikeQueryFacade.isLikedByUser(anyString(), anyString(), eq(100L))).willReturn(false);
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
+			given(productLikeQueryFacade.isLikedByUser(anyLong(), eq(100L))).willReturn(false);
 
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/users/me/product-likes/check")
@@ -111,6 +126,11 @@ class ProductLikeQueryControllerTest {
 		@Test
 		@DisplayName("[GET /api/v1/users/me/product-likes/check] 인증 헤더 누락 -> 401 Unauthorized")
 		void checkUnauthorized() throws Exception {
+			// Arrange
+			given(authenticationResolver.resolve(isNull(), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
+
+			// Act & Assert
 			mockMvc.perform(get("/api/v1/users/me/product-likes/check")
 					.param("targetId", "100"))
 				.andExpect(status().isUnauthorized());

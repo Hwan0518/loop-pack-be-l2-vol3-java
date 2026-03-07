@@ -9,6 +9,7 @@ import com.loopers.cart.cart.interfaces.web.controller.CartItemCommandController
 import com.loopers.cart.cart.interfaces.web.request.CartItemAddRequest;
 import com.loopers.cart.cart.interfaces.web.request.CartItemSelectionRequest;
 import com.loopers.cart.cart.interfaces.web.request.CartItemUpdateQuantityRequest;
+import com.loopers.support.common.auth.AuthenticationResolver;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -45,10 +46,14 @@ class CartItemCommandControllerTest {
 	@MockitoBean
 	private CartItemCommandFacade cartItemCommandFacade;
 
+	@MockitoBean
+	private AuthenticationResolver authenticationResolver;
+
 	private static final String LOGIN_ID_HEADER = "X-Loopers-LoginId";
 	private static final String LOGIN_PW_HEADER = "X-Loopers-LoginPw";
 	private static final String LOGIN_ID = "testuser";
 	private static final String LOGIN_PW = "password123";
+	private static final Long USER_ID = 1L;
 
 
 	@Nested
@@ -62,7 +67,8 @@ class CartItemCommandControllerTest {
 			CartItemAddRequest request = new CartItemAddRequest(100L, 3L);
 			CartItemOutDto outDto = new CartItemOutDto(1L, 1L, 100L, 3L, true, LocalDateTime.now());
 
-			given(cartItemCommandFacade.addItem(anyString(), anyString(), any())).willReturn(outDto);
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
+			given(cartItemCommandFacade.addItem(anyLong(), any())).willReturn(outDto);
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/cart/items")
@@ -131,7 +137,8 @@ class CartItemCommandControllerTest {
 		void addItemProductNotFound() throws Exception {
 			// Arrange
 			CartItemAddRequest request = new CartItemAddRequest(999L, 3L);
-			given(cartItemCommandFacade.addItem(anyString(), anyString(), any()))
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
+			given(cartItemCommandFacade.addItem(anyLong(), any()))
 				.willThrow(new CoreException(ErrorType.CART_PRODUCT_NOT_FOUND));
 
 			// Act & Assert
@@ -158,7 +165,8 @@ class CartItemCommandControllerTest {
 			CartItemUpdateQuantityRequest request = new CartItemUpdateQuantityRequest(10L);
 			CartItemOutDto outDto = new CartItemOutDto(1L, 1L, 100L, 10L, true, LocalDateTime.now());
 
-			given(cartItemCommandFacade.updateQuantity(anyString(), anyString(), eq(1L), any())).willReturn(outDto);
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
+			given(cartItemCommandFacade.updateQuantity(anyLong(), eq(1L), any())).willReturn(outDto);
 
 			// Act & Assert
 			mockMvc.perform(put("/api/v1/cart/items/{id}", 1L)
@@ -190,7 +198,8 @@ class CartItemCommandControllerTest {
 		void updateQuantityNotFound() throws Exception {
 			// Arrange
 			CartItemUpdateQuantityRequest request = new CartItemUpdateQuantityRequest(10L);
-			given(cartItemCommandFacade.updateQuantity(anyString(), anyString(), eq(999L), any()))
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
+			given(cartItemCommandFacade.updateQuantity(anyLong(), eq(999L), any()))
 				.willThrow(new CoreException(ErrorType.CART_ITEM_NOT_FOUND));
 
 			// Act & Assert
@@ -214,7 +223,8 @@ class CartItemCommandControllerTest {
 		@DisplayName("[DELETE /api/v1/cart/items/{id}] 유효한 요청 -> 204 No Content")
 		void deleteItemSuccess() throws Exception {
 			// Arrange
-			willDoNothing().given(cartItemCommandFacade).deleteItem(anyString(), anyString(), eq(1L));
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
+			willDoNothing().given(cartItemCommandFacade).deleteItem(anyLong(), eq(1L));
 
 			// Act & Assert
 			mockMvc.perform(delete("/api/v1/cart/items/{id}", 1L)
@@ -237,8 +247,9 @@ class CartItemCommandControllerTest {
 		@DisplayName("[DELETE /api/v1/cart/items/{id}] 다른 사용자의 항목 -> 404 Not Found. CART_ITEM_NOT_FOUND")
 		void deleteItemOwnershipFail() throws Exception {
 			// Arrange
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
 			willThrow(new CoreException(ErrorType.CART_ITEM_NOT_FOUND))
-				.given(cartItemCommandFacade).deleteItem(anyString(), anyString(), eq(1L));
+				.given(cartItemCommandFacade).deleteItem(anyLong(), eq(1L));
 
 			// Act & Assert
 			mockMvc.perform(delete("/api/v1/cart/items/{id}", 1L)
@@ -262,7 +273,8 @@ class CartItemCommandControllerTest {
 			CartItemSelectionRequest request = new CartItemSelectionRequest(List.of(1L, 3L));
 			CartItemSelectionOutDto outDto = new CartItemSelectionOutDto(List.of(1L, 3L), List.of(2L));
 
-			given(cartItemCommandFacade.updateSelection(anyString(), anyString(), any())).willReturn(outDto);
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
+			given(cartItemCommandFacade.updateSelection(anyLong(), any())).willReturn(outDto);
 
 			// Act & Assert
 			mockMvc.perform(put("/api/v1/cart/items/selection")

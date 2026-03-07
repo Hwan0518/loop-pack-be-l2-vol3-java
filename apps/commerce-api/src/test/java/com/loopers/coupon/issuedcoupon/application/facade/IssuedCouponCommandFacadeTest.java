@@ -67,26 +67,25 @@ class IssuedCouponCommandFacadeTest {
 	class IssueCouponTest {
 
 		@Test
-		@DisplayName("[issueCoupon()] 인증 성공 + 캐시 최초 -> CouponIssueOutDto 반환. 인증 -> 캐시 -> 템플릿 조회 -> 저장")
+		@DisplayName("[issueCoupon()] 유효한 userId + couponTemplateId -> CouponIssueOutDto 반환. 캐시 -> 템플릿 조회 -> 저장")
 		void issueCouponSuccess() {
 			// Arrange
+			Long userId = 100L;
 			CouponTemplate template = activeTemplate();
 			IssuedCoupon savedCoupon = IssuedCoupon.reconstruct(
-				1L, 1L, 100L, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now()
+				1L, 1L, userId, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now()
 			);
 
-			given(issuedCouponCommandService.authenticate("user1", "password1")).willReturn(100L);
-			willDoNothing().given(issuedCouponCommandService).validateNotDuplicateIssue(100L, 1L);
+			willDoNothing().given(issuedCouponCommandService).validateNotDuplicateIssue(userId, 1L);
 			given(couponTemplateQueryService.getById(1L)).willReturn(template);
 			given(issuedCouponCommandService.save(any(IssuedCoupon.class))).willReturn(savedCoupon);
 
 			// Act
-			CouponIssueOutDto result = issuedCouponCommandFacade.issueCoupon("user1", "password1", 1L);
+			CouponIssueOutDto result = issuedCouponCommandFacade.issueCoupon(userId, 1L);
 
 			// Assert
 			assertThat(result.issuedCouponId()).isEqualTo(1L);
-			verify(issuedCouponCommandService).authenticate("user1", "password1");
-			verify(issuedCouponCommandService).validateNotDuplicateIssue(100L, 1L);
+			verify(issuedCouponCommandService).validateNotDuplicateIssue(userId, 1L);
 			verify(couponTemplateQueryService).getById(1L);
 			verify(issuedCouponCommandService).save(any(IssuedCoupon.class));
 		}
@@ -96,13 +95,13 @@ class IssuedCouponCommandFacadeTest {
 		@DisplayName("[issueCoupon()] 로컬 캐시 중복 (1차 방어) -> COUPON_ISSUE_DUPLICATED 예외. 템플릿 조회/저장 미호출")
 		void issueCouponDuplicatedByCache() {
 			// Arrange
-			given(issuedCouponCommandService.authenticate("user1", "password1")).willReturn(100L);
+			Long userId = 100L;
 			willThrow(new CoreException(ErrorType.COUPON_ISSUE_DUPLICATED))
-				.given(issuedCouponCommandService).validateNotDuplicateIssue(100L, 1L);
+				.given(issuedCouponCommandService).validateNotDuplicateIssue(userId, 1L);
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> issuedCouponCommandFacade.issueCoupon("user1", "password1", 1L));
+				() -> issuedCouponCommandFacade.issueCoupon(userId, 1L));
 
 			// Assert
 			assertAll(

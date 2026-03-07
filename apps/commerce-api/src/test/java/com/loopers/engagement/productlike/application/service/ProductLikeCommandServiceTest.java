@@ -3,7 +3,6 @@ package com.loopers.engagement.productlike.application.service;
 
 import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeCountSyncer;
 import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeTargetValidator;
-import com.loopers.engagement.productlike.application.port.out.client.user.UserAuthenticator;
 import com.loopers.engagement.productlike.domain.model.ProductLike;
 import com.loopers.engagement.productlike.domain.repository.ProductLikeCommandRepository;
 import com.loopers.engagement.productlike.domain.repository.ProductLikeQueryRepository;
@@ -39,8 +38,6 @@ class ProductLikeCommandServiceTest {
 	@Mock
 	private ProductLikeTargetValidator productLikeTargetValidator;
 	@Mock
-	private UserAuthenticator userAuthenticator;
-	@Mock
 	private ProductLikeCountSyncer productLikeCountSyncer;
 
 	private ProductLikeCommandService productLikeCommandService;
@@ -52,7 +49,6 @@ class ProductLikeCommandServiceTest {
 			productLikeCommandRepository,
 			productLikeQueryRepository,
 			productLikeTargetValidator,
-			userAuthenticator,
 			productLikeCountSyncer
 		);
 	}
