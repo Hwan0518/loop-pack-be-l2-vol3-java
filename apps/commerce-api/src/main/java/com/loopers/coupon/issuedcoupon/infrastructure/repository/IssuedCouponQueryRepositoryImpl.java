@@ -28,6 +28,7 @@ public class IssuedCouponQueryRepositoryImpl implements IssuedCouponQueryReposit
 	 * 2. 사용자 ID와 쿠폰 템플릿 ID로 발급 존재 여부 조회
 	 * 3. 사용자 ID로 발급 쿠폰 목록 조회
 	 * 4. 쿠폰 템플릿 ID로 발급 쿠폰 목록 조회
+	 * 5. ID로 발급 쿠폰 조회 (비관적 쓰기 락)
 	 */
 
 	// 1. ID로 발급 쿠폰 조회
@@ -60,6 +61,14 @@ public class IssuedCouponQueryRepositoryImpl implements IssuedCouponQueryReposit
 		return issuedCouponJpaRepository.findAllByCouponTemplateIdOrderByCreatedAtDesc(couponTemplateId).stream()
 			.map(issuedCouponEntityMapper::toDomain)
 			.toList();
+	}
+
+
+	// 5. ID로 발급 쿠폰 조회 (비관적 쓰기 락)
+	@Override
+	public Optional<IssuedCoupon> findByIdForUpdate(Long id) {
+		return issuedCouponJpaRepository.findByIdForUpdate(id)
+			.map(issuedCouponEntityMapper::toDomain);
 	}
 
 }

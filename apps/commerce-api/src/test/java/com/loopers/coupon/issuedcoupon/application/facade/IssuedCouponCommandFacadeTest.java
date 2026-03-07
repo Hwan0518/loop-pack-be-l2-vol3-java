@@ -7,7 +7,6 @@ import com.loopers.coupon.coupontemplate.domain.model.enums.CouponType;
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponApplyResult;
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponIssueOutDto;
 import com.loopers.coupon.issuedcoupon.application.service.IssuedCouponCommandService;
-import com.loopers.coupon.issuedcoupon.application.service.IssuedCouponQueryService;
 import com.loopers.coupon.issuedcoupon.domain.model.IssuedCoupon;
 import com.loopers.coupon.issuedcoupon.domain.model.enums.IssuedCouponStatus;
 import com.loopers.support.common.error.CoreException;
@@ -40,9 +39,6 @@ class IssuedCouponCommandFacadeTest {
 	private IssuedCouponCommandService issuedCouponCommandService;
 
 	@Mock
-	private IssuedCouponQueryService issuedCouponQueryService;
-
-	@Mock
 	private CouponTemplateQueryService couponTemplateQueryService;
 
 	private IssuedCouponCommandFacade issuedCouponCommandFacade;
@@ -52,7 +48,6 @@ class IssuedCouponCommandFacadeTest {
 	void setUp() {
 		issuedCouponCommandFacade = new IssuedCouponCommandFacade(
 			issuedCouponCommandService,
-			issuedCouponQueryService,
 			couponTemplateQueryService
 		);
 	}
@@ -126,7 +121,7 @@ class IssuedCouponCommandFacadeTest {
 	class ApplyToCouponTest {
 
 		@Test
-		@DisplayName("[applyToCoupon()] 유효한 쿠폰 적용 -> CouponApplyResult 반환. 조회 -> 검증 -> 상태 변경 -> 할인 계산")
+		@DisplayName("[applyToCoupon()] 유효한 쿠폰 적용 -> CouponApplyResult 반환. 비관적 락 조회 -> 템플릿 조회 -> 검증 -> 상태 변경 -> 할인 계산")
 		void applyToCouponSuccess() {
 			// Arrange
 			IssuedCoupon issuedCoupon = IssuedCoupon.reconstruct(
@@ -137,9 +132,9 @@ class IssuedCouponCommandFacadeTest {
 				10L, new BigDecimal("5000"), "테스트 쿠폰", "FIXED", new BigDecimal("5000")
 			);
 
-			given(issuedCouponQueryService.getById(10L)).willReturn(issuedCoupon);
+			given(issuedCouponCommandService.getByIdForUpdate(10L)).willReturn(issuedCoupon);
 			given(couponTemplateQueryService.getByIdIncludeDeleted(1L)).willReturn(template);
-			given(issuedCouponCommandService.applyToCoupon(10L, 100L, new BigDecimal("30000"), template))
+			given(issuedCouponCommandService.applyToCoupon(issuedCoupon, 100L, new BigDecimal("30000"), template))
 				.willReturn(applyResult);
 
 			// Act
@@ -153,9 +148,9 @@ class IssuedCouponCommandFacadeTest {
 				() -> assertThat(result.couponSnapshotType()).isEqualTo("FIXED"),
 				() -> assertThat(result.couponSnapshotValue()).isEqualByComparingTo(new BigDecimal("5000"))
 			);
-			verify(issuedCouponQueryService).getById(10L);
+			verify(issuedCouponCommandService).getByIdForUpdate(10L);
 			verify(couponTemplateQueryService).getByIdIncludeDeleted(1L);
-			verify(issuedCouponCommandService).applyToCoupon(10L, 100L, new BigDecimal("30000"), template);
+			verify(issuedCouponCommandService).applyToCoupon(issuedCoupon, 100L, new BigDecimal("30000"), template);
 		}
 
 	}

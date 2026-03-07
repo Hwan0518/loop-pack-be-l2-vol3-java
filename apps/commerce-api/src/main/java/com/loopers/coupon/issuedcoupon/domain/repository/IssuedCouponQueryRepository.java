@@ -24,4 +24,7 @@ public interface IssuedCouponQueryRepository {
 	// 4. couponTemplateId로 발급 쿠폰 목록 조회 (관리자용 페이지)
 	List<IssuedCoupon> findAllByCouponTemplateId(Long couponTemplateId);
 
+	// 5. ID로 발급 쿠폰 조회 (비관적 쓰기 락)
+	Optional<IssuedCoupon> findByIdForUpdate(Long id);
+
 }

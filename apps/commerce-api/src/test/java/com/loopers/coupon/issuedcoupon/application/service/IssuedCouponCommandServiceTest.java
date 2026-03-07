@@ -184,20 +184,61 @@ class IssuedCouponCommandServiceTest {
 
 
 	@Nested
+	@DisplayName("getByIdForUpdate()")
+	class GetByIdForUpdateTest {
+
+		@Test
+		@DisplayName("[getByIdForUpdate()] 존재하는 발급 쿠폰 ID -> IssuedCoupon 반환. 비관적 쓰기 락으로 조회")
+		void getByIdForUpdateSuccess() {
+			// Arrange
+			IssuedCoupon issuedCoupon = IssuedCoupon.reconstruct(1L, 1L, 100L, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now());
+			given(issuedCouponQueryRepository.findByIdForUpdate(1L)).willReturn(Optional.of(issuedCoupon));
+
+			// Act
+			IssuedCoupon result = issuedCouponCommandService.getByIdForUpdate(1L);
+
+			// Assert
+			assertAll(
+				() -> assertThat(result.getId()).isEqualTo(1L),
+				() -> verify(issuedCouponQueryRepository).findByIdForUpdate(1L)
+			);
+		}
+
+
+		@Test
+		@DisplayName("[getByIdForUpdate()] 존재하지 않는 발급 쿠폰 ID -> ISSUED_COUPON_NOT_FOUND 예외")
+		void getByIdForUpdateNotFound() {
+			// Arrange
+			given(issuedCouponQueryRepository.findByIdForUpdate(999L)).willReturn(Optional.empty());
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> issuedCouponCommandService.getByIdForUpdate(999L));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.ISSUED_COUPON_NOT_FOUND),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.ISSUED_COUPON_NOT_FOUND.getMessage())
+			);
+		}
+
+	}
+
+
+	@Nested
 	@DisplayName("applyToCoupon()")
 	class ApplyToCouponTest {
 
 		@Test
-		@DisplayName("[applyToCoupon()] 유효한 쿠폰 적용 -> CouponApplyResult 반환, 상태 USED로 변경")
+		@DisplayName("[applyToCoupon()] 유효한 쿠폰 적용 -> CouponApplyResult 반환, 상태 USED로 변경. Facade에서 비관적 락으로 조회된 쿠폰 전달")
 		void applySuccess() {
 			// Arrange
 			IssuedCoupon issuedCoupon = IssuedCoupon.reconstruct(1L, 1L, 100L, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now());
-			given(issuedCouponQueryRepository.findById(1L)).willReturn(Optional.of(issuedCoupon));
 			given(issuedCouponCommandRepository.save(any(IssuedCoupon.class))).willAnswer(invocation -> invocation.getArgument(0));
 
 			// Act
 			CouponApplyResult result = issuedCouponCommandService.applyToCoupon(
-				1L, 100L, new BigDecimal("30000"), activeTemplate()
+				issuedCoupon, 100L, new BigDecimal("30000"), activeTemplate()
 			);
 
 			// Assert
@@ -211,36 +252,15 @@ class IssuedCouponCommandServiceTest {
 
 
 		@Test
-		@DisplayName("[applyToCoupon()] 존재하지 않는 발급 쿠폰 ID -> ISSUED_COUPON_NOT_FOUND 예외")
-		void applyIssuedCouponNotFound() {
-			// Arrange
-			given(issuedCouponQueryRepository.findById(999L)).willReturn(Optional.empty());
-
-			// Act
-			CoreException exception = assertThrows(CoreException.class,
-				() -> issuedCouponCommandService.applyToCoupon(
-					999L, 100L, new BigDecimal("30000"), activeTemplate()
-				));
-
-			// Assert
-			assertAll(
-				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.ISSUED_COUPON_NOT_FOUND),
-				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.ISSUED_COUPON_NOT_FOUND.getMessage())
-			);
-		}
-
-
-		@Test
 		@DisplayName("[applyToCoupon()] 쿠폰 소유자가 아닌 userId -> COUPON_NOT_OWNED_BY_USER 예외")
 		void applyNotOwned() {
 			// Arrange
 			IssuedCoupon issuedCoupon = IssuedCoupon.reconstruct(1L, 1L, 100L, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now());
-			given(issuedCouponQueryRepository.findById(1L)).willReturn(Optional.of(issuedCoupon));
 
 			// Act — userId 999L은 소유자(100L)가 아님
 			CoreException exception = assertThrows(CoreException.class,
 				() -> issuedCouponCommandService.applyToCoupon(
-					1L, 999L, new BigDecimal("30000"), activeTemplate()
+					issuedCoupon, 999L, new BigDecimal("30000"), activeTemplate()
 				));
 
 			// Assert
@@ -256,12 +276,11 @@ class IssuedCouponCommandServiceTest {
 		void applyAlreadyUsed() {
 			// Arrange
 			IssuedCoupon issuedCoupon = IssuedCoupon.reconstruct(1L, 1L, 100L, IssuedCouponStatus.USED, ZonedDateTime.now());
-			given(issuedCouponQueryRepository.findById(1L)).willReturn(Optional.of(issuedCoupon));
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
 				() -> issuedCouponCommandService.applyToCoupon(
-					1L, 100L, new BigDecimal("30000"), activeTemplate()
+					issuedCoupon, 100L, new BigDecimal("30000"), activeTemplate()
 				));
 
 			// Assert
@@ -277,12 +296,11 @@ class IssuedCouponCommandServiceTest {
 		void applyExpired() {
 			// Arrange
 			IssuedCoupon issuedCoupon = IssuedCoupon.reconstruct(1L, 1L, 100L, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now());
-			given(issuedCouponQueryRepository.findById(1L)).willReturn(Optional.of(issuedCoupon));
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
 				() -> issuedCouponCommandService.applyToCoupon(
-					1L, 100L, new BigDecimal("30000"), expiredTemplate()
+					issuedCoupon, 100L, new BigDecimal("30000"), expiredTemplate()
 				));
 
 			// Assert
@@ -298,12 +316,11 @@ class IssuedCouponCommandServiceTest {
 		void applyMinOrderAmountNotMet() {
 			// Arrange
 			IssuedCoupon issuedCoupon = IssuedCoupon.reconstruct(1L, 1L, 100L, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now());
-			given(issuedCouponQueryRepository.findById(1L)).willReturn(Optional.of(issuedCoupon));
 
 			// Act — totalPrice 5000 < minOrderAmount 10000
 			CoreException exception = assertThrows(CoreException.class,
 				() -> issuedCouponCommandService.applyToCoupon(
-					1L, 100L, new BigDecimal("5000"), templateWithMinOrder(new BigDecimal("10000"))
+					issuedCoupon, 100L, new BigDecimal("5000"), templateWithMinOrder(new BigDecimal("10000"))
 				));
 
 			// Assert
@@ -319,12 +336,11 @@ class IssuedCouponCommandServiceTest {
 		void applyMinOrderAmountEqual() {
 			// Arrange
 			IssuedCoupon issuedCoupon = IssuedCoupon.reconstruct(1L, 1L, 100L, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now());
-			given(issuedCouponQueryRepository.findById(1L)).willReturn(Optional.of(issuedCoupon));
 			given(issuedCouponCommandRepository.save(any(IssuedCoupon.class))).willAnswer(invocation -> invocation.getArgument(0));
 
 			// Act — totalPrice == minOrderAmount == 10000
 			assertDoesNotThrow(() -> issuedCouponCommandService.applyToCoupon(
-				1L, 100L, new BigDecimal("10000"), templateWithMinOrder(new BigDecimal("10000"))
+				issuedCoupon, 100L, new BigDecimal("10000"), templateWithMinOrder(new BigDecimal("10000"))
 			));
 		}
 

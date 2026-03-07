@@ -6,7 +6,6 @@ import com.loopers.coupon.coupontemplate.domain.model.CouponTemplate;
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponApplyResult;
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponIssueOutDto;
 import com.loopers.coupon.issuedcoupon.application.service.IssuedCouponCommandService;
-import com.loopers.coupon.issuedcoupon.application.service.IssuedCouponQueryService;
 import com.loopers.coupon.issuedcoupon.domain.model.IssuedCoupon;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,7 +20,6 @@ public class IssuedCouponCommandFacade {
 
 	// service
 	private final IssuedCouponCommandService issuedCouponCommandService;
-	private final IssuedCouponQueryService issuedCouponQueryService;
 	private final CouponTemplateQueryService couponTemplateQueryService;
 
 
@@ -51,15 +49,17 @@ public class IssuedCouponCommandFacade {
 	}
 
 
-	// 2. 쿠폰 적용 (주문 BC에서 Cross-BC Port를 통해 호출 — 1:1 사용자 쿠폰이므로 동시성 경합 없음)
+	// 2. 쿠폰 적용 (주문 BC에서 Cross-BC Port를 통해 호출 — 비관적 락으로 동시 사용 방지)
 	public CouponApplyResult applyToCoupon(Long issuedCouponId, Long userId, BigDecimal totalPrice) {
 
+		// 발급 쿠폰 조회 (비관적 쓰기 락 — 1차 캐시 오염 방지를 위해 FOR UPDATE가 첫 번째 조회)
+		IssuedCoupon issuedCoupon = issuedCouponCommandService.getByIdForUpdate(issuedCouponId);
+
 		// 쿠폰 템플릿 조회 (삭제 여부 무관 — 만료 판단은 isExpired()에서 처리)
-		IssuedCoupon issuedCoupon = issuedCouponQueryService.getById(issuedCouponId);
 		CouponTemplate template = couponTemplateQueryService.getByIdIncludeDeleted(issuedCoupon.getCouponTemplateId());
 
 		// 쿠폰 적용 (검증 + 상태 변경 + 할인 계산)
-		return issuedCouponCommandService.applyToCoupon(issuedCouponId, userId, totalPrice, template);
+		return issuedCouponCommandService.applyToCoupon(issuedCoupon, userId, totalPrice, template);
 	}
 
 }

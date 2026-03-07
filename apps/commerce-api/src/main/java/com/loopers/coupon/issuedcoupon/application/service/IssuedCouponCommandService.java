@@ -36,7 +36,8 @@ public class IssuedCouponCommandService {
 	 * 1. 사용자 인증
 	 * 2. 중복 발급 차단 (1차: 로컬 캐시, 2차: DB 존재 확인)
 	 * 3. 발급 쿠폰 저장
-	 * 4. 쿠폰 적용 (주문 BC에서 호출)
+	 * 4. 발급 쿠폰 조회 (비관적 쓰기 락)
+	 * 5. 쿠폰 적용 (주문 BC에서 호출)
 	 */
 
 	// 1. 사용자 인증
@@ -68,13 +69,17 @@ public class IssuedCouponCommandService {
 	}
 
 
-	// 4. 쿠폰 적용 (7단계 검증 후 상태 변경 및 할인 금액 반환)
+	// 4. 발급 쿠폰 조회 (비관적 쓰기 락 — 동일 사용자 멀티 디바이스 동시 주문 시 이중 사용 방지)
 	@Transactional
-	public CouponApplyResult applyToCoupon(Long issuedCouponId, Long userId, BigDecimal totalPrice, CouponTemplate template) {
-
-		// 발급 쿠폰 조회
-		IssuedCoupon issuedCoupon = issuedCouponQueryRepository.findById(issuedCouponId)
+	public IssuedCoupon getByIdForUpdate(Long issuedCouponId) {
+		return issuedCouponQueryRepository.findByIdForUpdate(issuedCouponId)
 			.orElseThrow(() -> new CoreException(ErrorType.ISSUED_COUPON_NOT_FOUND));
+	}
+
+
+	// 5. 쿠폰 적용 (Facade에서 비관적 락으로 조회한 쿠폰을 전달받아 검증 + 상태 변경 + 할인 계산)
+	@Transactional
+	public CouponApplyResult applyToCoupon(IssuedCoupon issuedCoupon, Long userId, BigDecimal totalPrice, CouponTemplate template) {
 
 		// userId 검증 (소유자 확인)
 		if (!issuedCoupon.getUserId().equals(userId)) {
@@ -105,7 +110,7 @@ public class IssuedCouponCommandService {
 
 		// 쿠폰 적용 결과 반환
 		return new CouponApplyResult(
-			issuedCouponId,
+			issuedCoupon.getId(),
 			discountAmount,
 			template.getName(),
 			template.getType().name(),

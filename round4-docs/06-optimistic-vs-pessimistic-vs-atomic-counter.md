@@ -282,10 +282,10 @@ public void decreaseStock(Long productId, Long quantity) {
 
 동시성 테스트 결과: 10개 스레드가 동시에 1개씩 차감해도 재고가 정확히 90으로 떨어진다. 재고가 5개인 상품에 10개 요청이 들어오면, 5개 성공 + 5개 `PRODUCT_OUT_OF_STOCK` — 정확하다.
 
-**쿠폰 사용 — 과잉 방어 (이후 제거)**
+**쿠폰 사용 — 낙관적 락에서 비관적 락으로 전환**
 
 ```java
-// IssuedCouponCommandFacade.java (당시 코드 — 이후 락 전체 제거)
+// IssuedCouponCommandFacade.java (초기 코드 — 낙관적 락)
 @Retryable(
     retryFor = OptimisticLockingFailureException.class,
     recover = "recoverApplyToCouponConflict",
@@ -295,13 +295,9 @@ public void decreaseStock(Long productId, Long quantity) {
 public CouponApplyResult applyToCoupon(Long issuedCouponId, Long userId, BigDecimal totalPrice) { ... }
 ```
 
-처음에는 "복잡한 비즈니스 로직이 있으니 낙관적 락이 적합하다"고 판단했다. 하지만 이후 더 근본적인 질문을 던지게 되었다: **"애초에 동시성 경합이 현실적으로 발생하는가?"**
+처음에는 "복잡한 비즈니스 로직이 있으니 낙관적 락이 적합하다"고 판단했다. 이후 "경합이 성립하지 않는다"고 판단하여 `@Version`/`@Retryable`을 전체 제거했다. 그런데 코드 리뷰에서 **동일 사용자가 멀티 디바이스에서 동시에 같은 쿠폰으로 주문하는 시나리오**가 발견되었다. 1쿠폰 = 1사용자이지만 1사용자 = 다수 디바이스이므로 경합이 성립한다.
 
-- 1장의 쿠폰은 1명의 사용자만 소유한다.
-- 같은 사용자가 같은 쿠폰으로 동시에 2개 주문을 넣는 시나리오는 사실상 없다.
-- 즉, **경합 자체가 성립하지 않는다.** 경합이 없는 곳에 락을 거는 것은 과잉 방어다.
-
-→ 이후 Section C에서 "락 불필요" 결론으로 변경. `@Version`, `@Retryable`, `@Recover` 전체 제거.
+→ 이후 Section C에서 비관적 락(`SELECT FOR UPDATE`)으로 최종 결정. 낙관적 락 대비 재시도 불필요 + 주문 TX 안에서 깔끔하게 동작.
 
 ---
 
@@ -349,7 +345,7 @@ Q0. 애초에 동시성 경합이 현실적으로 발생하는가?
                         └── 비관적 락
 ```
 
-> Q0이 가장 먼저 오는 이유: "복잡한 상태 변경이 있으니 일단 락을 걸자"는 사고방식이 과잉 방어로 이어질 수 있다. 쿠폰 사용이 그 대표적 사례다. 비즈니스 로직이 복잡하더라도, **경합이 성립하지 않으면 락은 불필요하다.**
+> Q0이 가장 먼저 오는 이유: "복잡한 상태 변경이 있으니 일단 락을 걸자"는 사고방식은 과잉 방어로 이어질 수 있다. 다만 Q0 판단 시 주의할 점이 있다 — "1쿠폰 = 1사용자"처럼 단순화하면 경합이 없어 보이지만, "1사용자 = 다수 디바이스"를 고려하면 경합이 성립한다. **경합 가능성 판단은 사용자 단위가 아니라 디바이스/세션 단위로 해야 한다.**
 
 ---
 
@@ -454,9 +450,9 @@ Q2. 빠른 응답 기대 + 경합 낮음?
 
 ---
 
-### **C: 쿠폰 사용 (UPDATE) → 락 불필요 (과잉 방어 제거)**
+### **C: 쿠폰 사용 (UPDATE) → 비관적 락 (SELECT FOR UPDATE)**
 
-**의사결정 트리 적용:**
+**의사결정 트리 적용 (초기 판단):**
 
 ```
 Q0. 애초에 동시성 경합이 현실적으로 발생하는가?
@@ -465,20 +461,64 @@ Q0. 애초에 동시성 경합이 현실적으로 발생하는가?
     → 락 불필요.
 ```
 
-**왜 처음에 낙관적 락을 적용했는가:**
+이 판단에 따라 `@Version` + `@Retryable` + `@Recover`를 전체 제거했다.
 
-"쿠폰 상태 변경(AVAILABLE → USED) + 만료 검증 + 소유자 검증 + 할인 계산"이라는 복잡한 비즈니스 로직이 있어서, "복잡한 상태 변경이니 락이 필요하다"고 판단했다. 하지만 이것은 **기술적 복잡도에서 출발한 판단**이었다.
+**재검토 — 멀티 디바이스 동시 주문 시나리오 발견:**
 
-**왜 제거했는가:**
+그런데 이후 코드 리뷰 과정에서 "같은 사용자가 동시에 같은 쿠폰을 사용할 수 없다"는 가정이 **완전하지 않다**는 것을 발견했다.
 
-더 근본적인 질문은 "이 비즈니스 로직이 동시에 실행될 가능성이 있는가?"였다. 1장의 쿠폰 = 1명의 사용자이므로, 같은 row에 대한 동시 수정이 발생할 조건 자체가 성립하지 않는다. 발생하지 않는 문제를 막기 위해 `@Version` + `@Retryable` + `@Recover`를 올리는 것은 과잉 방어였다.
+- 모바일 앱 + PC 브라우저에서 동시에 같은 쿠폰으로 주문을 시도하는 시나리오
+- 한 디바이스에서 "결제" 버튼을 누른 직후, 다른 디바이스에서도 같은 쿠폰으로 "결제"를 누르는 경우
+- 1쿠폰 = 1사용자이지만, **1사용자 = 다수 디바이스**이므로 동시 주문이 가능하다
 
-**최종 결정: 락 전체 제거**
+락이 없으면 두 TX 모두 `status=AVAILABLE`을 읽고, 둘 다 `USED`로 변경하여 저장한다. 결과적으로 하나의 쿠폰이 두 주문에 적용되는 **이중 사용**이 발생한다.
 
-- `IssuedCoupon` 도메인: `version` 필드 삭제
-- `IssuedCouponEntity`: `@Version` 컬럼 삭제
-- `IssuedCouponCommandFacade.applyToCoupon()`: `@Retryable`, `@Recover` 삭제 → 평범한 메서드 위임
-- `ErrorType.COUPON_CONCURRENT_USE` 삭제
+**의사결정 트리 적용 (재검토 후):**
+
+```
+Q0. 애초에 동시성 경합이 현실적으로 발생하는가?
+  → Yes. 동일 사용자가 멀티 디바이스에서 동시 주문 시 같은 쿠폰에 대한 경합이 발생할 수 있다.
+    → Q1로 이동.
+
+Q1. 단순 증감(+1/-1)이고, 복잡한 비즈니스 검증이 없는가?
+  → No. 소유자 검증 + 상태 검증 + 만료 검증 + 최소 주문 금액 검증 + 할인 계산이 필요하다.
+    → Q2로 이동.
+
+Q2. 빠른 응답 기대 + 경합 낮음?
+  → No. 경합 빈도는 낮지만, 이중 사용 시 금전적 손실이 발생한다. 정확성이 중요.
+    → 비관적 락.
+```
+
+**왜 낙관적 락이 아닌 비관적 락인가:**
+
+- 낙관적 락(`@Version` + `@Retryable`)은 충돌 시 재시도를 해야 한다. 쿠폰 사용은 주문 TX 안에서 실행되므로, 쿠폰만 재시도하려면 주문 TX 전체를 다시 실행해야 한다.
+- 비관적 락(`SELECT FOR UPDATE`)은 두 번째 TX가 첫 번째 TX 완료를 기다린 후 `status=USED`를 읽어 `COUPON_ALREADY_USED` 예외를 던진다. 재시도 없이 깔끔하게 처리된다.
+- 경합 빈도가 낮으므로 비관적 락의 대기 비용(lock contention)도 거의 발생하지 않는다.
+
+**JPA 1차 캐시 오염 방지:**
+
+비관적 락 구현 시 주의할 점이 있다. 주문 TX 안에서 쿠폰을 plain SELECT로 먼저 조회한 후 FOR UPDATE로 다시 조회하면, JPA의 1차 캐시(Identity Map)가 plain SELECT 결과를 캐싱하여 FOR UPDATE 결과를 덮어쓴다. 즉, FOR UPDATE SQL은 DB에서 실행되지만, 애플리케이션에서는 **캐싱된 stale 데이터**를 반환한다.
+
+따라서 FOR UPDATE가 해당 엔티티에 대한 **첫 번째 조회**가 되도록 Facade를 구성해야 한다.
+
+```java
+// IssuedCouponCommandFacade.applyToCoupon()
+// 발급 쿠폰 조회 (비관적 쓰기 락 — 1차 캐시 오염 방지를 위해 FOR UPDATE가 첫 번째 조회)
+IssuedCoupon issuedCoupon = issuedCouponCommandService.getByIdForUpdate(issuedCouponId);
+
+// 쿠폰 템플릿 조회 (삭제 여부 무관 — 만료 판단은 isExpired()에서 처리)
+CouponTemplate template = couponTemplateQueryService.getByIdIncludeDeleted(issuedCoupon.getCouponTemplateId());
+
+// 쿠폰 적용 (검증 + 상태 변경 + 할인 계산)
+return issuedCouponCommandService.applyToCoupon(issuedCoupon, userId, totalPrice, template);
+```
+
+**최종 결정: 비관적 락 (SELECT FOR UPDATE)**
+
+- `IssuedCouponJpaRepository`: `@Lock(PESSIMISTIC_WRITE)` + `findByIdForUpdate()` 추가
+- `IssuedCouponCommandService`: `getByIdForUpdate()` 메서드 분리 (비관적 락 조회)
+- `IssuedCouponCommandFacade.applyToCoupon()`: FOR UPDATE를 첫 번째 조회로 실행
+- 동시성 통합 테스트: 2스레드 동시 적용 → 1건 성공, 1건 `COUPON_ALREADY_USED` 검증
 
 ---
 
@@ -648,7 +688,7 @@ public ProductLikeOutDto createLike(String loginId, String password, Long target
 구현 결과:
 - **A(좋아요 수 원자적 카운터)**: 완료 — `ProductLikeCountCommandFacade` 삭제, 네이티브 SQL `UPDATE SET like_count = like_count ± 1`
 - **B(재고 차감 비관적 락)**: 유지 — 변경 없음
-- **C(쿠폰 사용 락 제거)**: 완료 — `@Version`, `@Retryable`, `@Recover` 전체 삭제
+- **C(쿠폰 사용 비관적 락)**: 완료 — 초기에 `@Version`/`@Retryable` 제거 후, 멀티 디바이스 동시 주문 시나리오 발견으로 비관적 락(`SELECT FOR UPDATE`) 적용. JPA 1차 캐시 오염 방지를 위해 FOR UPDATE를 첫 번째 조회로 실행
 - **D(쿠폰 발급 복합 유니크)**: 완료 — `idempotencyKey` → `(user_id, coupon_template_id)` 복합 유니크, `maxIssuePerUser` 필드 삭제
 - **E(주문 requestId 통합)**: 완료 — `IdempotencyKey` 관련 14개 파일 삭제, `Order.requestId`로 통합
 - **F(좋아요 행 유니크 제약)**: 완료 — `(user_id, target_type, target_id)` 복합 유니크 추가
