@@ -36,6 +36,7 @@ Q1. 비즈니스 규칙상 중복이 허용되지 않는가?
   │
   └── Q2. 사전 조회를 통과한 0.01% race에서 unique 위반 발생 시, 어떻게 처리하는가?
         ├── 부수 효과 없거나 미미 → 500 허용 (재시도 시 사전 조회에서 정상 응답)
+        ├── 부수 효과 없으나 수량 합산 누락 위험 → @Retryable (재시도로 자동 해소)
         └── 부수 효과가 크고 비가역적 → Facade에서 try-catch + 멱등 반환
 ```
 
@@ -61,25 +62,27 @@ Q1. 비즈니스 규칙상 중복이 허용되지 않는가?
 | 쿠폰 발급 | INSERT | UNIQUE constraint | `(user_id, coupon_template_id)` 복합 유니크. race 시 500 허용 |
 | 주문 생성 | INSERT | Idempotency key + try-catch | `(user_id, request_id)` 유니크. race 시 Facade catch → 멱등 반환 (부수 효과 비가역적) |
 | 좋아요 행 | INSERT | UNIQUE constraint | `(user_id, target_type, target_id)` 복합 유니크. race 시 500 허용 |
-| 장바구니 항목 | INSERT | UNIQUE constraint | `(user_id, product_id)` 복합 유니크. race 시 500 허용 |
+| 장바구니 항목 | INSERT/UPDATE | UNIQUE constraint + 사전 조회 + `@Retryable` | `(user_id, product_id)` 복합 유니크. 사전 조회 → 존재 시 수량 합산(UPDATE) / 미존재 시 생성(INSERT). race 시 `@Retryable`로 재시도 → 사전 조회에서 기존 항목 발견 → 수량 합산 |
 | 회원가입 | INSERT | UNIQUE constraint | `uk_active_login_id` 유니크. race 시 500 허용 |
 
 ### INSERT 중복 방어 구조
 
 - **쿠폰 발급**: 1차 로컬 캐시(Caffeine) → 2차 DB 존재 확인(existsBy) → 3차 DB 복합 유니크 제약(안전망). race 시 500 허용
 - **좋아요 행**: 사전 조회(findLike) → DB 복합 유니크 제약(안전망). race 시 500 허용 (멱등 연산, 부수 효과 미미)
-- **장바구니 항목**: 사전 조회(findByUserIdAndProductId) → DB 복합 유니크 제약(안전망). race 시 500 허용
+- **장바구니 항목**: 사전 조회(findByUserIdAndProductId) → 존재 시 수량 합산(UPDATE) / 미존재 시 INSERT → DB 복합 유니크 제약(안전망). race 시 `@Retryable`이 `DataIntegrityViolationException`을 catch → 재시도 시 새 TX에서 사전 조회가 기존 항목 발견 → 수량 합산으로 정상 처리. 재시도 소진 시 `@Recover`에서 `CART_ADD_CONFLICT` 반환
 - **회원가입**: 사전 조회(loginIdDuplicationCheck) → DB 유니크 제약(안전망). race 시 500 허용
 - **주문 생성**: 사전 조회(findByUserIdAndRequestId) → DB 유니크 제약 위반 시 Facade에서 catch → 기존 주문 멱등 반환. **부수 효과(재고 차감, 장바구니 삭제, 쿠폰 사용)가 비가역적이므로 try-catch 유지**
 
 ### race 시 try-catch 유지 판단 기준
 
-| 기준 | 500 허용 | try-catch 유지 |
-|------|:--------:|:-------------:|
-| 부수 효과 없거나 미미 | O | |
-| 부수 효과가 크고 비가역적 | | O |
-| 사용자가 재시도 안 해도 무해 | O | |
-| 사용자가 재시도 안 하면 데이터 불일치 | | O |
+| 기준 | 500 허용 | `@Retryable` | try-catch 유지 |
+|------|:--------:|:------------:|:-------------:|
+| 부수 효과 없거나 미미 | O | | |
+| 부수 효과 없으나 수량 합산 누락 위험 | | O | |
+| 부수 효과가 크고 비가역적 | | | O |
+| 사용자가 재시도 안 해도 무해 | O | | |
+| 재시도로 자동 해소 가능 (sert-before-insert) | | O | |
+| 사용자가 재시도 안 하면 데이터 불일치 | | | O |
 
 ---
 

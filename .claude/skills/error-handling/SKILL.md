@@ -101,8 +101,9 @@ Controller: @RequestHeader(required = false) → allows null
 - **사전 조회**: Service/Facade에서 비즈니스 검증 목적. 정상 흐름에서 의미 있는 에러/멱등 반환 제공
 - **DB UNIQUE constraint**: 데이터 무결성 안전망. 항상 적용
 - **RepositoryImpl에서 `DataIntegrityViolationException` try-catch 금지**: Repository는 데이터 반환만 담당
-- **race 시 500 허용**: 부수 효과가 없거나 미미한 경우 (좋아요, 장바구니, 쿠폰, 회원가입)
-- **race 시 Facade try-catch**: 부수 효과가 크고 비가역적인 경우에만 (주문 — 재고 차감, 장바구니 삭제 등이 이미 커밋된 상태)
+- **race 시 500 허용**: 부수 효과가 없거나 미미한 경우 (좋아요, 쿠폰, 회원가입)
+- **race 시 `@Retryable`**: 부수 효과 없으나 수량 합산 누락 위험이 있는 경우 (장바구니). 재시도 시 새 TX에서 사전 조회가 기존 항목 발견 → 수량 합산으로 정상 처리
+- **race 시 Facade try-catch**: 부수 효과가 크고 비가역적인 경우에만 (주문 — 재고 차감, 장바구니 삭제 등이 이미 커밋된 상태). **전제조건**: Facade에 `@Transactional`이 없고 쓰기 TX가 Service로 분리된 경우에만 동작 (`@Transactional` Facade 내부에서는 rollback-only → `UnexpectedRollbackException`)
 
 ## 9. Prohibited Actions
 

@@ -271,18 +271,20 @@ public Result recoverXxxConflict(OptimisticLockingFailureException e, ...) {
 
 **race 시 처리 기준:**
 
-| 기준 | 500 허용 | Facade try-catch 유지 |
-|------|:--------:|:--------------------:|
-| 부수 효과 없거나 미미 | O | |
-| 부수 효과가 크고 비가역적 | | O |
-| 사용자가 재시도 안 해도 무해 | O | |
-| 사용자가 재시도 안 하면 데이터 불일치 | | O |
+| 기준 | 500 허용 | `@Retryable` | Facade try-catch |
+|------|:--------:|:------------:|:----------------:|
+| 부수 효과 없거나 미미 | O | | |
+| 부수 효과 없으나 수량 합산 누락 위험 | | O | |
+| 부수 효과가 크고 비가역적 | | | O |
+| 사용자가 재시도 안 해도 무해 | O | | |
+| 재시도로 자동 해소 가능 (sert-before-insert) | | O | |
+| 사용자가 재시도 안 하면 데이터 불일치 | | | O |
 
 **RepositoryImpl에서 `DataIntegrityViolationException` try-catch 금지:**
 - Repository는 데이터를 반환하는 역할만 담당한다. 비즈니스 예외 발생은 Service의 책임이다.
 - race 시 `DataIntegrityViolationException`은 500으로 전파되거나, Facade에서 catch하여 멱등 반환한다.
 
-**예시 — 500 허용 (좋아요, 장바구니, 쿠폰, 회원가입):**
+**예시 — 500 허용 (좋아요, 쿠폰, 회원가입):**
 ```java
 // Facade — try-catch 없음. 사전 조회가 비즈니스 검증 담당, unique 제약은 안전망
 @Transactional
@@ -297,9 +299,18 @@ public ProductLikeOutDto createLike(...) {
 }
 ```
 
+**장바구니 항목 추가 — 수량 합산 연산 (`@Retryable`):**
+- 장바구니의 동일 상품 추가는 멱등 연산이 아닌 **수량 합산** 연산이다 (업계 표준: 기존 라인에 수량 증가).
+- 사전 조회 → 존재 시 수량 합산(UPDATE), 미존재 시 신규 생성(INSERT). UNIQUE constraint `(user_id, product_id)` 적용.
+- race 시 `DataIntegrityViolationException` 발생 → `@Retryable`이 catch → 재시도 시 새 TX에서 사전 조회가 기존 항목을 찾아 수량 합산으로 정상 처리.
+- 재시도 소진 시 `@Recover`에서 `CART_ADD_CONFLICT` 예외 반환 (실질적으로 발생하지 않는 안전망).
+
 **예시 — Facade try-catch (주문 — 부수 효과가 비가역적):**
+
+> **전제조건**: Facade 메서드에 `@Transactional`이 없고, 쓰기 TX가 Service 레벨로 분리된 경우에만 동작한다. `@Transactional` Facade 내부에서 `DataIntegrityViolationException`이 발생하면 Spring이 TX를 rollback-only로 마킹하므로, catch해도 커밋 시 `UnexpectedRollbackException`이 발생한다.
+
 ```java
-// Facade — 부수 효과(재고 차감, 장바구니 삭제)가 이미 커밋된 상태에서 500 반환 시 사용자 혼란 방지
+// Facade — @Transactional 없음. 쓰기 TX는 Service 레벨로 분리됨
 try {
     return orderCommandService.createOrder(userId, inDto, ...);
 } catch (DataIntegrityViolationException e) {
