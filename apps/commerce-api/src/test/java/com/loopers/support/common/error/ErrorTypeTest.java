@@ -40,7 +40,7 @@ class ErrorTypeTest {
 			Arguments.of(ErrorType.NOT_FOUND, HttpStatus.NOT_FOUND,
 				HttpStatus.NOT_FOUND.getReasonPhrase(), "존재하지 않는 요청입니다."),
 			Arguments.of(ErrorType.CONFLICT, HttpStatus.CONFLICT,
-				HttpStatus.CONFLICT.getReasonPhrase(), "이미 존재하는 리소스입니다."),
+				HttpStatus.CONFLICT.getReasonPhrase(), "이미 처리된 요청입니다."),
 			Arguments.of(ErrorType.USER_ALREADY_EXISTS, HttpStatus.CONFLICT,
 				"USER_ALREADY_EXISTS", "이미 가입된 로그인 ID입니다."),
 			Arguments.of(ErrorType.INVALID_PASSWORD_FORMAT, HttpStatus.BAD_REQUEST,
@@ -103,6 +103,8 @@ class ErrorTypeTest {
 				"INVALID_QUANTITY", "유효하지 않은 수량입니다."),
 			Arguments.of(ErrorType.CART_PRODUCT_NOT_FOUND, HttpStatus.NOT_FOUND,
 				"CART_PRODUCT_NOT_FOUND", "장바구니에 담을 상품을 찾을 수 없습니다."),
+			Arguments.of(ErrorType.CART_ADD_CONFLICT, HttpStatus.CONFLICT,
+				"CART_ADD_CONFLICT", "장바구니 담기에 실패했습니다. 다시 시도해주세요."),
 
 			// Order
 			Arguments.of(ErrorType.ORDER_NOT_FOUND, HttpStatus.NOT_FOUND,
@@ -110,15 +112,15 @@ class ErrorTypeTest {
 			Arguments.of(ErrorType.EMPTY_CART, HttpStatus.BAD_REQUEST,
 				"EMPTY_CART", "장바구니가 비어있습니다."),
 			Arguments.of(ErrorType.INVALID_SNAPSHOT_NAME, HttpStatus.BAD_REQUEST,
-				"INVALID_SNAPSHOT_NAME", "유효하지 않은 상품명 스냅샷입니다."),
+				"INVALID_SNAPSHOT_NAME", "주문 상품 정보가 올바르지 않습니다."),
 			Arguments.of(ErrorType.INVALID_SNAPSHOT_PRICE, HttpStatus.BAD_REQUEST,
-				"INVALID_SNAPSHOT_PRICE", "유효하지 않은 가격 스냅샷입니다."),
+				"INVALID_SNAPSHOT_PRICE", "주문 가격 정보가 올바르지 않습니다."),
 			Arguments.of(ErrorType.INVALID_ORDER_QUANTITY, HttpStatus.BAD_REQUEST,
 				"INVALID_ORDER_QUANTITY", "유효하지 않은 주문 수량입니다."),
 			Arguments.of(ErrorType.INVALID_ORDER_TOTAL_PRICE, HttpStatus.BAD_REQUEST,
 				"INVALID_ORDER_TOTAL_PRICE", "유효하지 않은 주문 총액입니다."),
 			Arguments.of(ErrorType.INVALID_REQUEST_ID, HttpStatus.BAD_REQUEST,
-				"INVALID_REQUEST_ID", "유효하지 않은 요청 ID입니다."),
+				"INVALID_REQUEST_ID", "주문 요청 정보가 올바르지 않습니다."),
 			Arguments.of(ErrorType.ORDER_EMPTY_ITEMS, HttpStatus.BAD_REQUEST,
 				"ORDER_EMPTY_ITEMS", "주문 항목이 비어있습니다."),
 			Arguments.of(ErrorType.ORDER_OUT_OF_STOCK, HttpStatus.CONFLICT,
@@ -126,13 +128,13 @@ class ErrorTypeTest {
 
 			// 동시성
 			Arguments.of(ErrorType.OPTIMISTIC_LOCK_CONFLICT, HttpStatus.CONFLICT,
-				"OPTIMISTIC_LOCK_CONFLICT", "데이터가 동시에 변경되어 요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요."),
+				"OPTIMISTIC_LOCK_CONFLICT", "요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요."),
 			Arguments.of(ErrorType.PESSIMISTIC_LOCK_CONFLICT, HttpStatus.CONFLICT,
-				"PESSIMISTIC_LOCK_CONFLICT", "동시 요청이 집중되어 처리하지 못했습니다. 잠시 후 다시 시도해주세요."),
+				"PESSIMISTIC_LOCK_CONFLICT", "요청이 많아 처리하지 못했습니다. 잠시 후 다시 시도해주세요."),
 
 			// Coupon - CouponTemplate
 			Arguments.of(ErrorType.COUPON_TEMPLATE_NOT_FOUND, HttpStatus.NOT_FOUND,
-				"COUPON_TEMPLATE_NOT_FOUND", "쿠폰 템플릿이 존재하지 않습니다."),
+				"COUPON_TEMPLATE_NOT_FOUND", "쿠폰이 존재하지 않습니다."),
 			Arguments.of(ErrorType.INVALID_COUPON_NAME, HttpStatus.BAD_REQUEST,
 				"INVALID_COUPON_NAME", "쿠폰 이름은 1~100자 입니다."),
 			Arguments.of(ErrorType.INVALID_COUPON_VALUE, HttpStatus.BAD_REQUEST,
@@ -163,7 +165,7 @@ class ErrorTypeTest {
 	@DisplayName("[ErrorType] enum 상수 개수가 53개임을 보장")
 	void enumConstantCount() {
 		// Assert
-		assertThat(ErrorType.values()).hasSize(53);
+		assertThat(ErrorType.values()).hasSize(54);
 	}
 
 

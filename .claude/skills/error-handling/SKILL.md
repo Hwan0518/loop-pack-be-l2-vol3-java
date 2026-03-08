@@ -118,4 +118,8 @@ Controller: @RequestHeader(required = false) → allows null
 
 - Enum constant names: `UPPER_SNAKE_CASE` (e.g., `INVALID_PASSWORD_FORMAT`)
 - Error code strings: `UPPER_SNAKE_CASE` (e.g., `BRAND_NOT_FOUND`, `INVALID_PASSWORD_FORMAT`)
-- Messages: written in Korean, user-friendly (no internal terminology)
+- Messages: written in Korean, **실제 서비스 사용자(비개발자) 관점**으로 작성
+  - 사용자가 메시지를 보고 다음 행동을 알 수 있어야 한다 (예: "다시 시도해주세요", "고객센터에 문의해주세요")
+  - 개발 용어 사용 금지: "충돌", "동시성", "제약 조건", "트랜잭션", "유니크", "중복 키" 등
+  - 좋은 예: "장바구니 담기에 실패했습니다. 다시 시도해주세요."
+  - 나쁜 예: "장바구니 항목 추가 중 충돌이 발생했습니다."
