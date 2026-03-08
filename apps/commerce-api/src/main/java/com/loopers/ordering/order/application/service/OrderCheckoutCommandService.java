@@ -41,6 +41,12 @@ public class OrderCheckoutCommandService {
 			throw new CoreException(ErrorType.EMPTY_CART);
 		}
 
+		// 요청한 고유 항목 수와 조회 결과 수 불일치 검증 (타인 소유/삭제 항목 포함 시 — All-or-Nothing)
+		long distinctRequestCount = cartItemIds.stream().distinct().count();
+		if (cartItems.size() != distinctRequestCount) {
+			throw new CoreException(ErrorType.CART_ITEM_NOT_FOUND);
+		}
+
 		return cartItems;
 	}
 

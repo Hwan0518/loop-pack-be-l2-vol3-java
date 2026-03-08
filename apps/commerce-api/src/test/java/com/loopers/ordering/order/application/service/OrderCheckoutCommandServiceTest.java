@@ -68,6 +68,52 @@ class OrderCheckoutCommandServiceTest {
 		}
 
 		@Test
+		@DisplayName("[readCartItemsByIds()] 요청한 항목 수 != 조회 결과 수 -> CART_ITEM_NOT_FOUND 예외. "
+			+ "일부 항목이 타인 소유이거나 삭제된 경우 전수 검증 실패")
+		void readCartItemsByIdsPartialNotFound() {
+			// Arrange
+			Long userId = 1L;
+			List<Long> cartItemIds = List.of(100L, 101L, 102L);
+			List<OrderCartItemInfo> cartItems = List.of(
+				new OrderCartItemInfo(100L, 1L, 2L),
+				new OrderCartItemInfo(101L, 2L, 1L)
+			);  // 3개 요청 -> 2개만 반환 (102L은 타인 소유 또는 삭제됨)
+			given(orderCartItemReader.readCartItemsByIds(userId, cartItemIds)).willReturn(cartItems);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> orderCheckoutCommandService.readCartItemsByIds(userId, cartItemIds));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.CART_ITEM_NOT_FOUND),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.CART_ITEM_NOT_FOUND.getMessage())
+			);
+		}
+
+
+		@Test
+		@DisplayName("[readCartItemsByIds()] 중복 ID 포함 시 중복 제거 후 검증 -> 정상 반환. "
+			+ "cartItemIds=[100, 100, 101]에서 고유 2건 요청, 2건 반환 시 성공")
+		void readCartItemsByIdsWithDuplicateIds() {
+			// Arrange
+			Long userId = 1L;
+			List<Long> cartItemIds = List.of(100L, 100L, 101L);
+			List<OrderCartItemInfo> cartItems = List.of(
+				new OrderCartItemInfo(100L, 1L, 2L),
+				new OrderCartItemInfo(101L, 2L, 1L)
+			);  // 고유 2개 요청 -> 2개 반환
+			given(orderCartItemReader.readCartItemsByIds(userId, cartItemIds)).willReturn(cartItems);
+
+			// Act
+			List<OrderCartItemInfo> result = orderCheckoutCommandService.readCartItemsByIds(userId, cartItemIds);
+
+			// Assert
+			assertThat(result).hasSize(2);
+		}
+
+
+		@Test
 		@DisplayName("[readCartItemsByIds()] 조회 결과가 비어있음 -> EMPTY_CART 예외")
 		void readCartItemsByIdsEmpty() {
 			// Arrange
