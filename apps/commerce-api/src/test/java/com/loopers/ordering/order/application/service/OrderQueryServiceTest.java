@@ -47,12 +47,13 @@ class OrderQueryServiceTest {
 
 
 	private Order createTestOrder(Long id, Long userId) {
-		return Order.reconstruct(id, userId, new BigDecimal("200000"),
+		return Order.reconstruct(id, userId, "req-test-" + id, new BigDecimal("200000"),
+			BigDecimal.ZERO, new BigDecimal("200000"),
 			List.of(OrderItem.reconstruct(1L, 1L,
 				SnapshotName.from("나이키 에어맥스"),
 				SnapshotPrice.from(new BigDecimal("100000")),
 				2L)),
-			LocalDateTime.now()
+			null, LocalDateTime.now()
 		);
 	}
 
@@ -220,6 +221,47 @@ class OrderQueryServiceTest {
 				() -> assertThat(result.content()).hasSize(1),
 				() -> assertThat(result.totalElements()).isEqualTo(1)
 			);
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("findByUserIdAndRequestId() 테스트")
+	class FindByUserIdAndRequestIdTest {
+
+		@Test
+		@DisplayName("[findByUserIdAndRequestId()] 존재하는 userId + requestId -> Optional<Order> 반환")
+		void findByUserIdAndRequestIdSuccess() {
+			// Arrange
+			Order order = createTestOrder(1L, 100L);
+			given(orderQueryRepository.findByUserIdAndRequestId(100L, "req-test-1"))
+				.willReturn(Optional.of(order));
+
+			// Act
+			Optional<Order> result = orderQueryService.findByUserIdAndRequestId(100L, "req-test-1");
+
+			// Assert
+			assertAll(
+				() -> assertThat(result).isPresent(),
+				() -> assertThat(result.get().getId()).isEqualTo(1L),
+				() -> assertThat(result.get().getUserId()).isEqualTo(100L)
+			);
+		}
+
+
+		@Test
+		@DisplayName("[findByUserIdAndRequestId()] 존재하지 않는 requestId -> Optional.empty 반환")
+		void findByUserIdAndRequestIdNotFound() {
+			// Arrange
+			given(orderQueryRepository.findByUserIdAndRequestId(100L, "req-nonexistent"))
+				.willReturn(Optional.empty());
+
+			// Act
+			Optional<Order> result = orderQueryService.findByUserIdAndRequestId(100L, "req-nonexistent");
+
+			// Assert
+			assertThat(result).isEmpty();
 		}
 
 	}

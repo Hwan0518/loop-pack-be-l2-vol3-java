@@ -37,7 +37,7 @@ Client Request
 | Domain Service | `{Domain}XxxValidator`, etc. | Pure class (`@Bean` registration) | Stateless, mediates domain object collaboration within same BC, business invariant verification |
 | Repository (I) | `{Domain}CommandRepository` | Interface | Command contract (save, delete) |
 | Repository (I) | `{Domain}QueryRepository` | Interface | Query contract (find, exists) |
-| RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain conversion then JPA call |
+| RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain conversion then JPA call. **데이터 반환만 담당, 비즈니스 예외 발생 및 `DataIntegrityViolationException` try-catch 금지** |
 | Entity | `{Domain}Entity` | `@Entity` | `of(...)` 팩토리 메서드 |
 | EntityMapper | `{Domain}EntityMapper` | `@Component` | `toEntity(Domain)` + `toDomain(Entity)` 변환 |
 | QueryPort (I) | `{Domain}QueryPort` | Interface (`application/port/out/query/`) | Use-case specific complex query contract |
@@ -64,6 +64,7 @@ Controller → Facade → Service → Repository
 
 - **Service MUST NOT call other Services** (including QueryService, CommandService within same/different domain)
 - Service dependency targets limited to: Repository, Port (Cross-BC), DomainService, EventPublisher
+- **Service는 Repository와 Port를 자유롭게 조합할 수 있다. Port 호출만을 위한 별도 wrapper Service 생성은 금지한다.**
 - Cross-Service orchestration is Facade's responsibility
 - Service public methods should expose use-case contracts and reusable orchestration steps for Facade/EventListener; class-internal helpers should be `private`
 
@@ -98,6 +99,9 @@ Controller → Facade → Service → Repository
 - ACL must not directly call provider `Service/Repository/JPA/QueryDSL/Entity`
 - **Provider Facade Cross-BC 전용 메서드**: ACL에서 필요한 기능이 Provider Facade에 없으면, Provider Facade에 Cross-BC 전용 메서드를 추가한다. Javadoc 번호 목록에 포함하고, 메서드 주석에 `(Cross-BC 전용 — ACL에서 호출)` 표기
 - **Cross-BC (async)**: Domain events + `@TransactionalEventListener` (eventual consistency)
+- **Domain Event 흐름 추적 필수 규칙**:
+  1. Event 클래스 Javadoc에 `@subscriber {ListenerClass} - {역할}` 형식으로 모든 구독자를 명시
+  2. Publisher 쪽 이벤트 발행 라인에 `→ [{Listener}] {효과}` 형식으로 파생 효과를 인라인 주석으로 명시
 
 ### 3.5 Domain Repository Rules
 
@@ -214,8 +218,10 @@ mapper.toEntity(domain with id) → jpaRepository.save(entity) → mapper.toDoma
 - Controller directly calling Repository
 - Input normalization in Facade/Service (domain model responsibility)
 - Using dirty checking (`findById` + mutate + flush) as the default update strategy
+- RepositoryImpl에서 `DataIntegrityViolationException` catch하여 비즈니스 예외 변환 (Repository는 데이터 반환만 담당, 비즈니스 예외는 Service 책임)
 - Writing business logic in Controller/Facade
 - Using framework annotations on domain models
 - Class-level `@Transactional` annotation (must be method-level)
 - Service calling another Service (orchestration belongs in Facade)
+- Port만 감싸는 thin wrapper Service 생성 금지 (Port 호출은 기존 Service에 통합)
 - ACL directly calling provider Service/Repository/JPA/QueryDSL/Entity (must call provider **Facade** only)

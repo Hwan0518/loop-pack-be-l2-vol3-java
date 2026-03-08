@@ -270,60 +270,6 @@ class ProductTest {
 
 
 	@Nested
-	@DisplayName("increaseLikeCount() / decreaseLikeCount()")
-	class LikeCountTest {
-
-		@Test
-		@DisplayName("[increaseLikeCount()] 좋아요 증가 -> likeCount + 1")
-		void increaseLikeCount() {
-			// Arrange
-			Product product = Product.create(1L, "상품", new BigDecimal("10000"), 100L, null);
-
-			// Act
-			product.increaseLikeCount();
-
-			// Assert
-			assertThat(product.getLikeCount()).isEqualTo(1L);
-		}
-
-
-		@Test
-		@DisplayName("[decreaseLikeCount()] 좋아요 감소 -> likeCount - 1")
-		void decreaseLikeCount() {
-			// Arrange
-			Product product = Product.reconstruct(
-				1L, 1L,
-				ProductName.from("상품"),
-				Money.from(BigDecimal.TEN),
-				Stock.from(100L),
-				null, 5L, null
-			);
-
-			// Act
-			product.decreaseLikeCount();
-
-			// Assert
-			assertThat(product.getLikeCount()).isEqualTo(4L);
-		}
-
-
-		@Test
-		@DisplayName("[decreaseLikeCount()] likeCount=0 -> 0 유지 (음수 방지)")
-		void decreaseLikeCountAtZero() {
-			// Arrange
-			Product product = Product.create(1L, "상품", new BigDecimal("10000"), 100L, null);
-
-			// Act
-			product.decreaseLikeCount();
-
-			// Assert
-			assertThat(product.getLikeCount()).isEqualTo(0L);
-		}
-
-	}
-
-
-	@Nested
 	@DisplayName("delete()")
 	class DeleteTest {
 

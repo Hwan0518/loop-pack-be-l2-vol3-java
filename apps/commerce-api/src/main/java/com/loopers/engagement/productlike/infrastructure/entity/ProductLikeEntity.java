@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
  * - targetId: 상품 ID
  */
 @Entity
-@Table(name = "likes")
+@Table(name = "likes", uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "target_type", "target_id"}))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ProductLikeEntity extends BaseEntity {

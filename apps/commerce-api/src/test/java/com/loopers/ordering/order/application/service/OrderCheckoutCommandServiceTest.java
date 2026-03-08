@@ -5,8 +5,6 @@ import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItem
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemReader;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductReader;
-import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
-import com.loopers.ordering.order.application.port.out.client.user.UserAuthenticator;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,7 +12,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -25,9 +22,6 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.verify;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -40,18 +34,12 @@ class OrderCheckoutCommandServiceTest {
 	@Mock
 	private OrderProductReader orderProductReader;
 
-	@Mock
-	private OrderStockManager orderStockManager;
-
-	@Mock
-	private UserAuthenticator userAuthenticator;
-
 	private OrderCheckoutCommandService orderCheckoutCommandService;
 
 	@BeforeEach
 	void setUp() {
 		orderCheckoutCommandService = new OrderCheckoutCommandService(
-			orderCartItemReader, orderProductReader, orderStockManager, userAuthenticator
+			orderCartItemReader, orderProductReader
 		);
 	}
 
@@ -78,6 +66,52 @@ class OrderCheckoutCommandServiceTest {
 			// Assert
 			assertThat(result).hasSize(2);
 		}
+
+		@Test
+		@DisplayName("[readCartItemsByIds()] 요청한 항목 수 != 조회 결과 수 -> CART_ITEM_NOT_FOUND 예외. "
+			+ "일부 항목이 타인 소유이거나 삭제된 경우 전수 검증 실패")
+		void readCartItemsByIdsPartialNotFound() {
+			// Arrange
+			Long userId = 1L;
+			List<Long> cartItemIds = List.of(100L, 101L, 102L);
+			List<OrderCartItemInfo> cartItems = List.of(
+				new OrderCartItemInfo(100L, 1L, 2L),
+				new OrderCartItemInfo(101L, 2L, 1L)
+			);  // 3개 요청 -> 2개만 반환 (102L은 타인 소유 또는 삭제됨)
+			given(orderCartItemReader.readCartItemsByIds(userId, cartItemIds)).willReturn(cartItems);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> orderCheckoutCommandService.readCartItemsByIds(userId, cartItemIds));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.CART_ITEM_NOT_FOUND),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.CART_ITEM_NOT_FOUND.getMessage())
+			);
+		}
+
+
+		@Test
+		@DisplayName("[readCartItemsByIds()] 중복 ID 포함 시 중복 제거 후 검증 -> 정상 반환. "
+			+ "cartItemIds=[100, 100, 101]에서 고유 2건 요청, 2건 반환 시 성공")
+		void readCartItemsByIdsWithDuplicateIds() {
+			// Arrange
+			Long userId = 1L;
+			List<Long> cartItemIds = List.of(100L, 100L, 101L);
+			List<OrderCartItemInfo> cartItems = List.of(
+				new OrderCartItemInfo(100L, 1L, 2L),
+				new OrderCartItemInfo(101L, 2L, 1L)
+			);  // 고유 2개 요청 -> 2개 반환
+			given(orderCartItemReader.readCartItemsByIds(userId, cartItemIds)).willReturn(cartItems);
+
+			// Act
+			List<OrderCartItemInfo> result = orderCheckoutCommandService.readCartItemsByIds(userId, cartItemIds);
+
+			// Assert
+			assertThat(result).hasSize(2);
+		}
+
 
 		@Test
 		@DisplayName("[readCartItemsByIds()] 조회 결과가 비어있음 -> EMPTY_CART 예외")
@@ -131,7 +165,7 @@ class OrderCheckoutCommandServiceTest {
 			List<Long> productIds = List.of(1L, 2L);
 			List<OrderProductInfo> products = List.of(
 				new OrderProductInfo(1L, "나이키 에어맥스", new BigDecimal("100000"), 10L)
-			);  // 2개 요청 → 1개만 반환
+			);  // 2개 요청 -> 1개만 반환
 			given(orderProductReader.readProducts(productIds)).willReturn(products);
 
 			// Act
@@ -142,67 +176,6 @@ class OrderCheckoutCommandServiceTest {
 			assertAll(
 				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND),
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND.getMessage())
-			);
-		}
-	}
-
-
-	@Nested
-	@DisplayName("decreaseStocks() 테스트")
-	class DecreaseStocksTest {
-
-		@Test
-		@DisplayName("[decreaseStocks()] 장바구니 항목별 재고 차감. productId 오름차순 정렬 후 처리")
-		void decreaseStocksSuccess() {
-			// Arrange
-			List<OrderCartItemInfo> cartItems = List.of(
-				new OrderCartItemInfo(101L, 3L, 1L),
-				new OrderCartItemInfo(100L, 1L, 2L)
-			);
-
-			// Act
-			orderCheckoutCommandService.decreaseStocks(cartItems);
-
-			// Assert — productId 오름차순 정렬 확인 (1L → 3L)
-			InOrder inOrder = inOrder(orderStockManager);
-			inOrder.verify(orderStockManager).decreaseStock(1L, 2L);
-			inOrder.verify(orderStockManager).decreaseStock(3L, 1L);
-		}
-
-		@Test
-		@DisplayName("[decreaseStocks()] 중복 productId 수량 합산 후 1회만 차감")
-		void decreaseStocksDuplicateAggregation() {
-			// Arrange
-			List<OrderCartItemInfo> cartItems = List.of(
-				new OrderCartItemInfo(100L, 1L, 3L),
-				new OrderCartItemInfo(101L, 1L, 2L)
-			);
-
-			// Act
-			orderCheckoutCommandService.decreaseStocks(cartItems);
-
-			// Assert — productId 1L은 수량 합산(3+2=5)으로 1회만 호출
-			verify(orderStockManager).decreaseStock(1L, 5L);
-		}
-
-		@Test
-		@DisplayName("[decreaseStocks()] 재고 부족 -> PRODUCT_OUT_OF_STOCK 예외. 재고가 부족한 상품의 재고 차감 시 예외 발생")
-		void decreaseStocksOutOfStock() {
-			// Arrange
-			List<OrderCartItemInfo> cartItems = List.of(
-				new OrderCartItemInfo(100L, 1L, 100L)
-			);
-			willThrow(new CoreException(ErrorType.PRODUCT_OUT_OF_STOCK))
-				.given(orderStockManager).decreaseStock(1L, 100L);
-
-			// Act
-			CoreException exception = assertThrows(CoreException.class,
-				() -> orderCheckoutCommandService.decreaseStocks(cartItems));
-
-			// Assert
-			assertAll(
-				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.PRODUCT_OUT_OF_STOCK),
-				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.PRODUCT_OUT_OF_STOCK.getMessage())
 			);
 		}
 	}

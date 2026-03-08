@@ -6,7 +6,6 @@ import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItem
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductReader;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
-import com.loopers.ordering.order.application.port.out.client.user.UserAuthenticator;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -21,15 +20,6 @@ import java.util.List;
  */
 @TestConfiguration
 public class OrderPortTestConfig {
-
-	@Bean
-	@Primary
-	public UserAuthenticator testOrderUserAuthenticator() {
-		return (loginId, password) -> {
-			// 테스트용: loginId를 해시하여 userId로 사용
-			return (long) loginId.hashCode();
-		};
-	}
 
 	@Bean
 	@Primary

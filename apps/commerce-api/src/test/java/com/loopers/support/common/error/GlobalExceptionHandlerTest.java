@@ -6,7 +6,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BeanPropertyBindingResult;
@@ -187,32 +189,32 @@ class GlobalExceptionHandlerTest {
 	}
 
 	@Nested
-	@DisplayName("Lock Exception 처리 테스트")
+	@DisplayName("락 예외 처리 테스트")
 	class HandleLockExceptionTest {
 
 		@Test
-		@DisplayName("[handleLockException()] PessimisticLockingFailureException 발생 -> 409 Conflict 반환. "
-			+ "LOCK_CONFLICT 코드와 메시지가 정확히 매핑됨")
+		@DisplayName("[handlePessimisticLockException()] PessimisticLockingFailureException 발생 -> 409 Conflict 반환. "
+			+ "PESSIMISTIC_LOCK_CONFLICT 범용 코드와 메시지가 정확히 매핑됨")
 		void handlePessimisticLockingFailureException() {
 			// Arrange
 			PessimisticLockingFailureException exception =
 				new PessimisticLockingFailureException("Lock timeout");
 
 			// Act
-			ResponseEntity<ErrorResponse> response = handler.handleLockException(exception);
+			ResponseEntity<ErrorResponse> response = handler.handlePessimisticLockException(exception);
 
 			// Assert
 			assertAll(
 				() -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT),
 				() -> assertThat(response.getBody()).isNotNull(),
-				() -> assertThat(response.getBody().code()).isEqualTo("LOCK_CONFLICT"),
-				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.LOCK_CONFLICT.getMessage())
+				() -> assertThat(response.getBody().code()).isEqualTo("PESSIMISTIC_LOCK_CONFLICT"),
+				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.PESSIMISTIC_LOCK_CONFLICT.getMessage())
 			);
 		}
 
 
 		@Test
-		@DisplayName("[handleLockException()] CannotAcquireLockException(하위 클래스) 발생 -> 409 Conflict 반환. "
+		@DisplayName("[handlePessimisticLockException()] CannotAcquireLockException(하위 클래스) 발생 -> 409 Conflict 반환. "
 			+ "부모 클래스 핸들러가 하위 클래스도 처리함")
 		void handleCannotAcquireLockException() {
 			// Arrange
@@ -220,14 +222,56 @@ class GlobalExceptionHandlerTest {
 				new CannotAcquireLockException("Cannot acquire lock");
 
 			// Act
-			ResponseEntity<ErrorResponse> response = handler.handleLockException(exception);
+			ResponseEntity<ErrorResponse> response = handler.handlePessimisticLockException(exception);
 
 			// Assert
 			assertAll(
 				() -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT),
 				() -> assertThat(response.getBody()).isNotNull(),
-				() -> assertThat(response.getBody().code()).isEqualTo("LOCK_CONFLICT"),
-				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.LOCK_CONFLICT.getMessage())
+				() -> assertThat(response.getBody().code()).isEqualTo("PESSIMISTIC_LOCK_CONFLICT"),
+				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.PESSIMISTIC_LOCK_CONFLICT.getMessage())
+			);
+		}
+
+
+		@Test
+		@DisplayName("[handleOptimisticLockException()] OptimisticLockingFailureException 발생 -> 409 Conflict 반환. "
+			+ "OPTIMISTIC_LOCK_CONFLICT 범용 코드와 메시지가 정확히 매핑됨")
+		void handleOptimisticLockingFailureException() {
+			// Arrange
+			OptimisticLockingFailureException exception =
+				new OptimisticLockingFailureException("Version conflict");
+
+			// Act
+			ResponseEntity<ErrorResponse> response = handler.handleOptimisticLockException(exception);
+
+			// Assert
+			assertAll(
+				() -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT),
+				() -> assertThat(response.getBody()).isNotNull(),
+				() -> assertThat(response.getBody().code()).isEqualTo("OPTIMISTIC_LOCK_CONFLICT"),
+				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.OPTIMISTIC_LOCK_CONFLICT.getMessage())
+			);
+		}
+
+
+		@Test
+		@DisplayName("[handleOptimisticLockException()] ObjectOptimisticLockingFailureException(하위 클래스) 발생 -> 409 Conflict 반환. "
+			+ "낙관적 락 핸들러가 하위 클래스도 처리함")
+		void handleObjectOptimisticLockingFailureException() {
+			// Arrange
+			ObjectOptimisticLockingFailureException exception =
+				new ObjectOptimisticLockingFailureException("Product", 1L);
+
+			// Act
+			ResponseEntity<ErrorResponse> response = handler.handleOptimisticLockException(exception);
+
+			// Assert
+			assertAll(
+				() -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT),
+				() -> assertThat(response.getBody()).isNotNull(),
+				() -> assertThat(response.getBody().code()).isEqualTo("OPTIMISTIC_LOCK_CONFLICT"),
+				() -> assertThat(response.getBody().message()).isEqualTo(ErrorType.OPTIMISTIC_LOCK_CONFLICT.getMessage())
 			);
 		}
 

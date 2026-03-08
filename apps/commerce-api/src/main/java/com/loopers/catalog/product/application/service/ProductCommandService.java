@@ -3,23 +3,39 @@ package com.loopers.catalog.product.application.service;
 
 import com.loopers.catalog.product.application.dto.in.AdminProductCreateInDto;
 import com.loopers.catalog.product.application.dto.in.AdminProductUpdateInDto;
+import com.loopers.catalog.product.application.port.out.client.cart.CartItemCleanupManager;
+import com.loopers.catalog.product.application.port.out.client.engagement.ProductLikeCleanupManager;
 import com.loopers.catalog.product.domain.model.Product;
 import com.loopers.catalog.product.domain.repository.ProductCommandRepository;
 import com.loopers.catalog.product.domain.repository.ProductQueryRepository;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
-import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 
 @Service
-@RequiredArgsConstructor
 public class ProductCommandService {
 
 	// repository
 	private final ProductCommandRepository productCommandRepository;
 	private final ProductQueryRepository productQueryRepository;
+	// port (@Lazy: Cross-BC 순환 의존 방지 — ProductCommandService ↔ ProductLikeCommandService 간 ACL 경유 순환)
+	private final ProductLikeCleanupManager productLikeCleanupManager;
+	private final CartItemCleanupManager cartItemCleanupManager;
+
+	public ProductCommandService(
+		ProductCommandRepository productCommandRepository,
+		ProductQueryRepository productQueryRepository,
+		@Lazy ProductLikeCleanupManager productLikeCleanupManager,
+		@Lazy CartItemCleanupManager cartItemCleanupManager
+	) {
+		this.productCommandRepository = productCommandRepository;
+		this.productQueryRepository = productQueryRepository;
+		this.productLikeCleanupManager = productLikeCleanupManager;
+		this.cartItemCleanupManager = cartItemCleanupManager;
+	}
 
 
 	/**
@@ -27,9 +43,11 @@ public class ProductCommandService {
 	 * 1. 상품 생성
 	 * 2. 상품 수정
 	 * 3. 상품 삭제
-	 * 4. 좋아요 수 증가
-	 * 5. 좋아요 수 감소
+	 * 4. 좋아요 수 증가 (원자적 카운터)
+	 * 5. 좋아요 수 감소 (원자적 카운터)
 	 * 6. 상품 재고 차감 (비관적 쓰기 락)
+	 * 7. 상품 좋아요 전체 삭제
+	 * 8. 장바구니 항목 전체 삭제
 	 */
 
 	// 1. 상품 생성
@@ -77,27 +95,17 @@ public class ProductCommandService {
 	}
 
 
-	// 4. 좋아요 수 증가
+	// 4. 좋아요 수 증가 (원자적 카운터 — 단일 UPDATE SQL로 동시성 안전)
 	@Transactional
-	public void increaseLikeCount(Product product) {
-
-		// 좋아요 수 증가
-		product.increaseLikeCount();
-
-		// 저장
-		productCommandRepository.save(product);
+	public void increaseLikeCount(Long productId) {
+		productCommandRepository.increaseLikeCount(productId);
 	}
 
 
-	// 5. 좋아요 수 감소
+	// 5. 좋아요 수 감소 (원자적 카운터 — 단일 UPDATE SQL로 동시성 안전)
 	@Transactional
-	public void decreaseLikeCount(Product product) {
-
-		// 좋아요 수 감소
-		product.decreaseLikeCount();
-
-		// 저장
-		productCommandRepository.save(product);
+	public void decreaseLikeCount(Long productId) {
+		productCommandRepository.decreaseLikeCount(productId);
 	}
 
 
@@ -114,6 +122,20 @@ public class ProductCommandService {
 
 		// 재고가 차감된 상품 저장
 		productCommandRepository.save(product);
+	}
+
+
+	// 7. 상품 좋아요 전체 삭제
+	@Transactional
+	public void deleteAllProductLikes(Long productId) {
+		productLikeCleanupManager.deleteAllByProductId(productId);
+	}
+
+
+	// 8. 장바구니 항목 전체 삭제
+	@Transactional
+	public void deleteAllCartItems(Long productId) {
+		cartItemCleanupManager.deleteAllByProductId(productId);
 	}
 
 }

@@ -1,7 +1,7 @@
 package com.loopers.engagement.productlike.application.service;
 
+import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeCountSyncer;
 import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeTargetValidator;
-import com.loopers.engagement.productlike.application.port.out.client.user.UserAuthenticator;
 import com.loopers.engagement.productlike.domain.model.ProductLike;
 import com.loopers.engagement.productlike.domain.repository.ProductLikeCommandRepository;
 import com.loopers.engagement.productlike.domain.repository.ProductLikeQueryRepository;
@@ -23,33 +23,27 @@ public class ProductLikeCommandService {
 	private final ProductLikeQueryRepository productLikeQueryRepository;
 	// port
 	private final ProductLikeTargetValidator productLikeTargetValidator;
-	private final UserAuthenticator userAuthenticator;
+	private final ProductLikeCountSyncer productLikeCountSyncer;
 
 
 	/**
 	 * 상품 좋아요 명령 서비스
-	 * 1. 사용자 인증
-	 * 2. 좋아요 조회
-	 * 3. 상품 좋아요 생성
-	 * 4. 상품 좋아요 삭제
-	 * 5. 상품 ID로 상품 좋아요 전체 삭제
+	 * 1. 좋아요 조회
+	 * 2. 상품 좋아요 생성
+	 * 3. 상품 좋아요 삭제
+	 * 4. 상품 ID로 상품 좋아요 전체 삭제
+	 * 5. 좋아요 수 증가
+	 * 6. 좋아요 수 감소
 	 */
 
-	// 1. 사용자 인증
-	@Transactional(readOnly = true)
-	public Long authenticate(String loginId, String password) {
-		return userAuthenticator.authenticate(loginId, password);
-	}
-
-
-	// 2. 좋아요 조회
+	// 1. 좋아요 조회
 	@Transactional(readOnly = true)
 	public Optional<ProductLike> findLike(Long userId, Long targetId) {
 		return productLikeQueryRepository.findByUserIdAndTargetId(userId, targetId);
 	}
 
 
-	// 3. 상품 좋아요 생성
+	// 2. 상품 좋아요 생성
 	@Transactional
 	public ProductLike createLike(Long userId, Long targetId) {
 
@@ -66,7 +60,7 @@ public class ProductLikeCommandService {
 	}
 
 
-	// 4. 상품 좋아요 삭제
+	// 3. 상품 좋아요 삭제
 	@Transactional
 	public void deleteLike(Long userId, Long targetId) {
 
@@ -80,10 +74,24 @@ public class ProductLikeCommandService {
 	}
 
 
-	// 5. 상품 ID로 상품 좋아요 전체 삭제
+	// 4. 상품 ID로 상품 좋아요 전체 삭제
 	@Transactional
 	public void deleteAllByTargetId(Long targetId) {
 		productLikeCommandRepository.deleteAllByTargetId(targetId);
+	}
+
+
+	// 5. 좋아요 수 증가
+	@Transactional
+	public void increaseLikeCount(Long productId) {
+		productLikeCountSyncer.increaseLikeCount(productId);
+	}
+
+
+	// 6. 좋아요 수 감소
+	@Transactional
+	public void decreaseLikeCount(Long productId) {
+		productLikeCountSyncer.decreaseLikeCount(productId);
 	}
 
 }

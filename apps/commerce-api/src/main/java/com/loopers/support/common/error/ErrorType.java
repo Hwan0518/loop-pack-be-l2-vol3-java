@@ -14,7 +14,7 @@ public enum ErrorType {
 	INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(), "일시적인 오류가 발생했습니다."),
 	BAD_REQUEST(HttpStatus.BAD_REQUEST, HttpStatus.BAD_REQUEST.getReasonPhrase(), "잘못된 요청입니다."),
 	NOT_FOUND(HttpStatus.NOT_FOUND, HttpStatus.NOT_FOUND.getReasonPhrase(), "존재하지 않는 요청입니다."),
-	CONFLICT(HttpStatus.CONFLICT, HttpStatus.CONFLICT.getReasonPhrase(), "이미 존재하는 리소스입니다."),
+	CONFLICT(HttpStatus.CONFLICT, HttpStatus.CONFLICT.getReasonPhrase(), "이미 처리된 요청입니다."),
 
 	/** User 도메인 에러 */
 	USER_ALREADY_EXISTS(HttpStatus.CONFLICT, "USER_ALREADY_EXISTS", "이미 가입된 로그인 ID입니다."),
@@ -54,20 +54,39 @@ public enum ErrorType {
 	CART_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "CART_ITEM_NOT_FOUND", "장바구니 항목을 찾을 수 없습니다."),
 	INVALID_QUANTITY(HttpStatus.BAD_REQUEST, "INVALID_QUANTITY", "유효하지 않은 수량입니다."),
 	CART_PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "CART_PRODUCT_NOT_FOUND", "장바구니에 담을 상품을 찾을 수 없습니다."),
+	CART_ADD_CONFLICT(HttpStatus.CONFLICT, "CART_ADD_CONFLICT", "장바구니 담기에 실패했습니다. 다시 시도해주세요."),
 
 	/** Order 에러 */
 	ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "주문을 찾을 수 없습니다."),
 	EMPTY_CART(HttpStatus.BAD_REQUEST, "EMPTY_CART", "장바구니가 비어있습니다."),
-	INVALID_SNAPSHOT_NAME(HttpStatus.BAD_REQUEST, "INVALID_SNAPSHOT_NAME", "유효하지 않은 상품명 스냅샷입니다."),
-	INVALID_SNAPSHOT_PRICE(HttpStatus.BAD_REQUEST, "INVALID_SNAPSHOT_PRICE", "유효하지 않은 가격 스냅샷입니다."),
+	INVALID_SNAPSHOT_NAME(HttpStatus.BAD_REQUEST, "INVALID_SNAPSHOT_NAME", "주문 상품 정보가 올바르지 않습니다."),
+	INVALID_SNAPSHOT_PRICE(HttpStatus.BAD_REQUEST, "INVALID_SNAPSHOT_PRICE", "주문 가격 정보가 올바르지 않습니다."),
 	INVALID_ORDER_QUANTITY(HttpStatus.BAD_REQUEST, "INVALID_ORDER_QUANTITY", "유효하지 않은 주문 수량입니다."),
 	INVALID_ORDER_TOTAL_PRICE(HttpStatus.BAD_REQUEST, "INVALID_ORDER_TOTAL_PRICE", "유효하지 않은 주문 총액입니다."),
-	INVALID_REQUEST_ID(HttpStatus.BAD_REQUEST, "INVALID_REQUEST_ID", "유효하지 않은 요청 ID입니다."),
+	INVALID_REQUEST_ID(HttpStatus.BAD_REQUEST, "INVALID_REQUEST_ID", "주문 요청 정보가 올바르지 않습니다."),
 	ORDER_EMPTY_ITEMS(HttpStatus.BAD_REQUEST, "ORDER_EMPTY_ITEMS", "주문 항목이 비어있습니다."),
 	ORDER_OUT_OF_STOCK(HttpStatus.CONFLICT, "ORDER_OUT_OF_STOCK", "재고가 부족하여 주문할 수 없습니다."),
 
-	/** 동시성 에러 */
-	LOCK_CONFLICT(HttpStatus.CONFLICT, "LOCK_CONFLICT", "다른 요청과 충돌이 발생했습니다. 잠시 후 다시 시도해주세요.");
+	/** 동시성 에러 (GlobalExceptionHandler 안전망 — 예상 지점에서 try-catch로 비즈니스 메시지 전달) */
+	OPTIMISTIC_LOCK_CONFLICT(HttpStatus.CONFLICT, "OPTIMISTIC_LOCK_CONFLICT",
+		"요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요."),
+	PESSIMISTIC_LOCK_CONFLICT(HttpStatus.CONFLICT, "PESSIMISTIC_LOCK_CONFLICT",
+		"요청이 많아 처리하지 못했습니다. 잠시 후 다시 시도해주세요."),
+
+	/** Coupon - CouponTemplate 에러 */
+	COUPON_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_TEMPLATE_NOT_FOUND", "쿠폰이 존재하지 않습니다."),
+	INVALID_COUPON_NAME(HttpStatus.BAD_REQUEST, "INVALID_COUPON_NAME", "쿠폰 이름은 1~100자 입니다."),
+	INVALID_COUPON_VALUE(HttpStatus.BAD_REQUEST, "INVALID_COUPON_VALUE", "유효하지 않은 할인 값입니다."),
+	INVALID_COUPON_EXPIRED_AT(HttpStatus.BAD_REQUEST, "INVALID_COUPON_EXPIRED_AT", "만료일은 현재 시각 이후여야 합니다."),
+	COUPON_VALUE_EXCEEDS_MIN_ORDER_AMOUNT(HttpStatus.BAD_REQUEST, "COUPON_VALUE_EXCEEDS_MIN_ORDER_AMOUNT", "할인액이 최소 주문 금액보다 클 수 없습니다."),
+
+	/** Coupon - IssuedCoupon 에러 */
+	ISSUED_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "ISSUED_COUPON_NOT_FOUND", "발급된 쿠폰을 찾을 수 없습니다."),
+	COUPON_NOT_OWNED_BY_USER(HttpStatus.NOT_FOUND, "COUPON_NOT_OWNED_BY_USER", "발급된 쿠폰을 찾을 수 없습니다."),
+	COUPON_ALREADY_USED(HttpStatus.CONFLICT, "COUPON_ALREADY_USED", "이미 사용된 쿠폰입니다."),
+	COUPON_EXPIRED(HttpStatus.CONFLICT, "COUPON_EXPIRED", "만료된 쿠폰입니다."),
+	COUPON_MIN_ORDER_AMOUNT_NOT_MET(HttpStatus.BAD_REQUEST, "COUPON_MIN_ORDER_AMOUNT_NOT_MET", "최소 주문 금액 조건을 충족하지 못했습니다."),
+	COUPON_ISSUE_DUPLICATED(HttpStatus.CONFLICT, "COUPON_ISSUE_DUPLICATED", "이미 발급된 쿠폰입니다.");
 
 	private final HttpStatus status;
 	private final String code;

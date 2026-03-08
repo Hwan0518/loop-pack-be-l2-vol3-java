@@ -4,6 +4,7 @@ package com.loopers.catalog.brand.application.service;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandCreateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandUpdateInDto;
 import com.loopers.catalog.brand.application.dto.in.AdminBrandVisibleStatusUpdateInDto;
+import com.loopers.catalog.brand.application.port.out.client.engagement.BrandLikeCleanupManager;
 import com.loopers.catalog.brand.domain.model.Brand;
 import com.loopers.catalog.brand.domain.model.vo.BrandDescription;
 import com.loopers.catalog.brand.domain.model.vo.BrandName;
@@ -19,6 +20,8 @@ public class BrandCommandService {
 
 	// repository
 	private final BrandCommandRepository brandCommandRepository;
+	// port
+	private final BrandLikeCleanupManager brandLikeCleanupManager;
 
 
 	/**
@@ -27,6 +30,7 @@ public class BrandCommandService {
 	 * 2. 브랜드 수정
 	 * 3. 브랜드 삭제
 	 * 4. 노출 상태 변경
+	 * 5. 브랜드 좋아요 전체 삭제
 	 */
 
 	// 1. 브랜드 생성
@@ -86,6 +90,13 @@ public class BrandCommandService {
 
 		// 저장
 		return brandCommandRepository.save(brand);
+	}
+
+
+	// 5. 브랜드 좋아요 전체 삭제
+	@Transactional
+	public void deleteAllBrandLikes(Long brandId) {
+		brandLikeCleanupManager.deleteAllByBrandId(brandId);
 	}
 
 }

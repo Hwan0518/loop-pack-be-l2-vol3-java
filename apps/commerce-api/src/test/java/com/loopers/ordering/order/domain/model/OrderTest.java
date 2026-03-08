@@ -26,7 +26,7 @@ class OrderTest {
 	class CreateTest {
 
 		@Test
-		@DisplayName("[Order.create()] 유효한 인자 -> Order 생성. id=null, createdAt=null")
+		@DisplayName("[Order.create()] 유효한 인자 -> Order 생성. id=null, createdAt=null, 최종 금액=원래 총액-할인")
 		void createSuccess() {
 			// Arrange
 			List<OrderItem> items = List.of(
@@ -34,14 +34,18 @@ class OrderTest {
 			);
 
 			// Act
-			Order order = Order.create(1L, new BigDecimal("200000"), items);
+			Order order = Order.create(1L, "req-123", new BigDecimal("200000"), BigDecimal.ZERO, items, null);
 
 			// Assert
 			assertAll(
 				() -> assertThat(order.getId()).isNull(),
 				() -> assertThat(order.getUserId()).isEqualTo(1L),
+				() -> assertThat(order.getRequestId()).isEqualTo("req-123"),
+				() -> assertThat(order.getOriginalTotalPrice()).isEqualByComparingTo(new BigDecimal("200000")),
+				() -> assertThat(order.getDiscountAmount()).isEqualByComparingTo(BigDecimal.ZERO),
 				() -> assertThat(order.getTotalPrice()).isEqualByComparingTo(new BigDecimal("200000")),
 				() -> assertThat(order.getItems()).hasSize(1),
+				() -> assertThat(order.getCouponSnapshot()).isNull(),
 				() -> assertThat(order.getCreatedAt()).isNull()
 			);
 		}
@@ -57,12 +61,52 @@ class OrderTest {
 
 			// Act & Assert
 			assertThrows(NullPointerException.class,
-				() -> Order.create(null, new BigDecimal("200000"), items));
+				() -> Order.create(null, "req-123", new BigDecimal("200000"), BigDecimal.ZERO, items, null));
 		}
 
 
 		@Test
-		@DisplayName("[Order.create()] totalPrice가 null -> INVALID_ORDER_TOTAL_PRICE 예외")
+		@DisplayName("[Order.create()] requestId가 null -> INVALID_REQUEST_ID 예외")
+		void createFailWhenRequestIdIsNull() {
+			// Arrange
+			List<OrderItem> items = List.of(
+				OrderItem.create(1L, "나이키 에어맥스", new BigDecimal("100000"), 2L)
+			);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> Order.create(1L, null, new BigDecimal("200000"), BigDecimal.ZERO, items, null));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_REQUEST_ID),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_REQUEST_ID.getMessage())
+			);
+		}
+
+
+		@Test
+		@DisplayName("[Order.create()] requestId가 공백 -> INVALID_REQUEST_ID 예외")
+		void createFailWhenRequestIdIsBlank() {
+			// Arrange
+			List<OrderItem> items = List.of(
+				OrderItem.create(1L, "나이키 에어맥스", new BigDecimal("100000"), 2L)
+			);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> Order.create(1L, "  ", new BigDecimal("200000"), BigDecimal.ZERO, items, null));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_REQUEST_ID),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.INVALID_REQUEST_ID.getMessage())
+			);
+		}
+
+
+		@Test
+		@DisplayName("[Order.create()] originalTotalPrice가 null -> INVALID_ORDER_TOTAL_PRICE 예외")
 		void createFailWhenTotalPriceIsNull() {
 			// Arrange
 			List<OrderItem> items = List.of(
@@ -71,7 +115,7 @@ class OrderTest {
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> Order.create(1L, null, items));
+				() -> Order.create(1L, "req-123", null, BigDecimal.ZERO, items, null));
 
 			// Assert
 			assertAll(
@@ -82,7 +126,7 @@ class OrderTest {
 
 
 		@Test
-		@DisplayName("[Order.create()] totalPrice가 음수 -> INVALID_ORDER_TOTAL_PRICE 예외")
+		@DisplayName("[Order.create()] originalTotalPrice가 음수 -> INVALID_ORDER_TOTAL_PRICE 예외")
 		void createFailWhenTotalPriceIsNegative() {
 			// Arrange
 			List<OrderItem> items = List.of(
@@ -91,7 +135,7 @@ class OrderTest {
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> Order.create(1L, new BigDecimal("-1"), items));
+				() -> Order.create(1L, "req-123", new BigDecimal("-1"), BigDecimal.ZERO, items, null));
 
 			// Assert
 			assertAll(
@@ -106,7 +150,7 @@ class OrderTest {
 		void createFailWhenItemsIsNull() {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> Order.create(1L, new BigDecimal("200000"), null));
+				() -> Order.create(1L, "req-123", new BigDecimal("200000"), BigDecimal.ZERO, null, null));
 
 			// Assert
 			assertAll(
@@ -121,7 +165,7 @@ class OrderTest {
 		void createFailWhenItemsIsEmpty() {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> Order.create(1L, new BigDecimal("200000"), Collections.emptyList()));
+				() -> Order.create(1L, "req-123", new BigDecimal("200000"), BigDecimal.ZERO, Collections.emptyList(), null));
 
 			// Assert
 			assertAll(
@@ -138,7 +182,7 @@ class OrderTest {
 	class ReconstructTest {
 
 		@Test
-		@DisplayName("[Order.reconstruct()] 유효한 인자 -> Order 복원. 검증 없이 값 설정")
+		@DisplayName("[Order.reconstruct()] 유효한 인자 -> Order 복원. 검증 없이 값 설정, requestId 포함")
 		void reconstructSuccess() {
 			// Arrange
 			LocalDateTime createdAt = LocalDateTime.now();
@@ -150,14 +194,19 @@ class OrderTest {
 			);
 
 			// Act
-			Order order = Order.reconstruct(1L, 100L, new BigDecimal("200000"), items, createdAt);
+			Order order = Order.reconstruct(1L, 100L, "req-123", new BigDecimal("200000"),
+				BigDecimal.ZERO, new BigDecimal("200000"), items, null, createdAt);
 
 			// Assert
 			assertAll(
 				() -> assertThat(order.getId()).isEqualTo(1L),
 				() -> assertThat(order.getUserId()).isEqualTo(100L),
+				() -> assertThat(order.getRequestId()).isEqualTo("req-123"),
+				() -> assertThat(order.getOriginalTotalPrice()).isEqualByComparingTo(new BigDecimal("200000")),
+				() -> assertThat(order.getDiscountAmount()).isEqualByComparingTo(BigDecimal.ZERO),
 				() -> assertThat(order.getTotalPrice()).isEqualByComparingTo(new BigDecimal("200000")),
 				() -> assertThat(order.getItems()).hasSize(1),
+				() -> assertThat(order.getCouponSnapshot()).isNull(),
 				() -> assertThat(order.getCreatedAt()).isEqualTo(createdAt)
 			);
 		}

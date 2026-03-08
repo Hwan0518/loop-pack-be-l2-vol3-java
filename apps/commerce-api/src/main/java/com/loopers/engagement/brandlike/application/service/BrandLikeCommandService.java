@@ -1,7 +1,6 @@
 package com.loopers.engagement.brandlike.application.service;
 
 import com.loopers.engagement.brandlike.application.port.out.client.catalog.BrandLikeTargetValidator;
-import com.loopers.engagement.brandlike.application.port.out.client.user.UserAuthenticator;
 import com.loopers.engagement.brandlike.domain.model.BrandLike;
 import com.loopers.engagement.brandlike.domain.repository.BrandLikeCommandRepository;
 import com.loopers.engagement.brandlike.domain.repository.BrandLikeQueryRepository;
@@ -23,24 +22,24 @@ public class BrandLikeCommandService {
 	private final BrandLikeQueryRepository brandLikeQueryRepository;
 	// port
 	private final BrandLikeTargetValidator brandLikeTargetValidator;
-	private final UserAuthenticator userAuthenticator;
 
 
 	/**
 	 * 브랜드 좋아요 명령 서비스
-	 * 1. 사용자 인증
-	 * 2. 브랜드 좋아요 생성 (멱등)
+	 * 1. 좋아요 조회
+	 * 2. 브랜드 좋아요 생성
 	 * 3. 브랜드 좋아요 삭제
 	 * 4. 브랜드 ID로 브랜드 좋아요 전체 삭제
 	 */
 
-	// 1. 사용자 인증
+	// 1. 좋아요 조회
 	@Transactional(readOnly = true)
-	public Long authenticate(String loginId, String password) {
-		return userAuthenticator.authenticate(loginId, password);
+	public Optional<BrandLike> findLike(Long userId, Long targetId) {
+		return brandLikeQueryRepository.findByUserIdAndTargetId(userId, targetId);
 	}
 
-	// 2. 브랜드 좋아요 생성 (멱등)
+
+	// 2. 브랜드 좋아요 생성
 	@Transactional
 	public BrandLike createLike(Long userId, Long targetId) {
 
@@ -49,13 +48,6 @@ public class BrandLikeCommandService {
 			brandLikeTargetValidator.validate(targetId);
 		} catch (CoreException e) {
 			throw new CoreException(ErrorType.LIKE_TARGET_NOT_FOUND);
-		}
-
-		// 기존 좋아요 존재 시 기존 좋아요 반환 (멱등)
-		Optional<BrandLike> existing = brandLikeQueryRepository
-			.findByUserIdAndTargetId(userId, targetId);
-		if (existing.isPresent()) {
-			return existing.get();
 		}
 
 		// 좋아요 생성 및 저장

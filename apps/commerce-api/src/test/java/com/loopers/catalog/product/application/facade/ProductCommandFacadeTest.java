@@ -7,7 +7,6 @@ import com.loopers.catalog.brand.domain.model.vo.BrandName;
 import com.loopers.catalog.product.application.dto.in.AdminProductCreateInDto;
 import com.loopers.catalog.product.application.dto.in.AdminProductUpdateInDto;
 import com.loopers.catalog.product.application.dto.out.AdminProductDetailOutDto;
-import com.loopers.catalog.product.application.service.ProductCleanupCommandService;
 import com.loopers.catalog.product.application.service.ProductCommandService;
 import com.loopers.catalog.product.application.service.ProductQueryService;
 import com.loopers.catalog.product.domain.model.Product;
@@ -38,8 +37,6 @@ class ProductCommandFacadeTest {
 	@Mock
 	private ProductCommandService productCommandService;
 	@Mock
-	private ProductCleanupCommandService productCleanupCommandService;
-	@Mock
 	private ProductQueryService productQueryService;
 	@Mock
 	private BrandQueryService brandQueryService;
@@ -50,8 +47,7 @@ class ProductCommandFacadeTest {
 	@BeforeEach
 	void setUp() {
 		productCommandFacade = new ProductCommandFacade(
-			productCommandService, productCleanupCommandService,
-			productQueryService, brandQueryService
+			productCommandService, productQueryService, brandQueryService
 		);
 	}
 
@@ -150,8 +146,8 @@ class ProductCommandFacadeTest {
 			// Arrange
 			Product product = createTestProduct();
 			given(productQueryService.findActiveById(1L)).willReturn(product);
-			willDoNothing().given(productCleanupCommandService).deleteAllProductLikes(1L);
-			willDoNothing().given(productCleanupCommandService).deleteAllCartItems(1L);
+			willDoNothing().given(productCommandService).deleteAllProductLikes(1L);
+			willDoNothing().given(productCommandService).deleteAllCartItems(1L);
 
 			// Act
 			productCommandFacade.deleteProduct(1L);
@@ -160,8 +156,8 @@ class ProductCommandFacadeTest {
 			assertAll(
 				() -> verify(productQueryService).findActiveById(1L),
 				() -> verify(productCommandService).deleteProduct(product),
-				() -> verify(productCleanupCommandService).deleteAllProductLikes(1L),
-				() -> verify(productCleanupCommandService).deleteAllCartItems(1L)
+				() -> verify(productCommandService).deleteAllProductLikes(1L),
+				() -> verify(productCommandService).deleteAllCartItems(1L)
 			);
 		}
 
@@ -183,6 +179,46 @@ class ProductCommandFacadeTest {
 
 			// Assert
 			verify(productCommandService).decreaseStock(1L, 5L);
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("increaseLikeCount()")
+	class IncreaseLikeCountTest {
+
+		@Test
+		@DisplayName("[increaseLikeCount()] 유효한 상품 ID -> CommandService에 좋아요 수 증가 위임")
+		void increaseLikeCountSuccess() {
+			// Arrange
+			willDoNothing().given(productCommandService).increaseLikeCount(1L);
+
+			// Act
+			productCommandFacade.increaseLikeCount(1L);
+
+			// Assert
+			verify(productCommandService).increaseLikeCount(1L);
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("decreaseLikeCount()")
+	class DecreaseLikeCountTest {
+
+		@Test
+		@DisplayName("[decreaseLikeCount()] 유효한 상품 ID -> CommandService에 좋아요 수 감소 위임")
+		void decreaseLikeCountSuccess() {
+			// Arrange
+			willDoNothing().given(productCommandService).decreaseLikeCount(1L);
+
+			// Act
+			productCommandFacade.decreaseLikeCount(1L);
+
+			// Assert
+			verify(productCommandService).decreaseLikeCount(1L);
 		}
 
 	}

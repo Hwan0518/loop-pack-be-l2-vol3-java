@@ -6,9 +6,7 @@ import com.loopers.ordering.order.application.dto.out.OrderDetailOutDto;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.service.OrderCheckoutCommandService;
-import com.loopers.ordering.order.application.service.OrderCleanupCommandService;
-import com.loopers.ordering.order.application.service.OrderIdempotencyQueryService;
-import com.loopers.ordering.order.application.service.OrderPlacementCommandService;
+import com.loopers.ordering.order.application.service.OrderCommandService;
 import com.loopers.ordering.order.application.service.OrderQueryService;
 import com.loopers.ordering.order.domain.model.Order;
 import com.loopers.ordering.order.domain.model.OrderItem;
@@ -23,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -42,39 +41,32 @@ import static org.mockito.Mockito.*;
 class OrderCommandFacadeTest {
 
 	@Mock
-	private OrderIdempotencyQueryService orderIdempotencyQueryService;
-
-	@Mock
 	private OrderCheckoutCommandService orderCheckoutCommandService;
 
 	@Mock
-	private OrderPlacementCommandService orderPlacementCommandService;
-
-	@Mock
-	private OrderCleanupCommandService orderCleanupCommandService;
-
-	@Mock
 	private OrderQueryService orderQueryService;
+
+	@Mock
+	private OrderCommandService orderCommandService;
 
 	private OrderCommandFacade orderCommandFacade;
 
 	@BeforeEach
 	void setUp() {
 		orderCommandFacade = new OrderCommandFacade(
-			orderIdempotencyQueryService, orderCheckoutCommandService,
-			orderPlacementCommandService, orderCleanupCommandService,
-			orderQueryService
+			orderCheckoutCommandService, orderQueryService, orderCommandService
 		);
 	}
 
 
 	private Order createTestOrder(Long id, Long userId) {
-		return Order.reconstruct(id, userId, new BigDecimal("200000"),
+		return Order.reconstruct(id, userId, "req-123", new BigDecimal("200000"),
+			BigDecimal.ZERO, new BigDecimal("200000"),
 			List.of(OrderItem.reconstruct(1L, 1L,
 				SnapshotName.from("나이키 에어맥스"),
 				SnapshotPrice.from(new BigDecimal("100000")),
 				2L)),
-			LocalDateTime.now()
+			null, LocalDateTime.now()
 		);
 	}
 
@@ -84,18 +76,14 @@ class OrderCommandFacadeTest {
 	class CreateOrderTest {
 
 		@Test
-		@DisplayName("[createOrder()] 유효한 요청 + 멱등성 키 없음 -> 주문 생성 + 장바구니 정리. 인증 → 장바구니 조회 → 상품 조회 → 재고 차감 → 주문 생성 → 장바구니 정리")
+		@DisplayName("[createOrder()] 유효한 요청 + 기존 주문 없음 -> 주문 생성. 멱등성 확인 → 장바구니 조회 → 상품 조회 → 주문 생성")
 		void createOrderSuccess() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 1L;
 			List<Long> cartItemIds = List.of(100L);
-			OrderCreateInDto inDto = new OrderCreateInDto(cartItemIds, "req-123");
+			OrderCreateInDto inDto = new OrderCreateInDto(cartItemIds, "req-123", null);
 
-			given(orderCheckoutCommandService.authenticate(loginId, password)).willReturn(userId);
-
-			given(orderIdempotencyQueryService.findOrderIdByRequestId(userId, "req-123"))
+			given(orderQueryService.findByUserIdAndRequestId(userId, "req-123"))
 				.willReturn(Optional.empty());
 
 			List<OrderCartItemInfo> cartItems = List.of(
@@ -109,70 +97,54 @@ class OrderCommandFacadeTest {
 			given(orderCheckoutCommandService.readProducts(List.of(1L))).willReturn(products);
 
 			List<Long> resolvedCartItemIds = List.of(100L);
-			Order savedOrder = createTestOrder(10L, userId);
-			given(orderPlacementCommandService.createOrder(
-				eq(userId), eq("req-123"), eq(cartItems), eq(products), eq(resolvedCartItemIds)
-			)).willReturn(savedOrder);
-
-			willDoNothing().given(orderCleanupCommandService).deleteCartItems(userId, resolvedCartItemIds);
+			OrderDetailOutDto expectedDto = OrderDetailOutDto.from(createTestOrder(10L, userId));
+			given(orderCommandService.createOrder(eq(userId), eq(inDto), eq(cartItems), eq(products), eq(resolvedCartItemIds)))
+				.willReturn(expectedDto);
 
 			// Act
-			OrderDetailOutDto result = orderCommandFacade.createOrder(loginId, password, inDto);
+			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto);
 
 			// Assert
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(10L),
 				() -> assertThat(result.userId()).isEqualTo(1L),
-				() -> verify(orderCheckoutCommandService).authenticate(loginId, password),
-				() -> verify(orderCheckoutCommandService).decreaseStocks(cartItems),
-				() -> verify(orderPlacementCommandService).createOrder(
-					eq(userId), eq("req-123"), eq(cartItems), eq(products), eq(resolvedCartItemIds)),
-				() -> verify(orderCleanupCommandService).deleteCartItems(userId, resolvedCartItemIds)
+				() -> verify(orderQueryService).findByUserIdAndRequestId(userId, "req-123"),
+				() -> verify(orderCommandService).createOrder(eq(userId), eq(inDto), eq(cartItems), eq(products), eq(resolvedCartItemIds))
 			);
 		}
 
 
 		@Test
-		@DisplayName("[createOrder()] 동일 requestId로 재요청 -> 기존 주문 반환 (멱등성). 주문 생성 호출 없음")
+		@DisplayName("[createOrder()] 동일 requestId로 재요청 -> 기존 주문 반환 (멱등성). createOrder 호출 없음")
 		void createOrderIdempotent() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 1L;
-			OrderCreateInDto inDto = new OrderCreateInDto(List.of(100L), "req-123");
-
-			given(orderCheckoutCommandService.authenticate(loginId, password)).willReturn(userId);
-
-			given(orderIdempotencyQueryService.findOrderIdByRequestId(userId, "req-123"))
-				.willReturn(Optional.of(10L));
+			OrderCreateInDto inDto = new OrderCreateInDto(List.of(100L), "req-123", null);
 
 			Order existingOrder = createTestOrder(10L, userId);
-			given(orderQueryService.findById(10L)).willReturn(existingOrder);
+			given(orderQueryService.findByUserIdAndRequestId(userId, "req-123"))
+				.willReturn(Optional.of(existingOrder));
 
 			// Act
-			OrderDetailOutDto result = orderCommandFacade.createOrder(loginId, password, inDto);
+			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto);
 
 			// Assert
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(10L),
-				() -> verifyNoMoreInteractions(orderPlacementCommandService)
+				() -> verifyNoInteractions(orderCommandService)
 			);
 		}
 
 
 		@Test
-		@DisplayName("[createOrder()] 장바구니가 비어있음 -> EMPTY_CART 예외. 재고 차감/주문 생성 미호출")
+		@DisplayName("[createOrder()] 장바구니가 비어있음 -> EMPTY_CART 예외. createOrder 미호출")
 		void createOrderEmptyCart() {
 			// Arrange
-			String loginId = "loginId";
-			String password = "password";
 			Long userId = 1L;
 			List<Long> cartItemIds = List.of(100L);
-			OrderCreateInDto inDto = new OrderCreateInDto(cartItemIds, "req-123");
+			OrderCreateInDto inDto = new OrderCreateInDto(cartItemIds, "req-123", null);
 
-			given(orderCheckoutCommandService.authenticate(loginId, password)).willReturn(userId);
-
-			given(orderIdempotencyQueryService.findOrderIdByRequestId(userId, "req-123"))
+			given(orderQueryService.findByUserIdAndRequestId(userId, "req-123"))
 				.willReturn(Optional.empty());
 
 			willThrow(new CoreException(ErrorType.EMPTY_CART))
@@ -180,12 +152,48 @@ class OrderCommandFacadeTest {
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> orderCommandFacade.createOrder(loginId, password, inDto));
+				() -> orderCommandFacade.createOrder(userId, inDto));
 
 			// Assert
 			assertAll(
 				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.EMPTY_CART),
-				() -> verifyNoMoreInteractions(orderPlacementCommandService)
+				() -> verifyNoInteractions(orderCommandService)
+			);
+		}
+
+
+		@Test
+		@DisplayName("[createOrder()] DataIntegrityViolation 발생 (유니크 제약 race) -> 기존 주문 조회하여 반환")
+		void createOrderRaceCondition() {
+			// Arrange
+			Long userId = 1L;
+			List<Long> cartItemIds = List.of(100L);
+			OrderCreateInDto inDto = new OrderCreateInDto(cartItemIds, "req-123", null);
+
+			given(orderQueryService.findByUserIdAndRequestId(userId, "req-123"))
+				.willReturn(Optional.empty())  // 첫 번째 호출: 멱등성 검사 시 없음
+				.willReturn(Optional.of(createTestOrder(10L, userId))); // 두 번째 호출: race 후 조회
+
+			List<OrderCartItemInfo> cartItems = List.of(
+				new OrderCartItemInfo(100L, 1L, 2L)
+			);
+			given(orderCheckoutCommandService.readCartItemsByIds(userId, cartItemIds)).willReturn(cartItems);
+
+			List<OrderProductInfo> products = List.of(
+				new OrderProductInfo(1L, "나이키 에어맥스", new BigDecimal("100000"), 10L)
+			);
+			given(orderCheckoutCommandService.readProducts(List.of(1L))).willReturn(products);
+
+			given(orderCommandService.createOrder(eq(userId), eq(inDto), any(), eq(products), any()))
+				.willThrow(new DataIntegrityViolationException("Duplicate entry"));
+
+			// Act
+			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto);
+
+			// Assert
+			assertAll(
+				() -> assertThat(result.id()).isEqualTo(10L),
+				() -> verify(orderCommandService).createOrder(eq(userId), eq(inDto), any(), eq(products), any())
 			);
 		}
 

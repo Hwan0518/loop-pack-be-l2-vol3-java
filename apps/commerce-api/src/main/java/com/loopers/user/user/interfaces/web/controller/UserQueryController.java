@@ -4,7 +4,7 @@ package com.loopers.user.user.interfaces.web.controller;
 import com.loopers.user.user.application.dto.out.UserMeOutDto;
 import com.loopers.user.user.application.facade.UserQueryFacade;
 import com.loopers.user.user.interfaces.web.response.UserMeResponse;
-import com.loopers.user.user.support.common.HeaderValidator;
+import com.loopers.support.common.auth.HeaderValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

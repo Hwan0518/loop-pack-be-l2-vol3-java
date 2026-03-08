@@ -6,7 +6,7 @@ import com.loopers.ordering.order.application.dto.out.OrderDetailOutDto;
 import com.loopers.ordering.order.application.facade.OrderCommandFacade;
 import com.loopers.ordering.order.interfaces.web.request.OrderCreateRequest;
 import com.loopers.ordering.order.interfaces.web.response.OrderDetailResponse;
-import com.loopers.user.user.support.common.HeaderValidator;
+import com.loopers.support.common.auth.AuthenticationResolver;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,6 +21,8 @@ public class OrderCommandController {
 
 	// facade
 	private final OrderCommandFacade orderCommandFacade;
+	// auth
+	private final AuthenticationResolver authenticationResolver;
 
 
 	/**
@@ -36,14 +38,14 @@ public class OrderCommandController {
 		@Valid @RequestBody OrderCreateRequest request
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// InDto 생성
-		OrderCreateInDto inDto = new OrderCreateInDto(request.cartItemIds(), request.requestId());
+		OrderCreateInDto inDto = new OrderCreateInDto(request.cartItemIds(), request.requestId(), request.couponId());
 
 		// 주문 생성
-		OrderDetailOutDto outDto = orderCommandFacade.createOrder(loginId, password, inDto);
+		OrderDetailOutDto outDto = orderCommandFacade.createOrder(userId, inDto);
 
 		// 응답 변환
 		OrderDetailResponse response = OrderDetailResponse.from(outDto);

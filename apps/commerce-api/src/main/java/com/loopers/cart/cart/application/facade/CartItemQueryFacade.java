@@ -3,7 +3,6 @@ package com.loopers.cart.cart.application.facade;
 
 import com.loopers.cart.cart.application.dto.out.CartOutDto;
 import com.loopers.cart.cart.application.dto.out.CartStatusOutDto;
-import com.loopers.cart.cart.application.service.CartItemCommandService;
 import com.loopers.cart.cart.application.service.CartItemQueryService;
 import com.loopers.cart.cart.domain.model.CartItem;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +17,6 @@ import java.util.List;
 public class CartItemQueryFacade {
 
 	// service
-	private final CartItemCommandService cartItemCommandService;
 	private final CartItemQueryService cartItemQueryService;
 
 
@@ -32,10 +30,7 @@ public class CartItemQueryFacade {
 
 	// 1. 장바구니 조회
 	@Transactional(readOnly = true)
-	public CartOutDto getCart(String loginId, String password) {
-
-		// 사용자 인증
-		Long userId = cartItemCommandService.authenticate(loginId, password);
+	public CartOutDto getCart(Long userId) {
 
 		// 장바구니 항목 목록 조회
 		List<CartItem> cartItems = cartItemQueryService.getCartByUserId(userId);
@@ -47,10 +42,7 @@ public class CartItemQueryFacade {
 
 	// 2. 장바구니 상태 조회
 	@Transactional(readOnly = true)
-	public CartStatusOutDto getCartStatus(String loginId, String password) {
-
-		// 사용자 인증
-		Long userId = cartItemCommandService.authenticate(loginId, password);
+	public CartStatusOutDto getCartStatus(Long userId) {
 
 		return cartItemQueryService.getCartStatus(userId);
 	}

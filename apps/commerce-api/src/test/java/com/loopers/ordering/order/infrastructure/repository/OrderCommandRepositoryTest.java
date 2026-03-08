@@ -46,7 +46,7 @@ class OrderCommandRepositoryTest {
 	void saveOrder() {
 		// Arrange
 		OrderItem item = OrderItem.create(1L, "상품A", new BigDecimal("10000"), 2L);
-		Order order = Order.create(100L, new BigDecimal("20000"), List.of(item));
+		Order order = Order.create(100L, "req-cmd-1", new BigDecimal("20000"), BigDecimal.ZERO, List.of(item), null);
 
 		// Act
 		Order savedOrder = orderCommandRepository.save(order);
@@ -73,7 +73,7 @@ class OrderCommandRepositoryTest {
 		OrderItem item1 = OrderItem.create(1L, "상품A", new BigDecimal("10000"), 2L);
 		OrderItem item2 = OrderItem.create(2L, "상품B", new BigDecimal("20000"), 1L);
 		OrderItem item3 = OrderItem.create(3L, "상품C", new BigDecimal("5000"), 3L);
-		Order order = Order.create(100L, new BigDecimal("55000"), List.of(item1, item2, item3));
+		Order order = Order.create(100L, "req-cmd-2", new BigDecimal("55000"), BigDecimal.ZERO, List.of(item1, item2, item3), null);
 
 		// Act
 		Order savedOrder = orderCommandRepository.save(order);

@@ -62,10 +62,8 @@ public class Product {
 	 * 5. 재고 변경
 	 * 6. 설명 변경
 	 * 7. 재고 차감
-	 * 8. 좋아요 수 증가
-	 * 9. 좋아요 수 감소
-	 * 10. 삭제 (soft delete)
-	 * 11. 삭제 여부 확인
+	 * 8. 삭제 (soft delete)
+	 * 9. 삭제 여부 확인
 	 */
 
 	// 1. 상품 생성
@@ -122,23 +120,7 @@ public class Product {
 	}
 
 
-	// 8. 좋아요 수 증가
-	public void increaseLikeCount() {
-		this.likeCount++;
-	}
-
-
-	// 9. 좋아요 수 감소
-	public void decreaseLikeCount() {
-
-		// 좋아요 수가 0 이하일 경우 감소하지 않음
-		if (this.likeCount > 0) {
-			this.likeCount--;
-		}
-	}
-
-
-	// 10. 삭제 (soft delete)
+	// 8. 삭제 (soft delete)
 	public void delete() {
 
 		// 이미 삭제된 경우 예외
@@ -150,7 +132,7 @@ public class Product {
 	}
 
 
-	// 11. 삭제 여부 확인
+	// 9. 삭제 여부 확인
 	public boolean isDeleted() {
 		return this.deletedAt != null;
 	}

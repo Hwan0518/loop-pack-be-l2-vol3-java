@@ -9,6 +9,8 @@ import com.loopers.cart.cart.application.dto.out.CartItemSelectionOutDto;
 import com.loopers.cart.cart.application.service.CartItemCommandService;
 import com.loopers.cart.cart.domain.model.CartItem;
 import com.loopers.cart.cart.domain.model.vo.Quantity;
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -36,8 +39,6 @@ class CartItemCommandFacadeTest {
 
 	private CartItemCommandFacade cartItemCommandFacade;
 
-	private static final String LOGIN_ID = "testuser";
-	private static final String PASSWORD = "password123";
 	private static final Long USER_ID = 1L;
 
 
@@ -59,17 +60,36 @@ class CartItemCommandFacadeTest {
 			CartItem savedItem = CartItem.reconstruct(1L, USER_ID, 100L, Quantity.from(3L), true,
 				LocalDateTime.now(), LocalDateTime.now());
 
-			given(cartItemCommandService.authenticate(LOGIN_ID, PASSWORD)).willReturn(USER_ID);
 			given(cartItemCommandService.addItem(eq(USER_ID), any(CartItemAddInDto.class))).willReturn(savedItem);
 
 			// Act
-			CartItemOutDto result = cartItemCommandFacade.addItem(LOGIN_ID, PASSWORD, inDto);
+			CartItemOutDto result = cartItemCommandFacade.addItem(USER_ID, inDto);
 
 			// Assert
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(1L),
 				() -> assertThat(result.productId()).isEqualTo(100L),
 				() -> assertThat(result.quantity()).isEqualTo(3L)
+			);
+		}
+
+
+		@Test
+		@DisplayName("[recoverAddItemConflict()] @Retryable 재시도 소진 후 @Recover 호출 -> CART_ADD_CONFLICT 예외. "
+			+ "INSERT UNIQUE 위반(user_id, product_id)이 재시도로도 해소되지 않는 극단적 경우의 안전망")
+		void recoverAddItemConflictThrowsCartAddConflict() {
+			// Arrange
+			CartItemAddInDto inDto = new CartItemAddInDto(100L, 3L);
+			DataIntegrityViolationException cause = new DataIntegrityViolationException("Unique constraint violated");
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> cartItemCommandFacade.recoverAddItemConflict(cause, USER_ID, inDto));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.CART_ADD_CONFLICT),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.CART_ADD_CONFLICT.getMessage())
 			);
 		}
 
@@ -89,12 +109,11 @@ class CartItemCommandFacadeTest {
 			CartItem updatedItem = CartItem.reconstruct(cartItemId, USER_ID, 100L, Quantity.from(10L), true,
 				LocalDateTime.now(), LocalDateTime.now());
 
-			given(cartItemCommandService.authenticate(LOGIN_ID, PASSWORD)).willReturn(USER_ID);
 			given(cartItemCommandService.updateQuantity(eq(cartItemId), eq(USER_ID), any(CartItemUpdateQuantityInDto.class)))
 				.willReturn(updatedItem);
 
 			// Act
-			CartItemOutDto result = cartItemCommandFacade.updateQuantity(LOGIN_ID, PASSWORD, cartItemId, inDto);
+			CartItemOutDto result = cartItemCommandFacade.updateQuantity(USER_ID, cartItemId, inDto);
 
 			// Assert
 			assertThat(result.quantity()).isEqualTo(10L);
@@ -111,11 +130,10 @@ class CartItemCommandFacadeTest {
 		@DisplayName("[deleteItem()] 유효한 요청 -> 서비스 deleteItem 호출")
 		void deleteItemSuccess() {
 			// Arrange
-			given(cartItemCommandService.authenticate(LOGIN_ID, PASSWORD)).willReturn(USER_ID);
 			willDoNothing().given(cartItemCommandService).deleteItem(1L, USER_ID);
 
 			// Act
-			cartItemCommandFacade.deleteItem(LOGIN_ID, PASSWORD, 1L);
+			cartItemCommandFacade.deleteItem(USER_ID, 1L);
 
 			// Assert
 			verify(cartItemCommandService).deleteItem(1L, USER_ID);
@@ -135,12 +153,11 @@ class CartItemCommandFacadeTest {
 			CartItemSelectionInDto inDto = new CartItemSelectionInDto(List.of(1L, 3L));
 			CartItemSelectionOutDto outDto = new CartItemSelectionOutDto(List.of(1L, 3L), List.of(2L));
 
-			given(cartItemCommandService.authenticate(LOGIN_ID, PASSWORD)).willReturn(USER_ID);
 			given(cartItemCommandService.updateSelection(eq(USER_ID), any(CartItemSelectionInDto.class)))
 				.willReturn(outDto);
 
 			// Act
-			CartItemSelectionOutDto result = cartItemCommandFacade.updateSelection(LOGIN_ID, PASSWORD, inDto);
+			CartItemSelectionOutDto result = cartItemCommandFacade.updateSelection(USER_ID, inDto);
 
 			// Assert
 			assertAll(

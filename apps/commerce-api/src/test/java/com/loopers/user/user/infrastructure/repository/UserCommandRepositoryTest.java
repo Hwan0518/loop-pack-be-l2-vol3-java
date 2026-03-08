@@ -1,7 +1,5 @@
 package com.loopers.user.user.infrastructure.repository;
 
-import com.loopers.support.common.error.CoreException;
-import com.loopers.support.common.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.user.user.domain.repository.UserCommandRepository;
@@ -16,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDate;
@@ -67,7 +66,8 @@ class UserCommandRepositoryTest {
 	}
 
 	@Test
-	@DisplayName("[UserCommandRepository.save()] active 유저와 동일 loginId 저장 -> CoreException(USER_ALREADY_EXISTS). DB 유니크 제약이 동시성 문제 방지")
+	@DisplayName("[UserCommandRepository.save()] active 유저와 동일 loginId 저장 -> DataIntegrityViolationException. "
+		+ "Repository는 데이터 반환만 담당하며, DB 유니크 제약 위반 시 예외를 그대로 전파한다")
 	void saveActiveDuplicateLoginIdThrows() {
 		// Arrange
 		User firstUser = User.create(
@@ -86,15 +86,9 @@ class UserCommandRepositoryTest {
 		);
 		userCommandRepository.save(firstUser);
 
-		// Act
-		CoreException exception = assertThrows(CoreException.class,
+		// Act & Assert
+		assertThrows(DataIntegrityViolationException.class,
 			() -> userCommandRepository.save(duplicateLoginIdUser));
-
-		// Assert
-		assertAll(
-			() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.USER_ALREADY_EXISTS),
-			() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.USER_ALREADY_EXISTS.getMessage())
-		);
 	}
 
 	@Test

@@ -223,6 +223,104 @@ class SomeIntegrationTest {
 - 비밀번호 일치 검증은 `AuthenticationManager` 포트(현재 `CustomAuthenticationManager`)에 위임하고, 비밀번호 정책 검증은 도메인 VO(`Password.validatePasswordPolicy`)가 담당
 - URL 패턴: 사용자 `/api/v1/{resource}`, 관리자 `/api-admin/v1/{resource}`
 
+#### 낙관적 락 (`@Version`) 충돌 처리 패턴
+
+`@Version` 기반 낙관적 락 충돌(`OptimisticLockingFailureException`) 처리 시, **`@Retryable`을 1순위로 사용**한다.
+
+**1순위: `@Retryable` + `@Recover` (기본)**
+- `@Retryable`은 `@Transactional` **바깥**에서 AOP 프록시로 감싸므로, TX 커밋 시점에 발생하는 `OptimisticLockingFailureException`을 자연스럽게 catch한다.
+- 재시도 시 새 TX가 열려 DB에서 최신 version을 다시 읽으므로 정합성이 보장된다.
+- 재시도 소진 시 `@Recover` 메서드에서 도메인 전용 `CoreException`으로 변환한다.
+
+```java
+// Facade — @Retryable이 @Transactional 바깥에서 감싸 TX 커밋 예외를 catch
+@Retryable(
+    retryFor = OptimisticLockingFailureException.class,
+    recover = "recoverXxxConflict",
+    maxAttempts = 3,
+    backoff = @Backoff(delay = 50, multiplier = 2, maxDelay = 200, random = true)
+)
+@Transactional
+public Result doSomething(...) { ... }
+
+@Recover
+public Result recoverXxxConflict(OptimisticLockingFailureException e, ...) {
+    throw new CoreException(ErrorType.XXX_CONFLICT);
+}
+```
+
+**2순위: try-catch + `saveAndFlush()` (예외적)**
+- `@Retryable` 사용이 불가능한 경우에만 사용한다 (예: 이미 `@Retryable`이 적용된 메서드 내부에서 별도 낙관적 락 처리가 필요한 경우).
+- `saveAndFlush()`로 즉시 SQL을 실행하여 try-catch 범위 내에서 예외를 잡는다.
+- 이 패턴은 구조적 우회이므로, 반드시 주석으로 `@Retryable` 미사용 사유를 명시한다.
+
+**사용 금지: try-catch + `save()` (flush 없이)**
+- `save()`는 영속성 컨텍스트에 merge만 수행하고, 실제 SQL은 TX 커밋 시점에 실행된다.
+- 따라서 Facade 내부의 try-catch로는 `OptimisticLockingFailureException`을 잡을 수 없다.
+
+**참고 — 안전망**: `GlobalExceptionHandler`에 `OptimisticLockingFailureException` → 409 핸들러가 존재한다. `@Retryable`이나 Facade에서 잡히지 않는 경우 최종 방어선으로 동작한다.
+
+#### INSERT 유일성 (UNIQUE constraint) 동시성 처리 패턴
+
+비즈니스 규칙상 중복 INSERT가 허용되지 않는 경우의 처리 원칙이다.
+
+**3계층 방어 구조:**
+1. **사전 조회 (select-before-insert)**: Service/Facade에서 비즈니스 검증 목적으로 중복 확인. 정상 흐름에서 의미 있는 에러/멱등 반환 제공. 단, TOCTOU gap이 존재하므로 동시성 방어는 불가.
+2. **DB UNIQUE constraint**: 데이터 무결성 안전망. 동시성 제어 수단이 아닌 **무결성 보장** 수단으로 항상 적용.
+3. **race 시 응답**: 사전 조회를 통과한 0.01% race에서 unique 위반 발생 시, 부수 효과 비용에 따라 처리 방식이 다름.
+
+**race 시 처리 기준:**
+
+| 기준 | 500 허용 | `@Retryable` | Facade try-catch |
+|------|:--------:|:------------:|:----------------:|
+| 부수 효과 없거나 미미 | O | | |
+| 부수 효과 없으나 수량 합산 누락 위험 | | O | |
+| 부수 효과가 크고 비가역적 | | | O |
+| 사용자가 재시도 안 해도 무해 | O | | |
+| 재시도로 자동 해소 가능 (sert-before-insert) | | O | |
+| 사용자가 재시도 안 하면 데이터 불일치 | | | O |
+
+**RepositoryImpl에서 `DataIntegrityViolationException` try-catch 금지:**
+- Repository는 데이터를 반환하는 역할만 담당한다. 비즈니스 예외 발생은 Service의 책임이다.
+- race 시 `DataIntegrityViolationException`은 500으로 전파되거나, Facade에서 catch하여 멱등 반환한다.
+
+**예시 — 500 허용 (좋아요, 쿠폰, 회원가입):**
+```java
+// Facade — try-catch 없음. 사전 조회가 비즈니스 검증 담당, unique 제약은 안전망
+@Transactional
+public ProductLikeOutDto createLike(...) {
+    Optional<ProductLike> existing = service.findLike(userId, targetId);
+    if (existing.isPresent()) {
+        return ProductLikeOutDto.from(existing.get()); // 멱등 반환
+    }
+    ProductLike like = service.createLike(userId, targetId);
+    // race 시 DataIntegrityViolationException → 500 → 재시도 시 사전 조회에서 멱등 반환
+    return ProductLikeOutDto.from(like);
+}
+```
+
+**장바구니 항목 추가 — 수량 합산 연산 (`@Retryable`):**
+- 장바구니의 동일 상품 추가는 멱등 연산이 아닌 **수량 합산** 연산이다 (업계 표준: 기존 라인에 수량 증가).
+- 사전 조회 → 존재 시 수량 합산(UPDATE), 미존재 시 신규 생성(INSERT). UNIQUE constraint `(user_id, product_id)` 적용.
+- race 시 `DataIntegrityViolationException` 발생 → `@Retryable`이 catch → 재시도 시 새 TX에서 사전 조회가 기존 항목을 찾아 수량 합산으로 정상 처리.
+- 재시도 소진 시 `@Recover`에서 `CART_ADD_CONFLICT` 예외 반환 (실질적으로 발생하지 않는 안전망).
+
+**예시 — Facade try-catch (주문 — 부수 효과가 비가역적):**
+
+> **전제조건**: Facade 메서드에 `@Transactional`이 없고, 쓰기 TX가 Service 레벨로 분리된 경우에만 동작한다. `@Transactional` Facade 내부에서 `DataIntegrityViolationException`이 발생하면 Spring이 TX를 rollback-only로 마킹하므로, catch해도 커밋 시 `UnexpectedRollbackException`이 발생한다.
+
+```java
+// Facade — @Transactional 없음. 쓰기 TX는 Service 레벨로 분리됨
+try {
+    return orderCommandService.createOrder(userId, inDto, ...);
+} catch (DataIntegrityViolationException e) {
+    if (isDuplicateKeyViolation(e)) {
+        return OrderDetailOutDto.from(orderQueryService.findByUserIdAndRequestId(...));
+    }
+    throw e;
+}
+```
+
 ### 4.7 도메인 모델 패턴
 
 #### 팩토리 메서드
@@ -285,11 +383,11 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 ##### 호출 순서 및 책임
 
 1. **Facade는 Service만 호출한다.** Port, Repository, DomainService 등을 직접 호출하지 않는다.
-2. **Service가 모든 외부 호출의 주체다.** Repository, Port(Cross-BC), DomainService를 Service에서 호출한다.
+2. **Service가 모든 외부 호출의 주체다.** Repository, Port(Cross-BC), DomainService를 Service에서 호출한다. Service는 Repository와 Port를 자유롭게 조합할 수 있으며, Port 호출만을 위한 별도 wrapper Service 생성은 지양한다.
 3. **호출 순서**: Controller → Facade → Service → (Repository / Port / DomainService). 계층 건너뛰기 금지.
 4. **DomainService는 Repository/Port를 호출하지 않는다.** Service가 데이터를 조회하여 DomainService에 전달한다.
 5. **Domain Model은 순수 비즈니스 로직만 포함한다.** 외부 의존(Repository, Port, Spring 등) 없음.
-6. **Service는 다른 Service를 호출하지 않는다.** Service의 의존 대상은 Repository, Port(Cross-BC), DomainService, EventPublisher로 한정한다. 여러 Service 간 오케스트레이션은 Facade에서 수행한다.
+6. **Service는 다른 Service를 호출하지 않는다.** Service의 의존 대상은 Repository, Port(Cross-BC), DomainService, EventPublisher로 자유롭게 조합할 수 있다. Port만 감싸는 thin wrapper Service를 만들지 않는다. 여러 Service 간 오케스트레이션은 Facade에서 수행한다.
 7. **Service의 public 메서드는 유스케이스 계약과 Facade/EventListener가 조합하는 단계를 노출한다.** 클래스 내부 전용 helper는 `private`로 감춘다.
 
 ##### 비즈니스 로직 분리
@@ -325,6 +423,9 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 - 도메인 이벤트 + `@TransactionalEventListener`
 - 최종적 일관성만 필요한 부수효과에 사용
 - 예: 주문 완료 후 알림 발송, 통계 업데이트
+- **흐름 추적 필수 규칙**: Domain Event 사용 시 아래 두 가지를 반드시 명시한다.
+  1. **Event 클래스 Javadoc에 구독자 목록 명시**: `@subscriber {ListenerClass} - {역할}` 형식으로 모든 구독자를 기록
+  2. **Publisher 쪽 주석에 파생 효과 명시**: 이벤트 발행 라인에 `→ [{Listener}] {효과}` 형식으로 어떤 리스너가 반응하는지 인라인 주석 기록
 
 | 레이어 | 클래스 | 어노테이션 | 역할 |
 |--------|--------|-----------|------|
@@ -332,7 +433,7 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 | Controller | `{Domain}AdminCommandController` / `{Domain}AdminQueryController` | `@RestController` | 관리자 요청 수신 (`/api-admin/v1/`), Facade 호출 |
 | Facade | `{Domain}CommandFacade` | `@Service`, method-level `@Transactional` | 명령 유스케이스 오케스트레이션, 트랜잭션 경계, **Service만 호출** |
 | Facade | `{Domain}QueryFacade` | `@Service`, method-level `@Transactional(readOnly = true)` | 조회 유스케이스 오케스트레이션 |
-| Service | `{Domain}CommandService` | `@Service`, method-level `@Transactional` | 단일 도메인 비즈니스 로직 실행 **(다른 Service 호출 금지, public은 유스케이스 계약만 노출)** |
+| Service | `{Domain}CommandService` | `@Service`, method-level `@Transactional` | 단일 도메인 비즈니스 로직 실행 **(다른 Service 호출 금지, public은 유스케이스 계약만 노출, Repository와 Port 자유 조합 가능, Port만 감싸는 wrapper Service 금지)** |
 | Domain Service | `{Domain}XxxValidator` 등 | (순수 Java, `@Bean` 등록) | 비즈니스 불변식 검증 **(Repository/Port 호출 금지, Service가 데이터 전달)** |
 | Repository(I) | `{Domain}Command/QueryRepository` | (인터페이스, `domain/repository/`) | 명령(save,delete) / 조회(find,exists) 계약 |
 | RepositoryImpl | `{Domain}Command/QueryRepositoryImpl` | `@Repository` | Entity ↔ Domain 변환 후 JPA 호출 |

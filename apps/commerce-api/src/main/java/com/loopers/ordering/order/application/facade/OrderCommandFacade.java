@@ -6,14 +6,14 @@ import com.loopers.ordering.order.application.dto.out.OrderDetailOutDto;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.service.OrderCheckoutCommandService;
-import com.loopers.ordering.order.application.service.OrderCleanupCommandService;
-import com.loopers.ordering.order.application.service.OrderIdempotencyQueryService;
-import com.loopers.ordering.order.application.service.OrderPlacementCommandService;
 import com.loopers.ordering.order.application.service.OrderQueryService;
+import com.loopers.ordering.order.application.service.OrderCommandService;
 import com.loopers.ordering.order.domain.model.Order;
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,55 +24,60 @@ import java.util.Optional;
 public class OrderCommandFacade {
 
 	// service
-	private final OrderIdempotencyQueryService orderIdempotencyQueryService;
 	private final OrderCheckoutCommandService orderCheckoutCommandService;
-	private final OrderPlacementCommandService orderPlacementCommandService;
-	private final OrderCleanupCommandService orderCleanupCommandService;
 	private final OrderQueryService orderQueryService;
+	private final OrderCommandService orderCommandService;
 
 
 	/**
 	 * 주문 명령 파사드
-	 * 1. 주문 생성 (인증 → 멱등성 검사 → 장바구니 조회 → 상품 조회 → 재고 차감 → 주문 생성)
+	 * 1. 주문 생성 (읽기: NO TX — 쓰기: OrderCommandService 짧은 TX)
 	 */
 
 	// 1. 주문 생성
-	@Transactional
-	public OrderDetailOutDto createOrder(String loginId, String password, OrderCreateInDto inDto) {
+	public OrderDetailOutDto createOrder(Long userId, OrderCreateInDto inDto) {
 
-		// 1. 사용자 인증
-		Long userId = orderCheckoutCommandService.authenticate(loginId, password);
+		// Phase 1: 읽기 (NO TX — 각 Service가 자체 readOnly TX 보유)
 
-		// 2. 멱등성 검사: 동일 requestId로 이미 주문이 존재하면 기존 주문 반환
-		Optional<Long> existingOrderId = orderIdempotencyQueryService.findOrderIdByRequestId(userId, inDto.requestId());
-		if (existingOrderId.isPresent()) {
-			Order existingOrder = orderQueryService.findById(existingOrderId.get());
-			return OrderDetailOutDto.from(existingOrder);
+		// 멱등성 검사: 동일 userId + requestId로 이미 주문이 존재하면 기존 주문 반환
+		Optional<Order> existingOrder = orderQueryService.findByUserIdAndRequestId(userId, inDto.requestId());
+		if (existingOrder.isPresent()) {
+			return OrderDetailOutDto.from(existingOrder.get());
 		}
 
-		// 3. 장바구니 항목 조회
+		// 장바구니 항목 조회
 		List<OrderCartItemInfo> cartItems = orderCheckoutCommandService.readCartItemsByIds(userId, inDto.cartItemIds());
 
-		// 4. 상품 정보 조회
+		// 상품 정보 조회
 		List<Long> productIds = cartItems.stream()
 			.map(OrderCartItemInfo::productId)
 			.toList();
 		List<OrderProductInfo> products = orderCheckoutCommandService.readProducts(productIds);
 
-		// 5. 재고 차감
-		orderCheckoutCommandService.decreaseStocks(cartItems);
-
-		// 6. 주문 생성
 		List<Long> resolvedCartItemIds = cartItems.stream()
 			.map(OrderCartItemInfo::cartItemId)
 			.toList();
-		Order order = orderPlacementCommandService.createOrder(userId, inDto.requestId(), cartItems, products, resolvedCartItemIds);
 
-		// 7. 장바구니 항목 정리 (Cross-BC 부수효과)
-		orderCleanupCommandService.deleteCartItems(userId, resolvedCartItemIds);
+		// Phase 2: 쓰기 (OrderCommandService — 짧은 @Transactional)
+		try {
+			return orderCommandService.createOrder(userId, inDto, cartItems, products, resolvedCartItemIds);
+		} catch (DataIntegrityViolationException e) {
+			// 유니크 제약 위반(user_id + request_id) race인 경우에만 멱등 처리
+			if (isDuplicateKeyViolation(e)) {
+				Order racedOrder = orderQueryService.findByUserIdAndRequestId(userId, inDto.requestId())
+					.orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+				return OrderDetailOutDto.from(racedOrder);
+			}
+			// 그 외 무결성 오류(FK, NOT NULL 등)는 그대로 전파
+			throw e;
+		}
+	}
 
-		// 8. DTO 변환
-		return OrderDetailOutDto.from(order);
+
+	// MySQL "Duplicate entry" 메시지로 유니크 제약 위반 여부 판별
+	private boolean isDuplicateKeyViolation(DataIntegrityViolationException e) {
+		String rootMessage = e.getMostSpecificCause().getMessage();
+		return rootMessage != null && rootMessage.contains("Duplicate entry");
 	}
 
 }

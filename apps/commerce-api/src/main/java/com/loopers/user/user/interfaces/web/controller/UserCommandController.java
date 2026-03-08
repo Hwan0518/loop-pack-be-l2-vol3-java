@@ -8,7 +8,7 @@ import com.loopers.user.user.application.facade.UserCommandFacade;
 import com.loopers.user.user.interfaces.web.request.UserChangePasswordRequest;
 import com.loopers.user.user.interfaces.web.request.UserSignUpRequest;
 import com.loopers.user.user.interfaces.web.response.UserSignUpResponse;
-import com.loopers.user.user.support.common.HeaderValidator;
+import com.loopers.support.common.auth.HeaderValidator;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

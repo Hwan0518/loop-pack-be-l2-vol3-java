@@ -6,8 +6,10 @@ import com.loopers.cart.cart.support.CartTestPortConfig;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
+import com.loopers.user.user.interfaces.web.request.UserSignUpRequest;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -46,6 +49,12 @@ class CartItemControllerE2ETest {
 
 	private static final String LOGIN_ID = "testuser01";
 	private static final String PASSWORD = "Test1234!";
+
+
+	@BeforeEach
+	void setUp() throws Exception {
+		signUpUser(LOGIN_ID, PASSWORD, "테스트유저", LocalDate.of(1990, 1, 15), "test@example.com");
+	}
 
 
 	@AfterEach
@@ -316,10 +325,21 @@ class CartItemControllerE2ETest {
 
 	/**
 	 * 테스트 헬퍼
-	 * 1. 장바구니 항목 추가 (API 호출)
+	 * 1. 사용자 생성 (API 호출)
+	 * 2. 장바구니 항목 추가 (API 호출)
 	 */
 
-	// 1. 장바구니 항목 추가 (API 호출) - 추가된 항목의 ID 반환
+	// 1. 사용자 생성
+	private void signUpUser(String loginId, String password, String name, LocalDate birthDate, String email) throws Exception {
+		UserSignUpRequest request = new UserSignUpRequest(loginId, password, name, birthDate, email);
+		mockMvc.perform(post("/api/v1/users")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(request)))
+			.andExpect(status().isCreated());
+	}
+
+
+	// 2. 장바구니 항목 추가 (API 호출) - 추가된 항목의 ID 반환
 	private Long addCartItem(Long productId, Long quantity) throws Exception {
 		MvcResult result = mockMvc.perform(post("/api/v1/cart/items")
 				.header("X-Loopers-LoginId", LOGIN_ID)

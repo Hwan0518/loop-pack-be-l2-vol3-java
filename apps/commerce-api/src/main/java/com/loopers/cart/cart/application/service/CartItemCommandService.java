@@ -6,7 +6,6 @@ import com.loopers.cart.cart.application.dto.in.CartItemSelectionInDto;
 import com.loopers.cart.cart.application.dto.in.CartItemUpdateQuantityInDto;
 import com.loopers.cart.cart.application.dto.out.CartItemSelectionOutDto;
 import com.loopers.cart.cart.application.port.out.client.catalog.CartProductReader;
-import com.loopers.cart.cart.application.port.out.client.user.UserAuthenticator;
 import com.loopers.cart.cart.domain.model.CartItem;
 import com.loopers.cart.cart.domain.repository.CartItemCommandRepository;
 import com.loopers.cart.cart.domain.repository.CartItemQueryRepository;
@@ -32,28 +31,20 @@ public class CartItemCommandService {
 	private final CartItemQueryRepository cartItemQueryRepository;
 	// port
 	private final CartProductReader cartProductReader;
-	private final UserAuthenticator userAuthenticator;
 
 
 	/**
 	 * 장바구니 항목 명령 서비스
-	 * 1. 사용자 인증
-	 * 2. 장바구니 항목 추가
-	 * 3. 장바구니 항목 수량 변경
-	 * 4. 장바구니 항목 삭제
-	 * 5. 장바구니 항목 선택 상태 변경
-	 * 6. 상품 ID로 장바구니 항목 전체 삭제
-	 * 7. ID 목록으로 장바구니 항목 전체 삭제
-	 * 8. 사용자 ID와 ID 목록으로 장바구니 항목 전체 삭제
+	 * 1. 장바구니 항목 추가
+	 * 2. 장바구니 항목 수량 변경
+	 * 3. 장바구니 항목 삭제
+	 * 4. 장바구니 항목 선택 상태 변경
+	 * 5. 상품 ID로 장바구니 항목 전체 삭제
+	 * 6. ID 목록으로 장바구니 항목 전체 삭제
+	 * 7. 사용자 ID와 ID 목록으로 장바구니 항목 전체 삭제
 	 */
 
-	// 1. 사용자 인증
-	@Transactional(readOnly = true)
-	public Long authenticate(String loginId, String password) {
-		return userAuthenticator.authenticate(loginId, password);
-	}
-
-	// 2. 장바구니 항목 추가
+	// 1. 장바구니 항목 추가
 	@Transactional
 	public CartItem addItem(Long userId, CartItemAddInDto inDto) {
 
@@ -81,7 +72,7 @@ public class CartItemCommandService {
 	}
 
 
-	// 3. 장바구니 항목 수량 변경
+	// 2. 장바구니 항목 수량 변경
 	@Transactional
 	public CartItem updateQuantity(Long cartItemId, Long userId, CartItemUpdateQuantityInDto inDto) {
 
@@ -96,7 +87,7 @@ public class CartItemCommandService {
 	}
 
 
-	// 4. 장바구니 항목 삭제
+	// 3. 장바구니 항목 삭제
 	@Transactional
 	public void deleteItem(Long cartItemId, Long userId) {
 
@@ -108,7 +99,7 @@ public class CartItemCommandService {
 	}
 
 
-	// 5. 장바구니 항목 선택 상태 변경
+	// 4. 장바구니 항목 선택 상태 변경
 	@Transactional
 	public CartItemSelectionOutDto updateSelection(Long userId, CartItemSelectionInDto inDto) {
 
@@ -137,21 +128,21 @@ public class CartItemCommandService {
 	}
 
 
-	// 6. 상품 ID로 장바구니 항목 전체 삭제
+	// 5. 상품 ID로 장바구니 항목 전체 삭제
 	@Transactional
 	public void deleteAllByProductId(Long productId) {
 		cartItemCommandRepository.deleteAllByProductId(productId);
 	}
 
 
-	// 7. ID 목록으로 장바구니 항목 전체 삭제
+	// 6. ID 목록으로 장바구니 항목 전체 삭제
 	@Transactional
 	public void deleteAllByIds(List<Long> ids) {
 		cartItemCommandRepository.deleteAllByIds(ids);
 	}
 
 
-	// 8. 사용자 ID와 ID 목록으로 장바구니 항목 전체 삭제
+	// 7. 사용자 ID와 ID 목록으로 장바구니 항목 전체 삭제
 	@Transactional
 	public void deleteAllByUserIdAndIds(Long userId, List<Long> ids) {
 		cartItemCommandRepository.deleteAllByUserIdAndIds(userId, ids);

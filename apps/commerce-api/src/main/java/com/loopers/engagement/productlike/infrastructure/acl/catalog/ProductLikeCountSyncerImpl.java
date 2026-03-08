@@ -1,7 +1,7 @@
 package com.loopers.engagement.productlike.infrastructure.acl.catalog;
 
 
-import com.loopers.catalog.product.application.facade.ProductLikeCountCommandFacade;
+import com.loopers.catalog.product.application.facade.ProductCommandFacade;
 import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeCountSyncer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -15,8 +15,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ProductLikeCountSyncerImpl implements ProductLikeCountSyncer {
 
-	// facade: 상품 좋아요 수 명령 파사드 (catalog BC)
-	private final ProductLikeCountCommandFacade productLikeCountCommandFacade;
+	// facade: 상품 명령 파사드 (catalog BC)
+	private final ProductCommandFacade productCommandFacade;
 
 
 	/**
@@ -28,14 +28,14 @@ public class ProductLikeCountSyncerImpl implements ProductLikeCountSyncer {
 	// 1. 좋아요 수 증가 — Provider Facade에 위임
 	@Override
 	public void increaseLikeCount(Long productId) {
-		productLikeCountCommandFacade.increaseLikeCount(productId);
+		productCommandFacade.increaseLikeCount(productId);
 	}
 
 
 	// 2. 좋아요 수 감소 — Provider Facade에 위임
 	@Override
 	public void decreaseLikeCount(Long productId) {
-		productLikeCountCommandFacade.decreaseLikeCount(productId);
+		productCommandFacade.decreaseLikeCount(productId);
 	}
 
 }

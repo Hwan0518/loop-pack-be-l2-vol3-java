@@ -6,7 +6,6 @@ import com.loopers.catalog.brand.domain.model.Brand;
 import com.loopers.catalog.product.application.dto.in.AdminProductCreateInDto;
 import com.loopers.catalog.product.application.dto.in.AdminProductUpdateInDto;
 import com.loopers.catalog.product.application.dto.out.AdminProductDetailOutDto;
-import com.loopers.catalog.product.application.service.ProductCleanupCommandService;
 import com.loopers.catalog.product.application.service.ProductCommandService;
 import com.loopers.catalog.product.application.service.ProductQueryService;
 import com.loopers.catalog.product.domain.model.Product;
@@ -21,7 +20,6 @@ public class ProductCommandFacade {
 
 	// service
 	private final ProductCommandService productCommandService;
-	private final ProductCleanupCommandService productCleanupCommandService;
 	private final ProductQueryService productQueryService;
 	private final BrandQueryService brandQueryService;
 
@@ -32,6 +30,8 @@ public class ProductCommandFacade {
 	 * 2. 상품 수정
 	 * 3. 상품 삭제
 	 * 4. 상품 재고 차감 (Cross-BC 전용 — ACL에서 호출)
+	 * 5. 좋아요 수 증가 (Cross-BC 전용 — ACL에서 호출)
+	 * 6. 좋아요 수 감소 (Cross-BC 전용 — ACL에서 호출)
 	 */
 
 	// 1. 상품 생성
@@ -78,10 +78,10 @@ public class ProductCommandFacade {
 		productCommandService.deleteProduct(product);
 
 		// 상품 좋아요 정리 (Cross-BC 부수효과)
-		productCleanupCommandService.deleteAllProductLikes(product.getId());
+		productCommandService.deleteAllProductLikes(product.getId());
 
 		// 장바구니 항목 정리 (Cross-BC 부수효과)
-		productCleanupCommandService.deleteAllCartItems(product.getId());
+		productCommandService.deleteAllCartItems(product.getId());
 	}
 
 
@@ -89,6 +89,20 @@ public class ProductCommandFacade {
 	@Transactional
 	public void decreaseStock(Long productId, Long quantity) {
 		productCommandService.decreaseStock(productId, quantity);
+	}
+
+
+	// 5. 좋아요 수 증가 (Cross-BC 전용 — ACL에서 호출)
+	@Transactional
+	public void increaseLikeCount(Long productId) {
+		productCommandService.increaseLikeCount(productId);
+	}
+
+
+	// 6. 좋아요 수 감소 (Cross-BC 전용 — ACL에서 호출)
+	@Transactional
+	public void decreaseLikeCount(Long productId) {
+		productCommandService.decreaseLikeCount(productId);
 	}
 
 }

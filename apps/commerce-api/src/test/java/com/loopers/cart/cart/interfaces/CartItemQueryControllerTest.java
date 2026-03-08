@@ -7,6 +7,8 @@ import com.loopers.cart.cart.application.dto.out.CartStatusItemOutDto;
 import com.loopers.cart.cart.application.dto.out.CartStatusOutDto;
 import com.loopers.cart.cart.application.facade.CartItemQueryFacade;
 import com.loopers.cart.cart.interfaces.web.controller.CartItemQueryController;
+import com.loopers.support.common.auth.AuthenticationResolver;
+import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -20,7 +22,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -37,10 +39,14 @@ class CartItemQueryControllerTest {
 	@MockitoBean
 	private CartItemQueryFacade cartItemQueryFacade;
 
+	@MockitoBean
+	private AuthenticationResolver authenticationResolver;
+
 	private static final String LOGIN_ID_HEADER = "X-Loopers-LoginId";
 	private static final String LOGIN_PW_HEADER = "X-Loopers-LoginPw";
 	private static final String LOGIN_ID = "testuser";
 	private static final String LOGIN_PW = "password123";
+	private static final Long USER_ID = 1L;
 
 
 	@Nested
@@ -59,7 +65,8 @@ class CartItemQueryControllerTest {
 				2
 			);
 
-			given(cartItemQueryFacade.getCart(anyString(), anyString())).willReturn(outDto);
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
+			given(cartItemQueryFacade.getCart(anyLong())).willReturn(outDto);
 
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/cart")
@@ -78,7 +85,8 @@ class CartItemQueryControllerTest {
 		void getCartEmpty() throws Exception {
 			// Arrange
 			CartOutDto outDto = new CartOutDto(List.of(), 0);
-			given(cartItemQueryFacade.getCart(anyString(), anyString())).willReturn(outDto);
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
+			given(cartItemQueryFacade.getCart(anyLong())).willReturn(outDto);
 
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/cart")
@@ -93,6 +101,10 @@ class CartItemQueryControllerTest {
 		@Test
 		@DisplayName("[GET /api/v1/cart] 인증 헤더 누락 -> 401 Unauthorized")
 		void getCartUnauthorized() throws Exception {
+			// Arrange
+			given(authenticationResolver.resolve(isNull(), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
+
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/cart"))
 				.andExpect(status().isUnauthorized());
@@ -102,6 +114,10 @@ class CartItemQueryControllerTest {
 		@Test
 		@DisplayName("[GET /api/v1/cart] LoginId만 존재, LoginPw 누락 -> 401 Unauthorized")
 		void getCartMissingPassword() throws Exception {
+			// Arrange
+			given(authenticationResolver.resolve(eq(LOGIN_ID), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
+
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/cart")
 					.header(LOGIN_ID_HEADER, LOGIN_ID))
@@ -126,7 +142,8 @@ class CartItemQueryControllerTest {
 					new CartStatusItemOutDto(3L, 300L, 3L, false)
 				));
 
-			given(cartItemQueryFacade.getCartStatus(anyString(), anyString())).willReturn(outDto);
+			given(authenticationResolver.resolve(LOGIN_ID, LOGIN_PW)).willReturn(USER_ID);
+			given(cartItemQueryFacade.getCartStatus(anyLong())).willReturn(outDto);
 
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/cart/status")
@@ -142,6 +159,10 @@ class CartItemQueryControllerTest {
 		@Test
 		@DisplayName("[GET /api/v1/cart/status] 인증 헤더 누락 -> 401 Unauthorized")
 		void getCartStatusUnauthorized() throws Exception {
+			// Arrange
+			given(authenticationResolver.resolve(isNull(), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
+
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/cart/status"))
 				.andExpect(status().isUnauthorized());

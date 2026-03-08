@@ -56,11 +56,13 @@ public class ProductEntity extends SoftDeleteBaseEntity {
 	}
 
 
+	// DB 복원용 (id 포함)
 	public static ProductEntity of(Long id, Long brandId, String name, BigDecimal price, Long stock,
 		String description, Long likeCount) {
 		return new ProductEntity(id, brandId, name, price, stock, description, likeCount);
 	}
 
+	// 신규 생성용 (id = null)
 	public static ProductEntity of(Long brandId, String name, BigDecimal price, Long stock,
 		String description, Long likeCount) {
 		return of(null, brandId, name, price, stock, description, likeCount);

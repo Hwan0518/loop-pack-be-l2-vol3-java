@@ -3,6 +3,8 @@ package com.loopers.catalog.product.application.service;
 
 import com.loopers.catalog.product.application.dto.in.AdminProductCreateInDto;
 import com.loopers.catalog.product.application.dto.in.AdminProductUpdateInDto;
+import com.loopers.catalog.product.application.port.out.client.cart.CartItemCleanupManager;
+import com.loopers.catalog.product.application.port.out.client.engagement.ProductLikeCleanupManager;
 import com.loopers.catalog.product.domain.model.Product;
 import com.loopers.catalog.product.domain.model.vo.Money;
 import com.loopers.catalog.product.domain.model.vo.ProductName;
@@ -37,6 +39,10 @@ class ProductCommandServiceTest {
 	private ProductCommandRepository productCommandRepository;
 	@Mock
 	private ProductQueryRepository productQueryRepository;
+	@Mock
+	private ProductLikeCleanupManager productLikeCleanupManager;
+	@Mock
+	private CartItemCleanupManager cartItemCleanupManager;
 
 	private ProductCommandService productCommandService;
 
@@ -44,7 +50,8 @@ class ProductCommandServiceTest {
 	@BeforeEach
 	void setUp() {
 		productCommandService = new ProductCommandService(
-			productCommandRepository, productQueryRepository
+			productCommandRepository, productQueryRepository,
+			productLikeCleanupManager, cartItemCleanupManager
 		);
 	}
 
@@ -146,24 +153,16 @@ class ProductCommandServiceTest {
 	class IncreaseLikeCountTest {
 
 		@Test
-		@DisplayName("[increaseLikeCount()] 상품 좋아요 증가 -> likeCount + 1 저장")
+		@DisplayName("[increaseLikeCount()] 유효한 상품 ID -> 원자적 카운터로 좋아요 수 증가 위임")
 		void increaseLikeCountSuccess() {
 			// Arrange
-			Product product = Product.reconstruct(1L, 1L,
-				ProductName.from("상품"),
-				Money.from(BigDecimal.TEN),
-				Stock.from(100L),
-				null, 5L, null);
-			given(productCommandRepository.save(any(Product.class))).willAnswer(invocation -> invocation.getArgument(0));
+			willDoNothing().given(productCommandRepository).increaseLikeCount(1L);
 
 			// Act
-			productCommandService.increaseLikeCount(product);
+			productCommandService.increaseLikeCount(1L);
 
 			// Assert
-			assertAll(
-				() -> assertThat(product.getLikeCount()).isEqualTo(6L),
-				() -> verify(productCommandRepository).save(product)
-			);
+			verify(productCommandRepository).increaseLikeCount(1L);
 		}
 
 	}
@@ -174,24 +173,16 @@ class ProductCommandServiceTest {
 	class DecreaseLikeCountTest {
 
 		@Test
-		@DisplayName("[decreaseLikeCount()] 상품 좋아요 감소 -> likeCount - 1 저장")
+		@DisplayName("[decreaseLikeCount()] 유효한 상품 ID -> 원자적 카운터로 좋아요 수 감소 위임")
 		void decreaseLikeCountSuccess() {
 			// Arrange
-			Product product = Product.reconstruct(1L, 1L,
-				ProductName.from("상품"),
-				Money.from(BigDecimal.TEN),
-				Stock.from(100L),
-				null, 5L, null);
-			given(productCommandRepository.save(any(Product.class))).willAnswer(invocation -> invocation.getArgument(0));
+			willDoNothing().given(productCommandRepository).decreaseLikeCount(1L);
 
 			// Act
-			productCommandService.decreaseLikeCount(product);
+			productCommandService.decreaseLikeCount(1L);
 
 			// Assert
-			assertAll(
-				() -> assertThat(product.getLikeCount()).isEqualTo(4L),
-				() -> verify(productCommandRepository).save(product)
-			);
+			verify(productCommandRepository).decreaseLikeCount(1L);
 		}
 
 	}
@@ -262,6 +253,46 @@ class ProductCommandServiceTest {
 				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.PRODUCT_OUT_OF_STOCK.getMessage())
 			);
 		}
+	}
+
+
+	@Nested
+	@DisplayName("deleteAllProductLikes() 테스트")
+	class DeleteAllProductLikesTest {
+
+		@Test
+		@DisplayName("[deleteAllProductLikes()] 유효한 상품 ID -> ProductLikeCleanupManager에 위임")
+		void deleteAllProductLikesSuccess() {
+			// Arrange
+			willDoNothing().given(productLikeCleanupManager).deleteAllByProductId(1L);
+
+			// Act
+			productCommandService.deleteAllProductLikes(1L);
+
+			// Assert
+			verify(productLikeCleanupManager).deleteAllByProductId(1L);
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("deleteAllCartItems() 테스트")
+	class DeleteAllCartItemsTest {
+
+		@Test
+		@DisplayName("[deleteAllCartItems()] 유효한 상품 ID -> CartItemCleanupManager에 위임")
+		void deleteAllCartItemsSuccess() {
+			// Arrange
+			willDoNothing().given(cartItemCleanupManager).deleteAllByProductId(1L);
+
+			// Act
+			productCommandService.deleteAllCartItems(1L);
+
+			// Assert
+			verify(cartItemCleanupManager).deleteAllByProductId(1L);
+		}
+
 	}
 
 }

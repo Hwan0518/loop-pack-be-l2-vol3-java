@@ -8,8 +8,14 @@ import com.loopers.cart.cart.application.dto.out.CartItemOutDto;
 import com.loopers.cart.cart.application.dto.out.CartItemSelectionOutDto;
 import com.loopers.cart.cart.application.service.CartItemCommandService;
 import com.loopers.cart.cart.domain.model.CartItem;
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,11 +39,16 @@ public class CartItemCommandFacade {
 	 */
 
 	// 1. 장바구니 항목 추가
+	// @Retryable이 @Transactional 바깥에서 감싸 INSERT UNIQUE 위반(TX 커밋 시점) 예외를 catch
+	// 재시도 시 새 TX에서 select-before-insert가 기존 항목을 찾아 수량 합산으로 정상 처리
+	@Retryable(
+		retryFor = DataIntegrityViolationException.class,
+		recover = "recoverAddItemConflict",
+		maxAttempts = 2,
+		backoff = @Backoff(delay = 50)
+	)
 	@Transactional
-	public CartItemOutDto addItem(String loginId, String password, CartItemAddInDto inDto) {
-
-		// 사용자 인증
-		Long userId = cartItemCommandService.authenticate(loginId, password);
+	public CartItemOutDto addItem(Long userId, CartItemAddInDto inDto) {
 
 		// 상품 존재 여부 검증 + 장바구니 항목 추가
 		CartItem cartItem = cartItemCommandService.addItem(userId, inDto);
@@ -46,13 +57,16 @@ public class CartItemCommandFacade {
 		return CartItemOutDto.from(cartItem);
 	}
 
+	// 1-recover. 장바구니 항목 추가 재시도 소진 시 충돌 에러 반환
+	@Recover
+	public CartItemOutDto recoverAddItemConflict(DataIntegrityViolationException e, Long userId, CartItemAddInDto inDto) {
+		throw new CoreException(ErrorType.CART_ADD_CONFLICT);
+	}
+
 
 	// 2. 장바구니 항목 수량 변경
 	@Transactional
-	public CartItemOutDto updateQuantity(String loginId, String password, Long cartItemId, CartItemUpdateQuantityInDto inDto) {
-
-		// 사용자 인증
-		Long userId = cartItemCommandService.authenticate(loginId, password);
+	public CartItemOutDto updateQuantity(Long userId, Long cartItemId, CartItemUpdateQuantityInDto inDto) {
 
 		// 수량 변경
 		CartItem cartItem = cartItemCommandService.updateQuantity(cartItemId, userId, inDto);
@@ -64,10 +78,7 @@ public class CartItemCommandFacade {
 
 	// 3. 장바구니 항목 삭제
 	@Transactional
-	public void deleteItem(String loginId, String password, Long cartItemId) {
-
-		// 사용자 인증
-		Long userId = cartItemCommandService.authenticate(loginId, password);
+	public void deleteItem(Long userId, Long cartItemId) {
 
 		// 장바구니 항목 삭제
 		cartItemCommandService.deleteItem(cartItemId, userId);
@@ -76,10 +87,7 @@ public class CartItemCommandFacade {
 
 	// 4. 장바구니 항목 선택 상태 변경
 	@Transactional
-	public CartItemSelectionOutDto updateSelection(String loginId, String password, CartItemSelectionInDto inDto) {
-
-		// 사용자 인증
-		Long userId = cartItemCommandService.authenticate(loginId, password);
+	public CartItemSelectionOutDto updateSelection(Long userId, CartItemSelectionInDto inDto) {
 
 		return cartItemCommandService.updateSelection(userId, inDto);
 	}

@@ -2,7 +2,6 @@ package com.loopers.engagement.productlike.support;
 
 
 import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeTargetValidator;
-import com.loopers.engagement.productlike.application.port.out.client.user.UserAuthenticator;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -14,15 +13,6 @@ import org.springframework.context.annotation.Primary;
  */
 @TestConfiguration
 public class ProductLikeTestPortConfig {
-
-	@Bean
-	@Primary
-	public UserAuthenticator testProductLikeUserAuthenticator() {
-		return (loginId, password) -> {
-			// 테스트용: loginId를 해시하여 userId로 사용
-			return (long) loginId.hashCode();
-		};
-	}
 
 	@Bean
 	@Primary

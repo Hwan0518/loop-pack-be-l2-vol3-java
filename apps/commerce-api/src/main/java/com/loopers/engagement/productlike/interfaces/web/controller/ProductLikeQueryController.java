@@ -4,7 +4,7 @@ import com.loopers.engagement.productlike.application.dto.out.ProductLikePageOut
 import com.loopers.engagement.productlike.application.facade.ProductLikeQueryFacade;
 import com.loopers.engagement.productlike.interfaces.web.response.ProductLikeCheckResponse;
 import com.loopers.engagement.productlike.interfaces.web.response.ProductLikePageResponse;
-import com.loopers.user.user.support.common.HeaderValidator;
+import com.loopers.support.common.auth.AuthenticationResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +17,8 @@ public class ProductLikeQueryController {
 
 	// facade
 	private final ProductLikeQueryFacade productLikeQueryFacade;
+	// auth
+	private final AuthenticationResolver authenticationResolver;
 
 
 	/**
@@ -34,11 +36,11 @@ public class ProductLikeQueryController {
 		@RequestParam(defaultValue = "20") int size
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// 상품 좋아요 목록 조회
-		ProductLikePageOutDto outDto = productLikeQueryFacade.getLikesByUserId(loginId, password, page, size);
+		ProductLikePageOutDto outDto = productLikeQueryFacade.getLikesByUserId(userId, page, size);
 
 		// 응답 변환
 		ProductLikePageResponse response = ProductLikePageResponse.from(outDto);
@@ -56,11 +58,11 @@ public class ProductLikeQueryController {
 		@RequestParam Long targetId
 	) {
 
-		// 인증 헤더 검증
-		HeaderValidator.validate(loginId, password);
+		// 사용자 인증
+		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// 좋아요 여부 확인
-		boolean liked = productLikeQueryFacade.isLikedByUser(loginId, password, targetId);
+		boolean liked = productLikeQueryFacade.isLikedByUser(userId, targetId);
 
 		// 200 OK 반환
 		return ResponseEntity.ok(new ProductLikeCheckResponse(liked));

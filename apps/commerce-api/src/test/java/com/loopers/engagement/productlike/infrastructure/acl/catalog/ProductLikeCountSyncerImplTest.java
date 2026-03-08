@@ -1,7 +1,7 @@
 package com.loopers.engagement.productlike.infrastructure.acl.catalog;
 
 
-import com.loopers.catalog.product.application.facade.ProductLikeCountCommandFacade;
+import com.loopers.catalog.product.application.facade.ProductCommandFacade;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -19,14 +19,14 @@ import static org.mockito.Mockito.verify;
 class ProductLikeCountSyncerImplTest {
 
 	@Mock
-	private ProductLikeCountCommandFacade productLikeCountCommandFacade;
+	private ProductCommandFacade productCommandFacade;
 
 	private ProductLikeCountSyncerImpl productLikeCountSyncerImpl;
 
 
 	@BeforeEach
 	void setUp() {
-		productLikeCountSyncerImpl = new ProductLikeCountSyncerImpl(productLikeCountCommandFacade);
+		productLikeCountSyncerImpl = new ProductLikeCountSyncerImpl(productCommandFacade);
 	}
 
 
@@ -38,13 +38,13 @@ class ProductLikeCountSyncerImplTest {
 		@DisplayName("[increaseLikeCount()] 상품 ID 전달 -> Provider Facade에 좋아요 수 증가 위임")
 		void increaseLikeCountSuccess() {
 			// Arrange
-			willDoNothing().given(productLikeCountCommandFacade).increaseLikeCount(1L);
+			willDoNothing().given(productCommandFacade).increaseLikeCount(1L);
 
 			// Act
 			productLikeCountSyncerImpl.increaseLikeCount(1L);
 
 			// Assert
-			verify(productLikeCountCommandFacade).increaseLikeCount(1L);
+			verify(productCommandFacade).increaseLikeCount(1L);
 		}
 
 	}
@@ -58,13 +58,13 @@ class ProductLikeCountSyncerImplTest {
 		@DisplayName("[decreaseLikeCount()] 상품 ID 전달 -> Provider Facade에 좋아요 수 감소 위임")
 		void decreaseLikeCountSuccess() {
 			// Arrange
-			willDoNothing().given(productLikeCountCommandFacade).decreaseLikeCount(1L);
+			willDoNothing().given(productCommandFacade).decreaseLikeCount(1L);
 
 			// Act
 			productLikeCountSyncerImpl.decreaseLikeCount(1L);
 
 			// Assert
-			verify(productLikeCountCommandFacade).decreaseLikeCount(1L);
+			verify(productCommandFacade).decreaseLikeCount(1L);
 		}
 
 	}
