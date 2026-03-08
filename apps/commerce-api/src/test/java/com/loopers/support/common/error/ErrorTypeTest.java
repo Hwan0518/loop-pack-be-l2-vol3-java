@@ -147,8 +147,8 @@ class ErrorTypeTest {
 			// Coupon - IssuedCoupon
 			Arguments.of(ErrorType.ISSUED_COUPON_NOT_FOUND, HttpStatus.NOT_FOUND,
 				"ISSUED_COUPON_NOT_FOUND", "발급된 쿠폰을 찾을 수 없습니다."),
-			Arguments.of(ErrorType.COUPON_NOT_OWNED_BY_USER, HttpStatus.FORBIDDEN,
-				"COUPON_NOT_OWNED_BY_USER", "해당 쿠폰의 소유자가 아닙니다."),
+			Arguments.of(ErrorType.COUPON_NOT_OWNED_BY_USER, HttpStatus.NOT_FOUND,
+				"COUPON_NOT_OWNED_BY_USER", "발급된 쿠폰을 찾을 수 없습니다."),
 			Arguments.of(ErrorType.COUPON_ALREADY_USED, HttpStatus.CONFLICT,
 				"COUPON_ALREADY_USED", "이미 사용된 쿠폰입니다."),
 			Arguments.of(ErrorType.COUPON_EXPIRED, HttpStatus.CONFLICT,

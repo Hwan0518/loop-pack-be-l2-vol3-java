@@ -82,7 +82,7 @@ public enum ErrorType {
 
 	/** Coupon - IssuedCoupon 에러 */
 	ISSUED_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "ISSUED_COUPON_NOT_FOUND", "발급된 쿠폰을 찾을 수 없습니다."),
-	COUPON_NOT_OWNED_BY_USER(HttpStatus.FORBIDDEN, "COUPON_NOT_OWNED_BY_USER", "해당 쿠폰의 소유자가 아닙니다."),
+	COUPON_NOT_OWNED_BY_USER(HttpStatus.NOT_FOUND, "COUPON_NOT_OWNED_BY_USER", "발급된 쿠폰을 찾을 수 없습니다."),
 	COUPON_ALREADY_USED(HttpStatus.CONFLICT, "COUPON_ALREADY_USED", "이미 사용된 쿠폰입니다."),
 	COUPON_EXPIRED(HttpStatus.CONFLICT, "COUPON_EXPIRED", "만료된 쿠폰입니다."),
 	COUPON_MIN_ORDER_AMOUNT_NOT_MET(HttpStatus.BAD_REQUEST, "COUPON_MIN_ORDER_AMOUNT_NOT_MET", "최소 주문 금액 조건을 충족하지 못했습니다."),
