@@ -8,11 +8,12 @@ import com.loopers.ordering.order.infrastructure.jpa.OrderItemJpaRepository;
 import com.loopers.ordering.order.infrastructure.jpa.OrderJpaRepository;
 import com.loopers.ordering.order.interfaces.web.request.OrderCreateRequest;
 import com.loopers.support.common.error.ErrorType;
-import java.util.List;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
+import com.loopers.user.user.interfaces.web.request.UserSignUpRequest;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+
+import java.time.LocalDate;
+import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -58,6 +62,16 @@ class OrderControllerE2ETest {
 	private static final String USER_LOGIN_PW_HEADER = "X-Loopers-LoginPw";
 	private static final String ADMIN_LDAP_HEADER = "X-Loopers-Ldap";
 	private static final String ADMIN_LDAP_VALUE = "loopers.admin";
+	private static final String TEST_PASSWORD = "Test1234!";
+
+
+	@BeforeEach
+	void setUp() throws Exception {
+		signUpUser("testuser", TEST_PASSWORD, "테스트유저", LocalDate.of(1990, 1, 15), "test@example.com");
+		signUpUser("testuser1", TEST_PASSWORD, "테스트유저일", LocalDate.of(1990, 2, 15), "test1@example.com");
+		signUpUser("testuser2", TEST_PASSWORD, "테스트유저이", LocalDate.of(1990, 3, 15), "test2@example.com");
+		signUpUser("testuser3", TEST_PASSWORD, "테스트유저삼", LocalDate.of(1990, 4, 15), "test3@example.com");
+	}
 
 
 	@AfterEach
@@ -79,7 +93,7 @@ class OrderControllerE2ETest {
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
-					.header(USER_LOGIN_PW_HEADER, "password")
+					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isCreated())
@@ -99,7 +113,7 @@ class OrderControllerE2ETest {
 			// 1차 주문 생성
 			MvcResult firstResult = mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
-					.header(USER_LOGIN_PW_HEADER, "password")
+					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isCreated())
@@ -110,7 +124,7 @@ class OrderControllerE2ETest {
 			// 2차 동일 요청
 			mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
-					.header(USER_LOGIN_PW_HEADER, "password")
+					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isCreated())
@@ -142,7 +156,7 @@ class OrderControllerE2ETest {
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
-					.header(USER_LOGIN_PW_HEADER, "password")
+					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(requestJson))
 				.andExpect(status().isBadRequest());
@@ -158,7 +172,7 @@ class OrderControllerE2ETest {
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
-					.header(USER_LOGIN_PW_HEADER, "password")
+					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(requestJson))
 				.andExpect(status().isBadRequest());
@@ -177,7 +191,7 @@ class OrderControllerE2ETest {
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
-					.header(USER_LOGIN_PW_HEADER, "password"))
+					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content").isArray())
 				.andExpect(jsonPath("$.content", hasSize(0)))
@@ -194,7 +208,7 @@ class OrderControllerE2ETest {
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser1")
-					.header(USER_LOGIN_PW_HEADER, "password"))
+					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content", hasSize(1)))
 				.andExpect(jsonPath("$.totalElements").value(1));
@@ -210,7 +224,7 @@ class OrderControllerE2ETest {
 			// Act & Assert (다른 사용자로 조회)
 			mockMvc.perform(get("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser2")
-					.header(USER_LOGIN_PW_HEADER, "password2"))
+					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content", hasSize(0)))
 				.andExpect(jsonPath("$.totalElements").value(0));
@@ -228,7 +242,7 @@ class OrderControllerE2ETest {
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser1")
-					.header(USER_LOGIN_PW_HEADER, "password")
+					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
 					.param("startDate", today)
 					.param("endDate", today))
 				.andExpect(status().isOk())
@@ -246,7 +260,7 @@ class OrderControllerE2ETest {
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser1")
-					.header(USER_LOGIN_PW_HEADER, "password")
+					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
 					.param("startDate", "2020-01-01")
 					.param("endDate", "2020-01-31"))
 				.andExpect(status().isOk())
@@ -279,7 +293,7 @@ class OrderControllerE2ETest {
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/orders/{orderId}", orderId)
 					.header(USER_LOGIN_ID_HEADER, "testuser1")
-					.header(USER_LOGIN_PW_HEADER, "password"))
+					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.id").value(orderId))
 				.andExpect(jsonPath("$.items").isArray())
@@ -296,7 +310,7 @@ class OrderControllerE2ETest {
 			// Act & Assert (다른 사용자로 조회)
 			mockMvc.perform(get("/api/v1/orders/{orderId}", orderId)
 					.header(USER_LOGIN_ID_HEADER, "testuser2")
-					.header(USER_LOGIN_PW_HEADER, "password2"))
+					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.code").value(ErrorType.ORDER_NOT_FOUND.getCode()));
 		}
@@ -308,7 +322,7 @@ class OrderControllerE2ETest {
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/orders/{orderId}", 999L)
 					.header(USER_LOGIN_ID_HEADER, "testuser")
-					.header(USER_LOGIN_PW_HEADER, "password"))
+					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.code").value(ErrorType.ORDER_NOT_FOUND.getCode()));
 		}
@@ -421,24 +435,39 @@ class OrderControllerE2ETest {
 
 	/**
 	 * 테스트 헬퍼 메서드
+	 * 1. 사용자 생성 (API 호출)
+	 * 2. 주문 생성 (API 호출)
+	 * 3. 주문 생성 후 ID 반환 (API 호출)
 	 */
 
-	private void createOrder(String requestId, Long userId) throws Exception {
-		OrderCreateRequest request = new OrderCreateRequest(List.of(1L, 2L), requestId, null);
-		mockMvc.perform(post("/api/v1/orders")
-				.header(USER_LOGIN_ID_HEADER, "testuser" + userId)
-				.header(USER_LOGIN_PW_HEADER, "password")
+	// 1. 사용자 생성
+	private void signUpUser(String loginId, String password, String name, LocalDate birthDate, String email) throws Exception {
+		UserSignUpRequest request = new UserSignUpRequest(loginId, password, name, birthDate, email);
+		mockMvc.perform(post("/api/v1/users")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request)))
 			.andExpect(status().isCreated());
 	}
 
 
+	// 2. 주문 생성
+	private void createOrder(String requestId, Long userId) throws Exception {
+		OrderCreateRequest request = new OrderCreateRequest(List.of(1L, 2L), requestId, null);
+		mockMvc.perform(post("/api/v1/orders")
+				.header(USER_LOGIN_ID_HEADER, "testuser" + userId)
+				.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(request)))
+			.andExpect(status().isCreated());
+	}
+
+
+	// 3. 주문 생성 후 ID 반환
 	private Long createOrderAndGetId(String requestId, Long userId) throws Exception {
 		OrderCreateRequest request = new OrderCreateRequest(List.of(1L, 2L), requestId, null);
 		MvcResult result = mockMvc.perform(post("/api/v1/orders")
 				.header(USER_LOGIN_ID_HEADER, "testuser" + userId)
-				.header(USER_LOGIN_PW_HEADER, "password")
+				.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request)))
 			.andExpect(status().isCreated())

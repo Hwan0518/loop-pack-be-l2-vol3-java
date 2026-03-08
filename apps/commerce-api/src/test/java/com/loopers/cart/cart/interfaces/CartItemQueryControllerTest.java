@@ -8,6 +8,7 @@ import com.loopers.cart.cart.application.dto.out.CartStatusOutDto;
 import com.loopers.cart.cart.application.facade.CartItemQueryFacade;
 import com.loopers.cart.cart.interfaces.web.controller.CartItemQueryController;
 import com.loopers.support.common.auth.AuthenticationResolver;
+import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -100,6 +101,10 @@ class CartItemQueryControllerTest {
 		@Test
 		@DisplayName("[GET /api/v1/cart] 인증 헤더 누락 -> 401 Unauthorized")
 		void getCartUnauthorized() throws Exception {
+			// Arrange
+			given(authenticationResolver.resolve(isNull(), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
+
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/cart"))
 				.andExpect(status().isUnauthorized());
@@ -109,6 +114,10 @@ class CartItemQueryControllerTest {
 		@Test
 		@DisplayName("[GET /api/v1/cart] LoginId만 존재, LoginPw 누락 -> 401 Unauthorized")
 		void getCartMissingPassword() throws Exception {
+			// Arrange
+			given(authenticationResolver.resolve(eq(LOGIN_ID), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
+
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/cart")
 					.header(LOGIN_ID_HEADER, LOGIN_ID))
@@ -150,6 +159,10 @@ class CartItemQueryControllerTest {
 		@Test
 		@DisplayName("[GET /api/v1/cart/status] 인증 헤더 누락 -> 401 Unauthorized")
 		void getCartStatusUnauthorized() throws Exception {
+			// Arrange
+			given(authenticationResolver.resolve(isNull(), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
+
 			// Act & Assert
 			mockMvc.perform(get("/api/v1/cart/status"))
 				.andExpect(status().isUnauthorized());

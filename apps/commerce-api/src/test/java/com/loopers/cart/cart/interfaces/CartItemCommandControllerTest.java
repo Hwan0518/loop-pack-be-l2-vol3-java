@@ -89,6 +89,8 @@ class CartItemCommandControllerTest {
 		void addItemUnauthorized() throws Exception {
 			// Arrange
 			CartItemAddRequest request = new CartItemAddRequest(100L, 3L);
+			given(authenticationResolver.resolve(isNull(), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/cart/items")
@@ -184,6 +186,8 @@ class CartItemCommandControllerTest {
 		void updateQuantityUnauthorized() throws Exception {
 			// Arrange
 			CartItemUpdateQuantityRequest request = new CartItemUpdateQuantityRequest(10L);
+			given(authenticationResolver.resolve(isNull(), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
 
 			// Act & Assert
 			mockMvc.perform(put("/api/v1/cart/items/{id}", 1L)
@@ -237,6 +241,10 @@ class CartItemCommandControllerTest {
 		@Test
 		@DisplayName("[DELETE /api/v1/cart/items/{id}] 인증 헤더 누락 -> 401 Unauthorized")
 		void deleteItemUnauthorized() throws Exception {
+			// Arrange
+			given(authenticationResolver.resolve(isNull(), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
+
 			// Act & Assert
 			mockMvc.perform(delete("/api/v1/cart/items/{id}", 1L))
 				.andExpect(status().isUnauthorized());
@@ -294,6 +302,8 @@ class CartItemCommandControllerTest {
 		void updateSelectionUnauthorized() throws Exception {
 			// Arrange
 			CartItemSelectionRequest request = new CartItemSelectionRequest(List.of(1L));
+			given(authenticationResolver.resolve(isNull(), isNull()))
+				.willThrow(new CoreException(ErrorType.AUTHENTICATION_FAILED));
 
 			// Act & Assert
 			mockMvc.perform(put("/api/v1/cart/items/selection")
