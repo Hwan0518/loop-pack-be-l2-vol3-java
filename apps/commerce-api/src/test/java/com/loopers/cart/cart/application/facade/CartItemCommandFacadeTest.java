@@ -9,6 +9,8 @@ import com.loopers.cart.cart.application.dto.out.CartItemSelectionOutDto;
 import com.loopers.cart.cart.application.service.CartItemCommandService;
 import com.loopers.cart.cart.domain.model.CartItem;
 import com.loopers.cart.cart.domain.model.vo.Quantity;
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -67,6 +70,26 @@ class CartItemCommandFacadeTest {
 				() -> assertThat(result.id()).isEqualTo(1L),
 				() -> assertThat(result.productId()).isEqualTo(100L),
 				() -> assertThat(result.quantity()).isEqualTo(3L)
+			);
+		}
+
+
+		@Test
+		@DisplayName("[recoverAddItemConflict()] @Retryable 재시도 소진 후 @Recover 호출 -> CART_ADD_CONFLICT 예외. "
+			+ "INSERT UNIQUE 위반(user_id, product_id)이 재시도로도 해소되지 않는 극단적 경우의 안전망")
+		void recoverAddItemConflictThrowsCartAddConflict() {
+			// Arrange
+			CartItemAddInDto inDto = new CartItemAddInDto(100L, 3L);
+			DataIntegrityViolationException cause = new DataIntegrityViolationException("Unique constraint violated");
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> cartItemCommandFacade.recoverAddItemConflict(cause, USER_ID, inDto));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.CART_ADD_CONFLICT),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.CART_ADD_CONFLICT.getMessage())
 			);
 		}
 

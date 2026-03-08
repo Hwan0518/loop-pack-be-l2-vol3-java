@@ -8,8 +8,14 @@ import com.loopers.cart.cart.application.dto.out.CartItemOutDto;
 import com.loopers.cart.cart.application.dto.out.CartItemSelectionOutDto;
 import com.loopers.cart.cart.application.service.CartItemCommandService;
 import com.loopers.cart.cart.domain.model.CartItem;
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +39,14 @@ public class CartItemCommandFacade {
 	 */
 
 	// 1. 장바구니 항목 추가
+	// @Retryable이 @Transactional 바깥에서 감싸 INSERT UNIQUE 위반(TX 커밋 시점) 예외를 catch
+	// 재시도 시 새 TX에서 select-before-insert가 기존 항목을 찾아 수량 합산으로 정상 처리
+	@Retryable(
+		retryFor = DataIntegrityViolationException.class,
+		recover = "recoverAddItemConflict",
+		maxAttempts = 2,
+		backoff = @Backoff(delay = 50)
+	)
 	@Transactional
 	public CartItemOutDto addItem(Long userId, CartItemAddInDto inDto) {
 
@@ -41,6 +55,12 @@ public class CartItemCommandFacade {
 
 		// DTO 변환
 		return CartItemOutDto.from(cartItem);
+	}
+
+	// 1-recover. 장바구니 항목 추가 재시도 소진 시 충돌 에러 반환
+	@Recover
+	public CartItemOutDto recoverAddItemConflict(DataIntegrityViolationException e, Long userId, CartItemAddInDto inDto) {
+		throw new CoreException(ErrorType.CART_ADD_CONFLICT);
 	}
 
 
