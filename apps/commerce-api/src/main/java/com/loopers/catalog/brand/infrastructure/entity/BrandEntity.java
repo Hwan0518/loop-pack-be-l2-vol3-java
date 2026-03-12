@@ -16,7 +16,10 @@ import lombok.NoArgsConstructor;
  * - visibleStatus: 노출 상태
  */
 @Entity
-@Table(name = "brands")
+@Table(name = "brands", indexes = {
+	// 사용자 조회: WHERE deleted_at IS NULL AND visible_status = ?
+	@Index(name = "idx_brands_deleted_visible", columnList = "deleted_at, visible_status")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class BrandEntity extends SoftDeleteBaseEntity {

@@ -527,6 +527,18 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 - 사용자 전용 DTO: 접두사 없음 (예: `BrandOutDto`, `BrandResponse`)
 - 관리자/사용자 응답 필드가 다를 수 있으므로 별도 DTO 정의 (예: 관리자는 `deletedAt` 포함)
 
+### 4.10 DB 스키마 관리
+
+- **Flyway 등 DB 마이그레이션 도구 사용하지 않음** — Hibernate `ddl-auto`로 스키마 관리
+- JPA Entity의 `@Column`, `@Table(indexes = {...})` 선언이 스키마의 SoT
+- 컬럼 추가/제거는 Entity 필드 변경으로 반영 (별도 마이그레이션 파일 불필요)
+
+### 4.11 인덱스 설계
+
+- **인덱스 생성 시** `.claude/skills/index-design/SKILL.md` 규칙을 반드시 준수
+- 핵심 원칙: **카디널리티가 높은 컬럼을 선두에 배치**, equality 컬럼은 range/sort 컬럼보다 앞에
+- `@Table(indexes = { @Index(...) })` 방식으로 JPA Entity에 선언 (Hibernate auto-DDL 활용)
+
 ## 5. 주의사항
 
 ### Never Do

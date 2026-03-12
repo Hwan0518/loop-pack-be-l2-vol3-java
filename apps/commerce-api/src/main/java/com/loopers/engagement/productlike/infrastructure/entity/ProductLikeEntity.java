@@ -15,7 +15,15 @@ import lombok.NoArgsConstructor;
  * - targetId: 상품 ID
  */
 @Entity
-@Table(name = "likes", uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "target_type", "target_id"}))
+@Table(name = "likes",
+	uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "target_type", "target_id"}),
+	indexes = {
+		// 좋아요 목록 페이지네이션: WHERE user_id = ? AND target_type = ? ORDER BY created_at DESC
+		@Index(name = "idx_likes_user_type_created", columnList = "user_id, target_type, created_at"),
+		// 상품/브랜드 삭제 시 좋아요 정리: WHERE target_type = ? AND target_id = ?
+		@Index(name = "idx_likes_type_target", columnList = "target_type, target_id")
+	}
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ProductLikeEntity extends BaseEntity {

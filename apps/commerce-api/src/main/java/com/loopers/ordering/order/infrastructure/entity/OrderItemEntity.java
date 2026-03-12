@@ -2,9 +2,7 @@ package com.loopers.ordering.order.infrastructure.entity;
 
 
 import com.loopers.domain.BaseEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,7 +19,10 @@ import java.math.BigDecimal;
  * - quantity: 주문 수량
  */
 @Entity
-@Table(name = "order_items")
+@Table(name = "order_items", indexes = {
+	// 주문 상품 조회: WHERE order_id = ? / WHERE order_id IN (?)
+	@Index(name = "idx_order_items_order", columnList = "order_id")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrderItemEntity extends BaseEntity {

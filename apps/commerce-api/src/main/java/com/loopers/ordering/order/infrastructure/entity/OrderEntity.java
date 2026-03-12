@@ -2,10 +2,7 @@ package com.loopers.ordering.order.infrastructure.entity;
 
 
 import com.loopers.domain.BaseEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -26,7 +23,13 @@ import java.math.BigDecimal;
  * - couponSnapshotValue: 쿠폰 할인 값 스냅샷 (nullable)
  */
 @Entity
-@Table(name = "orders", uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "request_id"}))
+@Table(name = "orders",
+	uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "request_id"}),
+	indexes = {
+		// 주문 내역 조회: WHERE user_id = ? ORDER BY created_at DESC / 기간 필터
+		@Index(name = "idx_orders_user_created", columnList = "user_id, created_at")
+	}
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OrderEntity extends BaseEntity {

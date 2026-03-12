@@ -21,7 +21,10 @@ import java.time.LocalDateTime;
  * - expiredAt: 만료 일시
  */
 @Entity
-@Table(name = "coupon_template")
+@Table(name = "coupon_template", indexes = {
+	// 활성 쿠폰 템플릿 목록: WHERE deleted_at IS NULL
+	@Index(name = "idx_coupon_template_deleted", columnList = "deleted_at")
+})
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CouponTemplateEntity extends SoftDeleteBaseEntity {

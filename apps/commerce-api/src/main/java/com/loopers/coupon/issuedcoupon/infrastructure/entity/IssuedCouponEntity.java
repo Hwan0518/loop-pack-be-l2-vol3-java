@@ -17,7 +17,15 @@ import lombok.NoArgsConstructor;
  * - 1인 1쿠폰: (user_id, coupon_template_id) 복합 유니크 제약이 DB 레벨에서 보장
  */
 @Entity
-@Table(name = "issued_coupon", uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "coupon_template_id"}))
+@Table(name = "issued_coupon",
+	uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "coupon_template_id"}),
+	indexes = {
+		// 사용자 쿠폰 내역: WHERE user_id = ? ORDER BY created_at DESC
+		@Index(name = "idx_issued_coupon_user_created", columnList = "user_id, created_at"),
+		// 관리자 쿠폰 발급 내역: WHERE coupon_template_id = ? ORDER BY created_at DESC
+		@Index(name = "idx_issued_coupon_template_created", columnList = "coupon_template_id, created_at")
+	}
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class IssuedCouponEntity extends BaseEntity {
