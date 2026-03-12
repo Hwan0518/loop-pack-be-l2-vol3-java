@@ -45,7 +45,7 @@ class ProductEntityMapperTest {
 				Money.from(new BigDecimal("10000")),
 				Stock.from(100L),
 				ProductDescription.from("설명"),
-				5L, null
+				null
 			);
 
 			// Act
@@ -57,8 +57,7 @@ class ProductEntityMapperTest {
 				() -> assertThat(entity.getName()).isEqualTo("테스트 상품"),
 				() -> assertThat(entity.getPrice()).isEqualByComparingTo(new BigDecimal("10000")),
 				() -> assertThat(entity.getStock()).isEqualTo(100L),
-				() -> assertThat(entity.getDescription()).isEqualTo("설명"),
-				() -> assertThat(entity.getLikeCount()).isEqualTo(5L)
+				() -> assertThat(entity.getDescription()).isEqualTo("설명")
 			);
 		}
 
@@ -72,7 +71,7 @@ class ProductEntityMapperTest {
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(10L),
-				null, 0L, null
+				null, null
 			);
 
 			// Act
@@ -92,7 +91,7 @@ class ProductEntityMapperTest {
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(10L),
-				null, 0L, ZonedDateTime.now()
+				null, ZonedDateTime.now()
 			);
 
 			// Act
@@ -114,7 +113,7 @@ class ProductEntityMapperTest {
 		void toDomainSuccess() {
 			// Arrange
 			ProductEntity entity = ProductEntity.of(
-				1L, 2L, "테스트 상품", new BigDecimal("10000"), 100L, "설명", 5L
+				1L, 2L, "테스트 상품", new BigDecimal("10000"), 100L, "설명"
 			);
 
 			// Act
@@ -126,8 +125,7 @@ class ProductEntityMapperTest {
 				() -> assertThat(product.getName().value()).isEqualTo("테스트 상품"),
 				() -> assertThat(product.getPrice().value()).isEqualByComparingTo(new BigDecimal("10000")),
 				() -> assertThat(product.getStock().value()).isEqualTo(100L),
-				() -> assertThat(product.getDescription().value()).isEqualTo("설명"),
-				() -> assertThat(product.getLikeCount()).isEqualTo(5L)
+				() -> assertThat(product.getDescription().value()).isEqualTo("설명")
 			);
 		}
 
@@ -137,7 +135,7 @@ class ProductEntityMapperTest {
 		void toDomainWithNullDescription() {
 			// Arrange
 			ProductEntity entity = ProductEntity.of(
-				1L, 2L, "상품", BigDecimal.TEN, 10L, null, 0L
+				1L, 2L, "상품", BigDecimal.TEN, 10L, null
 			);
 
 			// Act
@@ -145,6 +143,42 @@ class ProductEntityMapperTest {
 
 			// Assert
 			assertThat(product.getDescription()).isNull();
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("양방향 변환 일관성 테스트")
+	class RoundTripTest {
+
+		@Test
+		@DisplayName("[toEntity() → toDomain()] 도메인 → 엔티티 → 도메인 변환 시 비즈니스 필드 보존. "
+			+ "brandId, name, price, stock, description 값이 원본과 동일")
+		void roundTripPreservesFields() {
+			// Arrange
+			Product original = Product.reconstruct(
+				1L, 2L,
+				ProductName.from("테스트 상품"),
+				Money.from(new BigDecimal("10000")),
+				Stock.from(100L),
+				ProductDescription.from("설명"),
+				null
+			);
+
+			// Act
+			ProductEntity entity = mapper.toEntity(original);
+			Product reconstructed = mapper.toDomain(entity);
+
+			// Assert — 원본 도메인과 복원된 도메인의 비즈니스 필드 일치 검증
+			assertAll(
+				() -> assertThat(reconstructed.getBrandId()).isEqualTo(original.getBrandId()),
+				() -> assertThat(reconstructed.getName().value()).isEqualTo(original.getName().value()),
+				() -> assertThat(reconstructed.getPrice().value()).isEqualByComparingTo(original.getPrice().value()),
+				() -> assertThat(reconstructed.getStock().value()).isEqualTo(original.getStock().value()),
+				() -> assertThat(reconstructed.getDescription().value()).isEqualTo(original.getDescription().value()),
+				() -> assertThat(reconstructed.getDeletedAt()).isNull()
+			);
 		}
 
 	}
