@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -29,9 +30,9 @@ class UserEntityTest {
 	class FromDomainTest {
 
 		@Test
-		@DisplayName("[from()] User 도메인 -> UserEntity 변환. "
-			+ "loginId, password, name, birthDate, email이 정확히 매핑됨")
-		void fromDomain() {
+		@DisplayName("[toEntity()] 활성 User -> UserEntity 변환. "
+			+ "loginId, password, name, birthDate, email이 정확히 매핑되며, deletedAt은 null")
+		void fromActiveDomain() {
 			// Arrange
 			User user = User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTH_DATE, VALID_EMAIL);
 
@@ -40,13 +41,30 @@ class UserEntityTest {
 
 			// Assert
 			assertAll(
-				() -> assertThat(entity).isNotNull(),
 				() -> assertThat(entity.getLoginId().getValue()).isEqualTo("testuser01"),
 				() -> assertThat(entity.getPassword().getValue()).isEqualTo(user.getPassword().value()),
 				() -> assertThat(entity.getName().getValue()).isEqualTo("홍길동"),
 				() -> assertThat(entity.getBirthDate().getValue()).isEqualTo(LocalDate.of(1990, 1, 15)),
-				() -> assertThat(entity.getEmail().getValue()).isEqualTo("test@example.com")
+				() -> assertThat(entity.getEmail().getValue()).isEqualTo("test@example.com"),
+				() -> assertThat(entity.getDeletedAt()).isNull()
 			);
+		}
+
+		@Test
+		@DisplayName("[toEntity()] 삭제된 User -> UserEntity 변환. deletedAt이 설정됨")
+		void fromDeletedDomain() {
+			// Arrange
+			ZonedDateTime deletedAt = ZonedDateTime.now();
+			User deletedUser = User.reconstruct(1L, LoginId.from("testuser01"),
+				Password.from("encodedPassword"), Name.from("홍길동"),
+				Birthdate.from(LocalDate.of(1990, 1, 15)), Email.from("test@example.com"),
+				deletedAt);
+
+			// Act
+			UserEntity entity = userEntityMapper.toEntity(deletedUser);
+
+			// Assert — Soft Delete 조건 분기 검증
+			assertThat(entity.getDeletedAt()).isNotNull();
 		}
 
 	}
@@ -68,7 +86,6 @@ class UserEntityTest {
 
 			// Assert
 			assertAll(
-				() -> assertThat(reconstructedUser).isNotNull(),
 				() -> assertThat(reconstructedUser.getId()).isEqualTo(entity.getId()),
 				() -> assertThat(reconstructedUser.getLoginId().value()).isEqualTo(entity.getLoginId().getValue()),
 				() -> assertThat(reconstructedUser.getPassword().value()).isEqualTo(entity.getPassword().getValue()),
@@ -76,6 +93,34 @@ class UserEntityTest {
 				() -> assertThat(reconstructedUser.getBirthDate().value()).isEqualTo(entity.getBirthDate().getValue()),
 				() -> assertThat(reconstructedUser.getEmail().value()).isEqualTo(entity.getEmail().getValue()),
 				() -> assertThat(reconstructedUser.getDeletedAt()).isEqualTo(entity.getDeletedAt())
+			);
+		}
+
+	}
+
+	@Nested
+	@DisplayName("양방향 변환 일관성 테스트")
+	class RoundTripTest {
+
+		@Test
+		@DisplayName("[toEntity() → toDomain()] 도메인 → 엔티티 → 도메인 변환 시 비즈니스 필드 보존. "
+			+ "loginId, password, name, birthDate, email 값이 원본과 동일")
+		void roundTripPreservesFields() {
+			// Arrange
+			User original = User.create(VALID_LOGIN_ID, VALID_PASSWORD, VALID_NAME, VALID_BIRTH_DATE, VALID_EMAIL);
+
+			// Act
+			UserEntity entity = userEntityMapper.toEntity(original);
+			User reconstructed = userEntityMapper.toDomain(entity);
+
+			// Assert — 원본 도메인과 복원된 도메인의 비즈니스 필드 일치 검증
+			assertAll(
+				() -> assertThat(reconstructed.getLoginId().value()).isEqualTo(original.getLoginId().value()),
+				() -> assertThat(reconstructed.getPassword().value()).isEqualTo(original.getPassword().value()),
+				() -> assertThat(reconstructed.getName().value()).isEqualTo(original.getName().value()),
+				() -> assertThat(reconstructed.getBirthDate().value()).isEqualTo(original.getBirthDate().value()),
+				() -> assertThat(reconstructed.getEmail().value()).isEqualTo(original.getEmail().value()),
+				() -> assertThat(reconstructed.getDeletedAt()).isNull()
 			);
 		}
 

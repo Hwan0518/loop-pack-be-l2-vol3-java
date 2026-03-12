@@ -48,7 +48,8 @@ class OrderItemEntityMapperTest {
 
 
 	@Test
-	@DisplayName("[toEntities()] OrderItem 목록 -> OrderItemEntity 목록 변환. 크기 일치")
+	@DisplayName("[toEntities()] OrderItem 목록 -> OrderItemEntity 목록 변환. "
+		+ "크기 일치, 각 항목의 orderId/productId/snapshotName 검증")
 	void toEntitiesSuccess() {
 		// Arrange
 		List<OrderItem> items = List.of(
@@ -59,11 +60,15 @@ class OrderItemEntityMapperTest {
 		// Act
 		List<OrderItemEntity> entities = mapper.toEntities(items, 10L);
 
-		// Assert
+		// Assert — 각 항목의 orderId 및 필드 매핑 검증
 		assertAll(
 			() -> assertThat(entities).hasSize(2),
 			() -> assertThat(entities.get(0).getOrderId()).isEqualTo(10L),
-			() -> assertThat(entities.get(1).getOrderId()).isEqualTo(10L)
+			() -> assertThat(entities.get(0).getProductId()).isEqualTo(1L),
+			() -> assertThat(entities.get(0).getSnapshotName()).isEqualTo("나이키 에어맥스"),
+			() -> assertThat(entities.get(1).getOrderId()).isEqualTo(10L),
+			() -> assertThat(entities.get(1).getProductId()).isEqualTo(2L),
+			() -> assertThat(entities.get(1).getSnapshotName()).isEqualTo("아디다스 울트라부스트")
 		);
 	}
 
@@ -88,7 +93,8 @@ class OrderItemEntityMapperTest {
 
 
 	@Test
-	@DisplayName("[toDomains()] OrderItemEntity 목록 -> OrderItem 목록 변환. 크기 일치")
+	@DisplayName("[toDomains()] OrderItemEntity 목록 -> OrderItem 목록 변환. "
+		+ "크기 일치, 각 항목의 productId/snapshotName/quantity 검증")
 	void toDomainsSuccess() {
 		// Arrange
 		List<OrderItemEntity> entities = List.of(
@@ -99,8 +105,16 @@ class OrderItemEntityMapperTest {
 		// Act
 		List<OrderItem> items = mapper.toDomains(entities);
 
-		// Assert
-		assertThat(items).hasSize(2);
+		// Assert — 각 항목의 필드 매핑 검증
+		assertAll(
+			() -> assertThat(items).hasSize(2),
+			() -> assertThat(items.get(0).getProductId()).isEqualTo(1L),
+			() -> assertThat(items.get(0).getSnapshotName().value()).isEqualTo("나이키 에어맥스"),
+			() -> assertThat(items.get(0).getQuantity()).isEqualTo(2L),
+			() -> assertThat(items.get(1).getProductId()).isEqualTo(2L),
+			() -> assertThat(items.get(1).getSnapshotName().value()).isEqualTo("아디다스 울트라부스트"),
+			() -> assertThat(items.get(1).getQuantity()).isEqualTo(1L)
+		);
 	}
 
 }

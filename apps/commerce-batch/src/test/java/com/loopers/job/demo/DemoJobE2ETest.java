@@ -1,13 +1,13 @@
 package com.loopers.job.demo;
 
 import com.loopers.batch.job.demo.DemoJobConfig;
-import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobParametersBuilder;
+import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.test.JobLauncherTestUtils;
 import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,12 +17,13 @@ import org.springframework.test.context.TestPropertySource;
 
 import java.time.LocalDate;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest
 @SpringBatchTest
 @TestPropertySource(properties = "spring.batch.job.name=" + DemoJobConfig.JOB_NAME)
+@DisplayName("DemoJob E2E 테스트")
 class DemoJobE2ETest {
 
     // IDE 정적 분석 상 [SpringBatchTest] 의 주입보다 [SpringBootTest] 의 주입이 우선되어, 해당 컴포넌트는 없으므로 오류처럼 보일 수 있음.
@@ -35,42 +36,49 @@ class DemoJobE2ETest {
     private Job job;
 
     @BeforeEach
-    void beforeEach() {
-
+    void setUp() {
+        jobLauncherTestUtils.setJob(job);
     }
 
-    @DisplayName("jobParameter 중 requestDate 인자가 주어지지 않았을 때, demoJob 배치는 실패한다.")
+    @DisplayName("[demoJob] requestDate 파라미터 미전달 -> FAILED. Step 1개 실행되며 해당 Step도 FAILED, 에러 메시지에 'requestDate is null' 포함")
     @Test
-    void shouldNotSaveCategories_whenApiError() throws Exception {
-        // arrange
-        jobLauncherTestUtils.setJob(job);
-
-        // act
+    void shouldFailJob_whenRequestDateIsMissing() throws Exception {
+        // Act
         var jobExecution = jobLauncherTestUtils.launchJob();
 
-        // assert
+        // Assert — Job/Step 상태 및 실패 원인 검증
+        StepExecution stepExecution = jobExecution.getStepExecutions().iterator().next();
         assertAll(
-            () -> assertThat(jobExecution).isNotNull(),
-            () -> assertThat(jobExecution.getExitStatus().getExitCode()).isEqualTo(ExitStatus.FAILED.getExitCode())
+            () -> assertThat(jobExecution.getExitStatus().getExitCode())
+                .isEqualTo(ExitStatus.FAILED.getExitCode()),
+            () -> assertThat(jobExecution.getStepExecutions()).hasSize(1),
+            () -> assertThat(stepExecution.getExitStatus().getExitCode())
+                .isEqualTo(ExitStatus.FAILED.getExitCode()),
+            () -> assertThat(stepExecution.getExitStatus().getExitDescription())
+                .contains("requestDate is null")
         );
     }
 
-    @DisplayName("demoJob 배치가 정상적으로 실행된다.")
+    @DisplayName("[demoJob] 유효한 requestDate 전달 -> COMPLETED. Step 1개 실행 성공, commit 1회")
     @Test
-    void success() throws Exception {
-        // arrange
-        jobLauncherTestUtils.setJob(job);
-
-        // act
+    void shouldCompleteJob_whenRequestDateIsProvided() throws Exception {
+        // Arrange
         var jobParameters = new JobParametersBuilder()
             .addLocalDate("requestDate", LocalDate.now())
             .toJobParameters();
+
+        // Act
         var jobExecution = jobLauncherTestUtils.launchJob(jobParameters);
 
-        // assert
+        // Assert — Job/Step 상태 및 실행 결과 검증
+        StepExecution stepExecution = jobExecution.getStepExecutions().iterator().next();
         assertAll(
-                () -> assertThat(jobExecution).isNotNull(),
-                () -> assertThat(jobExecution.getExitStatus().getExitCode()).isEqualTo(ExitStatus.COMPLETED.getExitCode())
+            () -> assertThat(jobExecution.getExitStatus().getExitCode())
+                .isEqualTo(ExitStatus.COMPLETED.getExitCode()),
+            () -> assertThat(jobExecution.getStepExecutions()).hasSize(1),
+            () -> assertThat(stepExecution.getExitStatus().getExitCode())
+                .isEqualTo(ExitStatus.COMPLETED.getExitCode()),
+            () -> assertThat(stepExecution.getCommitCount()).isEqualTo(1)
         );
     }
 }
