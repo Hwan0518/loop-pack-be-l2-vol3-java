@@ -47,7 +47,7 @@ class OrderQueryFacadeTest {
 				SnapshotName.from("나이키 에어맥스"),
 				SnapshotPrice.from(new BigDecimal("100000")),
 				2L)),
-			null, LocalDateTime.now()
+			null, LocalDateTime.of(2026, 3, 10, 12, 0)
 		);
 	}
 
@@ -57,22 +57,34 @@ class OrderQueryFacadeTest {
 	class GetOrderTest {
 
 		@Test
-		@DisplayName("[getOrder()] 유효한 userId + orderId -> OrderDetailOutDto 반환. 본인 주문 조회")
+		@DisplayName("[getOrder()] 유효한 userId + orderId -> OrderDetailOutDto 반환. "
+			+ "DTO 변환 검증: 가격, 할인, 주문항목(상품명/가격/수량/소계), 쿠폰스냅샷, 생성일시")
 		void getOrderSuccess() {
 			// Arrange
 			Long userId = 100L;
-
 			Order order = createTestOrder(1L, userId);
 			given(orderQueryService.findByIdAndUserId(1L, userId)).willReturn(order);
 
 			// Act
 			OrderDetailOutDto result = orderQueryFacade.getOrder(userId, 1L);
 
-			// Assert
+			// Assert — DTO 변환 결과 전체 필드 검증
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(1L),
-				() -> assertThat(result.userId()).isEqualTo(100L),
-				() -> assertThat(result.items()).hasSize(1)
+				() -> assertThat(result.userId()).isEqualTo(userId),
+				() -> assertThat(result.originalTotalPrice()).isEqualByComparingTo(new BigDecimal("200000")),
+				() -> assertThat(result.discountAmount()).isEqualByComparingTo(BigDecimal.ZERO),
+				() -> assertThat(result.totalPrice()).isEqualByComparingTo(new BigDecimal("200000")),
+				() -> assertThat(result.couponSnapshot()).isNull(),
+				() -> assertThat(result.createdAt()).isEqualTo(LocalDateTime.of(2026, 3, 10, 12, 0)),
+				// 주문 항목 DTO 변환 검증
+				() -> assertThat(result.items()).hasSize(1),
+				() -> assertThat(result.items().get(0).productId()).isEqualTo(1L),
+				() -> assertThat(result.items().get(0).snapshotName()).isEqualTo("나이키 에어맥스"),
+				() -> assertThat(result.items().get(0).snapshotPrice()).isEqualByComparingTo(new BigDecimal("100000")),
+				() -> assertThat(result.items().get(0).quantity()).isEqualTo(2L),
+				// 소계 계산 검증 (snapshotPrice × quantity)
+				() -> assertThat(result.items().get(0).subtotal()).isEqualByComparingTo(new BigDecimal("200000"))
 			);
 		}
 
@@ -101,7 +113,9 @@ class OrderQueryFacadeTest {
 			// Assert
 			assertAll(
 				() -> assertThat(result.content()).hasSize(1),
-				() -> assertThat(result.totalElements()).isEqualTo(1)
+				() -> assertThat(result.totalElements()).isEqualTo(1),
+				() -> assertThat(result.page()).isEqualTo(0),
+				() -> assertThat(result.size()).isEqualTo(20)
 			);
 		}
 
@@ -138,7 +152,8 @@ class OrderQueryFacadeTest {
 	class GetAdminOrderTest {
 
 		@Test
-		@DisplayName("[getAdminOrder()] 주문 ID -> AdminOrderDetailOutDto 반환")
+		@DisplayName("[getAdminOrder()] 주문 ID -> AdminOrderDetailOutDto 반환. "
+			+ "DTO 변환 검증: totalPrice, 주문항목, 생성일시")
 		void getAdminOrderSuccess() {
 			// Arrange
 			Order order = createTestOrder(1L, 100L);
@@ -147,10 +162,17 @@ class OrderQueryFacadeTest {
 			// Act
 			AdminOrderDetailOutDto result = orderQueryFacade.getAdminOrder(1L);
 
-			// Assert
+			// Assert — DTO 변환 결과 전체 필드 검증
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(1L),
-				() -> assertThat(result.userId()).isEqualTo(100L)
+				() -> assertThat(result.userId()).isEqualTo(100L),
+				() -> assertThat(result.totalPrice()).isEqualByComparingTo(new BigDecimal("200000")),
+				() -> assertThat(result.createdAt()).isEqualTo(LocalDateTime.of(2026, 3, 10, 12, 0)),
+				// 주문 항목 DTO 변환 검증
+				() -> assertThat(result.items()).hasSize(1),
+				() -> assertThat(result.items().get(0).snapshotName()).isEqualTo("나이키 에어맥스"),
+				() -> assertThat(result.items().get(0).snapshotPrice()).isEqualByComparingTo(new BigDecimal("100000")),
+				() -> assertThat(result.items().get(0).quantity()).isEqualTo(2L)
 			);
 		}
 
@@ -177,7 +199,9 @@ class OrderQueryFacadeTest {
 			// Assert
 			assertAll(
 				() -> assertThat(result.content()).hasSize(1),
-				() -> assertThat(result.totalElements()).isEqualTo(1)
+				() -> assertThat(result.totalElements()).isEqualTo(1),
+				() -> assertThat(result.page()).isEqualTo(0),
+				() -> assertThat(result.size()).isEqualTo(20)
 			);
 		}
 

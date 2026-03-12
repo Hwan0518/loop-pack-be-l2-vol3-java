@@ -1,6 +1,7 @@
 > **기준 문서**: 본 문서(`01-requirements.md`)가 요구사항의 단일 기준(Single Source of Truth)이다.
 > - `docs/design/my/*`: 초안/메모 — 구현 근거로 사용 불가
-> - `docs/design/시퀀스-*.md`: 설계 보조 자료 — 본 문서와 충돌 시 본 문서 우선
+> - `docs/design/02-sequence-diagrams.md`, `03-class-diagram.md`, `04-erd-claude.md`: 초기 설계/보조 자료 — TODO가 포함될 수 있으며, 구현 근거로 단독 사용 불가
+> - `docs/design/05-concurrency-strategy.md`: 현재 전략과 TODO가 혼재된 문서 — 본 문서 및 현재 코드와 충돌 시 본 문서와 현재 코드 우선
 
 ## 목차
 

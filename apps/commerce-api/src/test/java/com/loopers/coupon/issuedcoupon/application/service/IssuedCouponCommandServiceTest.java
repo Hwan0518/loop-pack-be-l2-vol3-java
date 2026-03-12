@@ -136,6 +136,26 @@ class IssuedCouponCommandServiceTest {
 
 
 	@Nested
+	@DisplayName("releaseIssueLock()")
+	class ReleaseIssueLockTest {
+
+		@Test
+		@DisplayName("[releaseIssueLock()] 유효한 userId + couponTemplateId -> 가드 release 호출. 캐시 점유 해제 위임")
+		void releaseIssueLockDelegates() {
+			// Arrange
+			willDoNothing().given(couponIssueDuplicateGuard).release(100L, 1L);
+
+			// Act
+			issuedCouponCommandService.releaseIssueLock(100L, 1L);
+
+			// Assert
+			verify(couponIssueDuplicateGuard).release(100L, 1L);
+		}
+
+	}
+
+
+	@Nested
 	@DisplayName("save()")
 	class SaveTest {
 

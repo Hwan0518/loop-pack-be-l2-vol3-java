@@ -100,4 +100,33 @@ class IssuedCouponEntityMapperTest {
 
 	}
 
+
+	@Nested
+	@DisplayName("양방향 변환 일관성 테스트")
+	class RoundTripTest {
+
+		@Test
+		@DisplayName("[toEntity() → toDomain()] 도메인 → 엔티티 → 도메인 변환 시 비즈니스 필드 보존. "
+			+ "id, couponTemplateId, userId, status 값이 원본과 동일")
+		void roundTripPreservesFields() {
+			// Arrange
+			IssuedCoupon original = IssuedCoupon.reconstruct(
+				1L, 10L, 100L, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now()
+			);
+
+			// Act
+			IssuedCouponEntity entity = mapper.toEntity(original);
+			IssuedCoupon reconstructed = mapper.toDomain(entity);
+
+			// Assert — 원본 도메인과 복원된 도메인의 비즈니스 필드 일치 검증
+			assertAll(
+				() -> assertThat(reconstructed.getId()).isEqualTo(original.getId()),
+				() -> assertThat(reconstructed.getCouponTemplateId()).isEqualTo(original.getCouponTemplateId()),
+				() -> assertThat(reconstructed.getUserId()).isEqualTo(original.getUserId()),
+				() -> assertThat(reconstructed.getStatus()).isEqualTo(original.getStatus())
+			);
+		}
+
+	}
+
 }

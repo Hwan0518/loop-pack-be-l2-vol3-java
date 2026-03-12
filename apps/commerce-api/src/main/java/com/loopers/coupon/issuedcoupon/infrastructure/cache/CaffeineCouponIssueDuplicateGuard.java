@@ -35,6 +35,14 @@ public class CaffeineCouponIssueDuplicateGuard implements CouponIssueDuplicateGu
 	}
 
 
+	// 2. 발급 락 해제 (발급 실패 시 캐시 점유 해제 — 실제 발급되지 않은 요청이 캐시에 남아 차단되는 것을 방지)
+	@Override
+	public void release(Long userId, Long couponTemplateId) {
+		String key = buildKey(userId, couponTemplateId);
+		cache.invalidate(key);
+	}
+
+
 	// 캐시 키 생성
 	private String buildKey(Long userId, Long couponTemplateId) {
 		return userId + ":" + couponTemplateId;

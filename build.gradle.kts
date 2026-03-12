@@ -79,7 +79,7 @@ subprojects {
     }
 
     tasks.test {
-        maxParallelForks = 1
+        maxParallelForks = (project.findProperty("testMaxParallelForks") as? String)?.toInt() ?: 1
         useJUnitPlatform()
         systemProperty("user.timezone", "Asia/Seoul")
         systemProperty("spring.profiles.active", "test")

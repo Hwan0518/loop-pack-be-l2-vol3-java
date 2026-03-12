@@ -36,13 +36,19 @@ public class IssuedCouponCommandFacade {
 		// 중복 발급 차단 (1차: 로컬 캐시 따닥 차단, 2차: DB 존재 확인으로 캐시 TTL 만료 후 재요청 방어)
 		issuedCouponCommandService.validateNotDuplicateIssue(userId, couponTemplateId);
 
-		// 쿠폰 템플릿 존재 + 활성 검증 (만료/삭제 시 예외)
-		couponTemplateQueryService.getById(couponTemplateId);
+		try {
+			// 쿠폰 템플릿 존재 + 활성 검증 (만료/삭제 시 예외)
+			couponTemplateQueryService.getById(couponTemplateId);
 
-		// 발급 쿠폰 생성 및 저장 (0.01% 레이스 시 DB 복합 유니크 제약이 안전망 — 500 → 클라이언트 재시도 → 캐시에서 중복 차단)
-		IssuedCoupon issuedCoupon = IssuedCoupon.create(couponTemplateId, userId);
-		IssuedCoupon saved = issuedCouponCommandService.save(issuedCoupon);
-		return CouponIssueOutDto.from(saved);
+			// 발급 쿠폰 생성 및 저장 (0.01% 레이스 시 DB 복합 유니크 제약이 안전망 — 500 → 클라이언트 재시도 → 캐시에서 중복 차단)
+			IssuedCoupon issuedCoupon = IssuedCoupon.create(couponTemplateId, userId);
+			IssuedCoupon saved = issuedCouponCommandService.save(issuedCoupon);
+			return CouponIssueOutDto.from(saved);
+		} catch (Exception e) {
+			// 발급 실패 시 캐시 가드 해제 — 실제 발급되지 않은 요청이 10분간 차단되는 것을 방지
+			issuedCouponCommandService.releaseIssueLock(userId, couponTemplateId);
+			throw e;
+		}
 	}
 
 

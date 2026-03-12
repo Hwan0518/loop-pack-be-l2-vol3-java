@@ -148,4 +148,33 @@ class BrandEntityMapperTest {
 
 	}
 
+
+	@Nested
+	@DisplayName("양방향 변환 일관성 테스트")
+	class RoundTripTest {
+
+		@Test
+		@DisplayName("[toEntity() → toDomain()] 도메인 → 엔티티 → 도메인 변환 시 비즈니스 필드 보존. "
+			+ "name, description, visibleStatus 값이 원본과 동일")
+		void roundTripPreservesFields() {
+			// Arrange
+			Brand original = Brand.reconstruct(1L, BrandName.from("나이키"),
+				BrandDescription.from("스포츠 브랜드"), VisibleStatus.VISIBLE, null);
+
+			// Act
+			BrandEntity entity = brandEntityMapper.toEntity(original);
+			Brand reconstructed = brandEntityMapper.toDomain(entity);
+
+			// Assert — 원본 도메인과 복원된 도메인의 비즈니스 필드 일치 검증
+			assertAll(
+				() -> assertThat(reconstructed.getId()).isEqualTo(original.getId()),
+				() -> assertThat(reconstructed.getName().value()).isEqualTo(original.getName().value()),
+				() -> assertThat(reconstructed.getDescription().value()).isEqualTo(original.getDescription().value()),
+				() -> assertThat(reconstructed.getVisibleStatus()).isEqualTo(original.getVisibleStatus()),
+				() -> assertThat(reconstructed.getDeletedAt()).isNull()
+			);
+		}
+
+	}
+
 }

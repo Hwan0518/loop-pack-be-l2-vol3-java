@@ -16,4 +16,12 @@ public interface CouponIssueDuplicateGuard {
 	 */
 	boolean tryAcquire(Long userId, Long couponTemplateId);
 
+	/**
+	 * 발급 락 해제 (발급 실패 시 캐시 점유 해제)
+	 * - 가드 획득 후 검증/저장 실패 시 호출하여, 실제 발급되지 않은 요청이 캐시에 남아 차단되는 것을 방지
+	 * @param userId 사용자 ID
+	 * @param couponTemplateId 쿠폰 템플릿 ID
+	 */
+	void release(Long userId, Long couponTemplateId);
+
 }

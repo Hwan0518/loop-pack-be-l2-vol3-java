@@ -31,9 +31,10 @@ public class IssuedCouponCommandService {
 	/**
 	 * 발급 쿠폰 명령 서비스
 	 * 1. 중복 발급 차단 (1차: 로컬 캐시, 2차: DB 존재 확인)
-	 * 2. 발급 쿠폰 저장
-	 * 3. 발급 쿠폰 조회 (비관적 쓰기 락)
-	 * 4. 쿠폰 적용 (주문 BC에서 호출)
+	 * 2. 발급 락 해제 (발급 실패 시 캐시 점유 해제)
+	 * 3. 발급 쿠폰 저장
+	 * 4. 발급 쿠폰 조회 (비관적 쓰기 락)
+	 * 5. 쿠폰 적용 (주문 BC에서 호출)
 	 */
 
 	// 1. 중복 발급 차단 (1차: 로컬 캐시 — 따닥 차단, 2차: DB 존재 확인 — 캐시 TTL 만료 후 재요청 방어)
@@ -51,14 +52,20 @@ public class IssuedCouponCommandService {
 	}
 
 
-	// 2. 발급 쿠폰 저장
+	// 2. 발급 락 해제 (발급 실패 시 캐시 점유 해제 — 실제 발급되지 않은 요청이 캐시에 남아 차단되는 것을 방지)
+	public void releaseIssueLock(Long userId, Long couponTemplateId) {
+		couponIssueDuplicateGuard.release(userId, couponTemplateId);
+	}
+
+
+	// 3. 발급 쿠폰 저장
 	@Transactional
 	public IssuedCoupon save(IssuedCoupon issuedCoupon) {
 		return issuedCouponCommandRepository.save(issuedCoupon);
 	}
 
 
-	// 3. 발급 쿠폰 조회 (비관적 쓰기 락 — 동일 사용자 멀티 디바이스 동시 주문 시 이중 사용 방지)
+	// 4. 발급 쿠폰 조회 (비관적 쓰기 락 — 동일 사용자 멀티 디바이스 동시 주문 시 이중 사용 방지)
 	@Transactional
 	public IssuedCoupon getByIdForUpdate(Long issuedCouponId) {
 		return issuedCouponQueryRepository.findByIdForUpdate(issuedCouponId)
@@ -66,7 +73,7 @@ public class IssuedCouponCommandService {
 	}
 
 
-	// 4. 쿠폰 적용 (Facade에서 비관적 락으로 조회한 쿠폰을 전달받아 검증 + 상태 변경 + 할인 계산)
+	// 5. 쿠폰 적용 (Facade에서 비관적 락으로 조회한 쿠폰을 전달받아 검증 + 상태 변경 + 할인 계산)
 	@Transactional
 	public CouponApplyResult applyToCoupon(IssuedCoupon issuedCoupon, Long userId, BigDecimal totalPrice, CouponTemplate template) {
 

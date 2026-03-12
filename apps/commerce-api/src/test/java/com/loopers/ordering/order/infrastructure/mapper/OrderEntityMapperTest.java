@@ -52,7 +52,8 @@ class OrderEntityMapperTest {
 
 
 	@Test
-	@DisplayName("[toDomain()] OrderEntity + OrderItemEntity 목록 -> Order 변환. 모든 필드 및 항목 일치")
+	@DisplayName("[toDomain()] OrderEntity + OrderItemEntity 목록 -> Order 변환. "
+		+ "가격 필드, 주문 항목 크기, 항목 상세(상품명/가격/수량) 검증")
 	void toDomainSuccess() {
 		// Arrange
 		OrderEntity orderEntity = OrderEntity.of(100L, "req-mapper-2",
@@ -65,15 +66,20 @@ class OrderEntityMapperTest {
 		// Act
 		Order order = mapper.toDomain(orderEntity, itemEntities);
 
-		// Assert
+		// Assert — 주문 필드 + 주문 항목 상세 검증
 		assertAll(
 			() -> assertThat(order.getUserId()).isEqualTo(100L),
 			() -> assertThat(order.getRequestId()).isEqualTo("req-mapper-2"),
 			() -> assertThat(order.getOriginalTotalPrice()).isEqualByComparingTo(new BigDecimal("200000")),
 			() -> assertThat(order.getDiscountAmount()).isEqualByComparingTo(BigDecimal.ZERO),
 			() -> assertThat(order.getTotalPrice()).isEqualByComparingTo(new BigDecimal("200000")),
+			() -> assertThat(order.getCouponSnapshot()).isNull(),
 			() -> assertThat(order.getItems()).hasSize(1),
-			() -> assertThat(order.getCouponSnapshot()).isNull()
+			() -> assertThat(order.getItems().get(0).getProductId()).isEqualTo(1L),
+			() -> assertThat(order.getItems().get(0).getSnapshotName().value()).isEqualTo("나이키 에어맥스"),
+			() -> assertThat(order.getItems().get(0).getSnapshotPrice().value())
+				.isEqualByComparingTo(new BigDecimal("100000")),
+			() -> assertThat(order.getItems().get(0).getQuantity()).isEqualTo(2L)
 		);
 	}
 

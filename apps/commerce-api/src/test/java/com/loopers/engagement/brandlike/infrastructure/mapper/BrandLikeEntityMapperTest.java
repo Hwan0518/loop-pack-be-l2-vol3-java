@@ -84,6 +84,30 @@ class BrandLikeEntityMapperTest {
 	}
 
 
+	@Nested
+	@DisplayName("양방향 변환 일관성 테스트")
+	class RoundTripTest {
+
+		@Test
+		@DisplayName("[toEntity() → toDomain()] 도메인 → 엔티티 → 도메인 변환 시 비즈니스 필드 보존. "
+			+ "userId, targetId 값이 원본과 동일")
+		void roundTripPreservesFields() {
+			// Arrange
+			BrandLike original = BrandLike.create(1L, 100L);
+
+			// Act
+			BrandLikeEntity entity = mapper.toEntity(original);
+			BrandLike reconstructed = mapper.toDomain(entity);
+
+			// Assert — userId, targetId 보존 검증 (createdAt은 @PrePersist에서 설정)
+			assertAll(
+				() -> assertThat(reconstructed.getUserId()).isEqualTo(original.getUserId()),
+				() -> assertThat(reconstructed.getTargetId()).isEqualTo(original.getTargetId())
+			);
+		}
+	}
+
+
 	private void setCreatedAt(BrandLikeEntity entity, ZonedDateTime createdAt) {
 		try {
 			var field = entity.getClass().getSuperclass().getDeclaredField("createdAt");
