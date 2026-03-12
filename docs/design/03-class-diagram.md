@@ -4,6 +4,12 @@
 > P0 범위의 도메인 객체 책임과 레이어 의존 방향을 클래스 다이어그램으로 검증한다.
 >
 > `02-sequence-diagrams.md`에서 상세 속성이 부족한 항목은 `docs/design/01-requirements.md`를 보완 근거로 사용했다.
+>
+> **문서 상태**
+> - 성격: 초기 설계/보조 자료
+> - 현재 구현 단일 기준이 아니다
+> - Event, EventListener, 일부 공개 타입은 TODO/미구현 설계를 포함한다
+> - 현재 구현 판단은 `docs/design/01-requirements.md`, `CLAUDE.md`, 실제 코드 우선
 
 ---
 

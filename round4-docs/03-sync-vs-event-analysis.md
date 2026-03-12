@@ -44,13 +44,14 @@ UPDATE product SET like_count = like_count + 1 WHERE id = ? AND deleted_at IS NU
 
 ---
 
-## 2. 주문 생성 → 장바구니 정리
+## 2. 주문 생성 → 장바구니 정리 — ✅ Event 전환 확정
 
 | 구분 | 내용 |
 |------|------|
 | **설계 문서** | 이벤트 기반 (`OrderCreatedEvent` → `CartCleanupEventListener`) |
 | **현재 코드** | 동기 (`OrderPlacementCommandService.deleteCartItems()`) |
 | **분석 보고서** | 발견 1의 일부 — 트랜잭션이 불필요하게 큼 |
+| **결정 상태** | **확정** — Event 전환 |
 
 **근거 분석:**
 
@@ -60,19 +61,21 @@ UPDATE product SET like_count = like_count + 1 WHERE id = ? AND deleted_at IS NU
 - 장바구니 정리가 다른 BC(Cart)의 쓰기 작업 → **동기라면 주문 트랜잭션이 Cart BC까지 확장**됨
 - 트랜잭션 범위 축소 시 재고 락 유지 시간도 줄어듦
 
-**최종 목표: 이벤트 기반 — `OrderCreatedEvent` → `@TransactionalEventListener(AFTER_COMMIT)`**
+**최종 목표: 이벤트 기반 — `@EventListener` (동기, 같은 TX)**
 
 설계 문서의 원래 방향이 맞다. 주문 트랜잭션에서 가장 쉽게 분리할 수 있는 부수효과이다.
+`@EventListener`(동기)를 사용하여 같은 트랜잭션 내에서 처리한다. Outbox pattern은 미적용.
 
 ---
 
-## 3. 상품 삭제 → 좋아요 정리
+## 3. 상품 삭제 → 좋아요 정리 — ✅ 정리 제거 확정
 
 | 구분 | 내용 |
 |------|------|
 | **설계 문서** | 이벤트 기반 (`ProductDeletedEvent` → `ProductLikeCleanupEventListener`) |
 | **현재 코드** | 동기 (`ProductCommandService.deleteAllProductLikes()`) |
 | **분석 보고서** | 발견 4 — 심각도 낮음 |
+| **결정 상태** | **확정** — 즉시 정리 제거 (Soft delete로 자동 필터링) |
 
 **근거 분석:**
 
@@ -81,18 +84,19 @@ UPDATE product SET like_count = like_count + 1 WHERE id = ? AND deleted_at IS NU
 - 좋아요 정리 실패가 상품 삭제를 롤백시켜야 하는가? → **아니오**. 관리자가 의도한 삭제가 좋아요 정리 오류 때문에 실패하면 오히려 문제
 - 인기 상품이면 좋아요 수만 건 → **대량 DELETE로 트랜잭션이 길어질 수 있음**
 
-**최종 목표: 이벤트 기반 — `ProductDeletedEvent` → `@TransactionalEventListener(AFTER_COMMIT)`**
+**최종 결정: 정리 제거 — Soft delete로 자동 필터링, 즉시 정리 불필요**
 
-Soft Delete + 조회 필터링이 안전장치로 이미 동작하므로, 지연 정리에 적합한 전형적인 케이스이다.
+이벤트 기반 정리도 불필요하다. Soft Delete + 조회 필터링이 안전장치로 이미 동작하므로, 고아 데이터는 무해하다. 복원 시 데이터 손실 방지 효과도 있다. 필요 시 배치 잡으로 주기적 정리가 가능하다.
 
 ---
 
-## 4. 상품 삭제 → 장바구니 정리
+## 4. 상품 삭제 → 장바구니 정리 — 미확정 (논의 중)
 
 | 구분 | 내용 |
 |------|------|
 | **설계 문서** | 이벤트 기반 (`ProductDeletedEvent` → `CartCleanupEventListener`) |
 | **현재 코드** | 동기 (`ProductCommandService.deleteAllCartItems()`) |
+| **결정 상태** | **미확정** — 논의 중 |
 
 **근거 분석:**
 
@@ -101,26 +105,26 @@ Soft Delete + 조회 필터링이 안전장치로 이미 동작하므로, 지연
 - 장바구니 상태 확인 API(`GET /cart/status`)에서도 삭제된 상품은 감지 가능
 - 정리 실패가 상품 삭제를 롤백시켜야 하는가? → **아니오**
 
-**최종 목표: 이벤트 기반 — `ProductDeletedEvent` → 별도 리스너에서 처리**
-
-3번과 동일 이벤트(`ProductDeletedEvent`)로 좋아요와 장바구니 정리를 각각의 리스너에서 처리한다.
+**현재 상태:** 이벤트 기반 전환 여부가 논의 중이다. 좋아요 정리는 제거 확정되었지만, 장바구니의 경우 삭제된 상품이 장바구니에 남아있으면 사용자 UX 영향이 좋아요보다 크므로 별도 검토가 필요하다.
 
 ---
 
-## 5. 브랜드 삭제 → 좋아요 정리
+## 5. 브랜드 삭제 → 좋아요 정리 — ✅ 정리 제거 확정
 
 | 구분 | 내용 |
 |------|------|
 | **설계 문서** | 이벤트 기반 (`BrandDeletedEvent` → `BrandLikeCleanupEventListener`) |
 | **현재 코드** | 동기 (`BrandCommandService.deleteAllBrandLikes()`) |
+| **결정 상태** | **확정** — 즉시 정리 제거 (Soft delete로 자동 필터링) |
 
 **근거 분석:**
 
 - 3번과 완전히 동일한 논리. 브랜드도 Soft Delete, 좋아요 조회 시 필터링
 - 브랜드 삭제 전 "활성 상품 0개" 검증이 있으므로, 브랜드 삭제 자체가 빈번하지 않음
-- 일관성 유지를 위해 이벤트 패턴으로 통일하는 것이 좋음
 
-**최종 목표: 이벤트 기반 — `BrandDeletedEvent` → `@TransactionalEventListener(AFTER_COMMIT)`**
+**최종 결정: 정리 제거 — Soft delete로 자동 필터링, 즉시 정리 불필요**
+
+3번(상품 삭제 → 좋아요 정리)과 동일한 결정. 고아 데이터는 무해하며, 복원 시 데이터 손실을 방지한다. 필요 시 배치 잡으로 주기적 정리가 가능하다.
 
 ---
 
@@ -146,51 +150,78 @@ Soft Delete + 조회 필터링이 안전장치로 이미 동작하므로, 지연
 
 ## 전체 요약
 
-| # | 부수효과 | 현재 코드 | 설계 문서 | 최종 목표 | 근거 핵심 |
-|---|---|:---:|:---:|:---:|---|
-| 1 | 좋아요 → likeCount | 동기 | 이벤트 | **동기** | 원자성 보장이 유리. UPDATE 쿼리로 Lost Update 해결 |
-| 2 | 주문 → 장바구니 정리 | 동기 | 이벤트 | **이벤트** | 부수효과. 실패해도 주문 유효. 트랜잭션 범위 축소 |
-| 3 | 상품 삭제 → 좋아요 정리 | 동기 | 이벤트 | **이벤트** | Soft Delete + 조회 필터링으로 안전. 대량 가능 |
-| 4 | 상품 삭제 → 장바구니 정리 | 동기 | 이벤트 | **이벤트** | 3번과 동일 이벤트. Soft Delete로 안전 |
-| 5 | 브랜드 삭제 → 좋아요 정리 | 동기 | 이벤트 | **이벤트** | 3번과 동일 논리 |
-| 6 | 주문 Facade 읽기 범위 | 쓰기TX 내 | — | **현재 유지** | 2번 분리로 자연 개선. 추가 분리는 복잡도 대비 이점 낮음 |
+| # | 부수효과 | 현재 코드 | 설계 문서 | 최종 결정 | 결정 상태 | 근거 핵심 |
+|---|---|:---:|:---:|:---:|:---:|---|
+| 1 | 좋아요 → likeCount | 동기 | 이벤트 | **동기** | 확정 | 원자성 보장이 유리. UPDATE 쿼리로 Lost Update 해결 |
+| 2 | 주문 → 장바구니 정리 | 동기 | 이벤트 | **이벤트** | 확정 | 부수효과. 실패해도 주문 유효. @EventListener (동기, 같은 TX) |
+| 3 | 상품 삭제 → 좋아요 정리 | 동기 | 이벤트 | **정리 제거** | 확정 | Soft Delete + 조회 필터링으로 즉시 정리 불필요. 고아 데이터 무해. 복원 시 데이터 보존 |
+| 4 | 상품 삭제 → 장바구니 정리 | 동기 | 이벤트 | — | **미확정** | 논의 중 |
+| 5 | 브랜드 삭제 → 좋아요 정리 | 동기 | 이벤트 | **정리 제거** | 확정 | 3번과 동일 논리 |
+| 6 | 주문 Facade 읽기 범위 | 쓰기TX 내 | — | **현재 유지** | 확정 | 2번 분리로 자연 개선. 추가 분리는 복잡도 대비 이점 낮음 |
 
 ---
 
 ## 필요 작업 분류
 
-### 코드 변경 (최종 목표 ≠ 현재 코드)
+### 코드 변경 (최종 결정 ≠ 현재 코드)
 
-| 대상 | 변경 내용 |
-|------|----------|
-| `OrderPlacementCommandService` | 장바구니 정리를 `OrderCreatedEvent` 발행으로 변경 |
-| `ProductCommandFacade/Service` | 좋아요/장바구니 정리를 `ProductDeletedEvent` 발행으로 변경 |
-| `BrandCommandFacade/Service` | 좋아요 정리를 `BrandDeletedEvent` 발행으로 변경 |
-| `ProductLikeCountCommandFacade` | `findActiveById()` + `save()` → UPDATE 쿼리 직접 실행으로 변경 |
-| EventListener 신규 생성 | `CartCleanupEventListener`, `ProductLikeCleanupEventListener`, `BrandLikeCleanupEventListener` |
+| 대상 | 변경 내용 | 상태 |
+|------|----------|:----:|
+| `OrderPlacementCommandService` | 장바구니 정리를 `OrderCreatedEvent` 발행으로 변경 | 확정 |
+| `ProductCommandFacade/Service` | 좋아요 정리 코드 제거 (즉시 정리 불필요) | 확정 |
+| `BrandCommandFacade/Service` | 좋아요 정리 코드 제거 (즉시 정리 불필요) | 확정 |
+| `ProductLikeCountCommandFacade` | `findActiveById()` + `save()` → UPDATE 쿼리 직접 실행으로 변경 | 확정 |
+| `ProductCommandFacade/Service` | 장바구니 정리 처리 방식 변경 (이벤트 or 제거) | 미확정 |
+| EventListener 신규 생성 | `CartCleanupEventListener` (주문 → 장바구니 정리) | 확정 |
 
-### 설계 문서 수정 (최종 목표 ≠ 설계 문서)
+### 설계 문서 수정 (최종 결정 ≠ 설계 문서)
 
 | 문서 | 수정 내용 |
 |------|----------|
 | `02-sequence-diagrams.md` (7-1, 7-2) | 좋아요 등록/취소에 likeCount 동기 호출 단계 추가 |
 | `03-class-diagram.md` (섹션 5) | `ProductLikeCountSyncer` Port 의존 추가, 이벤트 기반 likeCount 동기화 제거 |
 | `03-class-diagram.md` (섹션 3) | `ProductLikeCreatedEvent`/`ProductLikeCancelledEvent` 제거 |
-| `03-class-diagram.md` (섹션 9.1) | likeCount 이벤트 행 제거, 나머지 이벤트는 유지 (최종 목표와 일치) |
+| `03-class-diagram.md` (섹션 9.1) | likeCount 이벤트 행 제거. 좋아요 정리 이벤트/리스너 제거 반영 필요 |
 | `04-erd-claude.md` (likes 테이블) | `likes` → `product_likes` + `brand_likes` 분리 반영 |
 
 ### 이미 일치 (수정 불필요)
 
-| 문서 | 설계 = 최종 목표 |
+| 문서 | 설계 = 최종 결정 |
 |------|---|
-| `02-sequence-diagrams.md` (9-1) | 장바구니 정리가 이벤트 기반 — 최종 목표와 일치 |
-| `03-class-diagram.md` (섹션 9.1) | `OrderCreatedEvent`, `ProductDeletedEvent`, `BrandDeletedEvent` — 최종 목표와 일치 |
-| `04-erd-claude.md` (섹션 6.4) | 상품/브랜드 삭제 트랜잭션이 이벤트 기반 — 최종 목표와 일치 |
+| `02-sequence-diagrams.md` (9-1) | 장바구니 정리가 이벤트 기반 — 최종 결정과 일치 |
 | `01-requirements.md` | 기능 요구사항 수준에서 변경 없음 |
+
+---
+
+## 확정 의사결정 요약 (#3 이벤트 기반 정리 논의 결과)
+
+### ACL과 Event 공존 기준
+
+결과가 필요하거나 실패 시 전체 롤백이 필요한 Cross-BC 통신은 ACL, 정리성 부수효과는 Event.
+
+| 통신 방식 | 선택 기준 | 예시 |
+|-----------|----------|------|
+| **ACL (동기)** | 결과값이 필요하거나, 실패 시 전체 롤백이 필요한 경우 | 주문 시 재고 차감, 주문 시 쿠폰 적용, 장바구니 추가 시 상품 조회 |
+| **Event (비동기적 의미, 동기 실행)** | 정리성 부수효과. 핵심 작업과 독립적이며, 실패해도 원래 작업에 영향 없는 경우 | 주문 생성 → 장바구니 정리 |
+| **정리 제거** | Soft delete로 조회 시 자동 필터링되어 즉시 정리 불필요한 경우 | 상품/브랜드 삭제 → 좋아요 정리 |
+
+### Event 패턴 확정 사항
+
+| 항목 | 결정 |
+|------|------|
+| Event Listener 방식 | `@EventListener` (동기, 같은 TX). Outbox pattern 미적용 |
+| DomainEventPublisher 위치 | 각 도메인의 `application/port/out/`에 Port로 정의 |
+| DomainEventPublisher 호출 위치 | Service에서 호출 (Facade는 Service만 호출하는 원칙 준수) |
+| 이벤트 생성 위치 | Domain Model의 메서드가 이벤트를 return. Application Layer는 발행만 담당 |
+| 이벤트 추적성 | Event 클래스 Javadoc에 `@subscriber` 명시, 발행 라인에 `→ [Listener]` 인라인 주석 |
 
 ---
 
 ## 결론
 
 설계 문서는 원래 이벤트 기반으로 잘 설계되어 있었으나, 구현 시 전부 동기로 변경되었다.
-최종 목표는 **likeCount 동기화만 동기로 유지**하고 나머지 정리 작업은 **원래 설계대로 이벤트로 복원**하는 것이므로, 설계 문서의 수정 범위는 likeCount 관련 항목으로 한정된다.
+최종 결정은 다음과 같다:
+- **likeCount 동기화**: 동기 유지 (원자성 보장)
+- **좋아요 정리 (상품/브랜드 삭제 시)**: 정리 자체를 제거 (Soft delete 필터링으로 충분, 고아 데이터 무해, 복원 시 데이터 보존)
+- **장바구니 정리 (주문 생성 시)**: Event 전환 확정 (`@EventListener`, 같은 TX)
+- **장바구니 정리 (상품 삭제 시)**: 미확정, 논의 중
