@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.DEFAULT_PAGE_SIZE;
 import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.MAX_CACHEABLE_PAGE;
+import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.buildIdListCacheKey;
 
 
 @Service
@@ -239,14 +240,6 @@ public class ProductCommandService {
 		ProductSearchCriteria criteria = new ProductSearchCriteria(brandId, sortType);
 		PageCriteria pageCriteria = new PageCriteria(page, DEFAULT_PAGE_SIZE);
 		productCacheManager.refreshIdList(cacheKey, () -> productQueryPort.searchProductIds(criteria, pageCriteria));
-	}
-
-
-	// ID 리스트 캐시 키 생성: products:ids:v1:{brandId|all}:{sortType|LATEST}:{page}:{size}
-	private String buildIdListCacheKey(Long brandId, ProductSortType sortType, int page, int size) {
-		String brandPart = brandId != null ? brandId.toString() : "all";
-		String sortPart = sortType != null ? sortType.name() : "LATEST";
-		return "products:ids:v1:" + brandPart + ":" + sortPart + ":" + page + ":" + size;
 	}
 
 }
