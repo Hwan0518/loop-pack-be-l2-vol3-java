@@ -114,4 +114,38 @@ class CouponTemplateEntityMapperTest {
 
 	}
 
+
+	@Nested
+	@DisplayName("양방향 변환 일관성 테스트")
+	class RoundTripTest {
+
+		@Test
+		@DisplayName("[toEntity() → toDomain()] 도메인 → 엔티티 → 도메인 변환 시 비즈니스 필드 보존. "
+			+ "name, type, value, minOrderAmount, expiredAt 값이 원본과 동일")
+		void roundTripPreservesFields() {
+			// Arrange
+			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
+			CouponTemplate original = CouponTemplate.reconstruct(
+				1L, "10% 할인", CouponType.RATE, new BigDecimal("10"),
+				new BigDecimal("5000"), expiredAt, null
+			);
+
+			// Act
+			CouponTemplateEntity entity = mapper.toEntity(original);
+			CouponTemplate reconstructed = mapper.toDomain(entity);
+
+			// Assert — 원본 도메인과 복원된 도메인의 비즈니스 필드 일치 검증
+			assertAll(
+				() -> assertThat(reconstructed.getId()).isEqualTo(original.getId()),
+				() -> assertThat(reconstructed.getName()).isEqualTo(original.getName()),
+				() -> assertThat(reconstructed.getType()).isEqualTo(original.getType()),
+				() -> assertThat(reconstructed.getValue()).isEqualByComparingTo(original.getValue()),
+				() -> assertThat(reconstructed.getMinOrderAmount()).isEqualByComparingTo(original.getMinOrderAmount()),
+				() -> assertThat(reconstructed.getExpiredAt()).isEqualTo(original.getExpiredAt()),
+				() -> assertThat(reconstructed.isDeleted()).isFalse()
+			);
+		}
+
+	}
+
 }
