@@ -50,6 +50,8 @@ public class Brand {
 	 * 5. 노출 상태 변경
 	 * 6. 노출 상태 확인
 	 * 7. 삭제 가능 여부 검증
+	 * 8. 삭제 (soft delete)
+	 * 9. 삭제 여부 확인
 	 */
 
 	// 1. 브랜드 생성 (신규 브랜드 생성, 기본값 HIDDEN)
@@ -112,6 +114,24 @@ public class Brand {
 		if (hasActiveProducts) {
 			throw new CoreException(ErrorType.BRAND_HAS_ACTIVE_PRODUCTS);
 		}
+	}
+
+
+	// 8. 삭제 (soft delete)
+	public void delete() {
+
+		// 이미 삭제된 경우 예외
+		if (isDeleted()) {
+			throw new CoreException(ErrorType.BRAND_NOT_FOUND);
+		}
+
+		this.deletedAt = ZonedDateTime.now();
+	}
+
+
+	// 9. 삭제 여부 확인
+	public boolean isDeleted() {
+		return this.deletedAt != null;
 	}
 
 }
