@@ -61,10 +61,10 @@ UPDATE product SET like_count = like_count + 1 WHERE id = ? AND deleted_at IS NU
 - 장바구니 정리가 다른 BC(Cart)의 쓰기 작업 → **동기라면 주문 트랜잭션이 Cart BC까지 확장**됨
 - 트랜잭션 범위 축소 시 재고 락 유지 시간도 줄어듦
 
-**최종 목표: 이벤트 기반 — `@EventListener` (동기, 같은 TX)**
+**최종 목표: 이벤트 기반 — `@TransactionalEventListener(phase = AFTER_COMMIT)`**
 
 설계 문서의 원래 방향이 맞다. 주문 트랜잭션에서 가장 쉽게 분리할 수 있는 부수효과이다.
-`@EventListener`(동기)를 사용하여 같은 트랜잭션 내에서 처리한다. Outbox pattern은 미적용.
+현재는 Event 미도입 상태로 동기 직접 호출 중이며, 최종 목표는 `@TransactionalEventListener(phase = AFTER_COMMIT)`으로 주문 TX 커밋 후 장바구니 정리를 실행하는 것이다. 이렇게 하면 장바구니 정리 실패가 주문을 롤백시키지 않는다. Outbox pattern은 미적용.
 
 ---
 
@@ -153,7 +153,7 @@ UPDATE product SET like_count = like_count + 1 WHERE id = ? AND deleted_at IS NU
 | # | 부수효과 | 현재 코드 | 설계 문서 | 최종 결정 | 결정 상태 | 근거 핵심 |
 |---|---|:---:|:---:|:---:|:---:|---|
 | 1 | 좋아요 → likeCount | 동기 | 이벤트 | **동기** | 확정 | 원자성 보장이 유리. UPDATE 쿼리로 Lost Update 해결 |
-| 2 | 주문 → 장바구니 정리 | 동기 | 이벤트 | **이벤트** | 확정 | 부수효과. 실패해도 주문 유효. @EventListener (동기, 같은 TX) |
+| 2 | 주문 → 장바구니 정리 | 동기 | 이벤트 | **이벤트** | 확정 | 부수효과. 실패해도 주문 유효. @TransactionalEventListener(AFTER_COMMIT) |
 | 3 | 상품 삭제 → 좋아요 정리 | 동기 | 이벤트 | **정리 제거** | 확정 | Soft Delete + 조회 필터링으로 즉시 정리 불필요. 고아 데이터 무해. 복원 시 데이터 보존 |
 | 4 | 상품 삭제 → 장바구니 정리 | 동기 | 이벤트 | — | **미확정** | 논의 중 |
 | 5 | 브랜드 삭제 → 좋아요 정리 | 동기 | 이벤트 | **정리 제거** | 확정 | 3번과 동일 논리 |
@@ -202,14 +202,14 @@ UPDATE product SET like_count = like_count + 1 WHERE id = ? AND deleted_at IS NU
 | 통신 방식 | 선택 기준 | 예시 |
 |-----------|----------|------|
 | **ACL (동기)** | 결과값이 필요하거나, 실패 시 전체 롤백이 필요한 경우 | 주문 시 재고 차감, 주문 시 쿠폰 적용, 장바구니 추가 시 상품 조회 |
-| **Event (비동기적 의미, 동기 실행)** | 정리성 부수효과. 핵심 작업과 독립적이며, 실패해도 원래 작업에 영향 없는 경우 | 주문 생성 → 장바구니 정리 |
+| **Event (AFTER_COMMIT)** | 정리성 부수효과. 핵심 작업과 독립적이며, 실패해도 원래 작업에 영향 없는 경우 | 주문 생성 → 장바구니 정리 |
 | **정리 제거** | Soft delete로 조회 시 자동 필터링되어 즉시 정리 불필요한 경우 | 상품/브랜드 삭제 → 좋아요 정리 |
 
 ### Event 패턴 확정 사항
 
 | 항목 | 결정 |
 |------|------|
-| Event Listener 방식 | `@EventListener` (동기, 같은 TX). Outbox pattern 미적용 |
+| Event Listener 방식 | `@TransactionalEventListener(phase = AFTER_COMMIT)`. 주문 TX 커밋 후 실행. Outbox pattern 미적용 |
 | DomainEventPublisher 위치 | 각 도메인의 `application/port/out/`에 Port로 정의 |
 | DomainEventPublisher 호출 위치 | Service에서 호출 (Facade는 Service만 호출하는 원칙 준수) |
 | 이벤트 생성 위치 | Domain Model의 메서드가 이벤트를 return. Application Layer는 발행만 담당 |
@@ -223,5 +223,5 @@ UPDATE product SET like_count = like_count + 1 WHERE id = ? AND deleted_at IS NU
 최종 결정은 다음과 같다:
 - **likeCount 동기화**: 동기 유지 (원자성 보장)
 - **좋아요 정리 (상품/브랜드 삭제 시)**: 정리 자체를 제거 (Soft delete 필터링으로 충분, 고아 데이터 무해, 복원 시 데이터 보존)
-- **장바구니 정리 (주문 생성 시)**: Event 전환 확정 (`@EventListener`, 같은 TX)
+- **장바구니 정리 (주문 생성 시)**: Event 전환 확정 (`@TransactionalEventListener(AFTER_COMMIT)`, 주문 TX 커밋 후 실행)
 - **장바구니 정리 (상품 삭제 시)**: 미확정, 논의 중

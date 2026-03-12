@@ -108,13 +108,13 @@ Q1. 비즈니스 규칙상 중복이 허용되지 않는가?
 
 **현재**: `OrderPlacementCommandService`에서 장바구니 정리를 동기 호출
 
-**개선 방향**: `OrderCreatedEvent` 발행 → `@EventListener`(동기, 같은 TX)로 장바구니 정리 처리
+**개선 방향**: `OrderCreatedEvent` 발행 → `@TransactionalEventListener(phase = AFTER_COMMIT)`로 주문 TX 커밋 후 장바구니 정리 처리
 
 **Event 패턴 상세**:
 - 도메인 모델에서 이벤트 생성 (메서드가 이벤트를 return)
 - `DomainEventPublisher`를 Port로 정의 (각 도메인의 `application/port/out/`)
 - Service에서 Port를 통해 발행 (Facade는 Service만 호출하는 원칙 준수)
-- `@EventListener` 사용 (동기, 같은 TX 유지). Outbox pattern 미적용
+- `@TransactionalEventListener(phase = AFTER_COMMIT)` 사용 — 주문 TX 커밋 후 실행하여 장바구니 정리 실패가 주문을 롤백시키지 않음. Outbox pattern 미적용
 
 ### 3-3. [TODO] 상품 삭제 시 장바구니 정리 — 미확정 (논의 중)
 
