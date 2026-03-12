@@ -11,6 +11,7 @@ import com.loopers.catalog.brand.domain.model.Brand;
 import com.loopers.catalog.brand.domain.model.enums.VisibleStatus;
 import com.loopers.catalog.brand.domain.model.vo.BrandDescription;
 import com.loopers.catalog.brand.domain.model.vo.BrandName;
+import com.loopers.catalog.product.application.service.ProductCommandService;
 import com.loopers.catalog.product.application.service.ProductQueryService;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
@@ -21,6 +22,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
@@ -44,13 +47,16 @@ class BrandCommandFacadeTest {
 	@Mock
 	private ProductQueryService productQueryService;
 
+	@Mock
+	private ProductCommandService productCommandService;
+
 	private BrandCommandFacade brandCommandFacade;
 
 
 	@BeforeEach
 	void setUp() {
 		brandCommandFacade = new BrandCommandFacade(
-			brandCommandService, brandQueryService, productQueryService
+			brandCommandService, brandQueryService, productQueryService, productCommandService
 		);
 	}
 
@@ -89,7 +95,7 @@ class BrandCommandFacadeTest {
 	class UpdateBrandTest {
 
 		@Test
-		@DisplayName("[BrandCommandFacade.updateBrand()] 유효한 입력 -> 조회 후 수정. AdminBrandDetailOutDto 반환")
+		@DisplayName("[BrandCommandFacade.updateBrand()] 유효한 입력 -> 조회 후 수정. AdminBrandDetailOutDto 반환. Read Model 브랜드명 동기화 + 상품 상세 캐시 write-through")
 		void updateBrandSuccess() {
 			// Arrange
 			Brand brand = Brand.reconstruct(1L, BrandName.from("나이키"),
@@ -100,6 +106,7 @@ class BrandCommandFacadeTest {
 
 			given(brandQueryService.getBrandById(1L)).willReturn(brand);
 			given(brandCommandService.updateBrand(brand, inDto)).willReturn(updatedBrand);
+			given(productQueryService.findActiveIdsByBrandId(1L)).willReturn(List.of(10L, 20L));
 
 			// Act
 			AdminBrandDetailOutDto result = brandCommandFacade.updateBrand(1L, inDto);
@@ -113,6 +120,10 @@ class BrandCommandFacadeTest {
 			);
 			verify(brandQueryService).getBrandById(1L);
 			verify(brandCommandService).updateBrand(brand, inDto);
+			verify(productCommandService).syncBrandNameInReadModel(1L, "아디다스");
+			verify(productQueryService).findActiveIdsByBrandId(1L);
+			verify(productCommandService).refreshProductDetailCache(10L);
+			verify(productCommandService).refreshProductDetailCache(20L);
 		}
 
 

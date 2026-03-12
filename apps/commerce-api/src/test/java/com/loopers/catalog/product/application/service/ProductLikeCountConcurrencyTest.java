@@ -4,8 +4,14 @@ package com.loopers.catalog.product.application.service;
 import com.loopers.catalog.brand.domain.model.enums.VisibleStatus;
 import com.loopers.catalog.brand.infrastructure.entity.BrandEntity;
 import com.loopers.catalog.brand.infrastructure.jpa.BrandJpaRepository;
+import com.loopers.catalog.product.domain.model.Product;
+import com.loopers.catalog.product.domain.model.vo.Money;
+import com.loopers.catalog.product.domain.model.vo.ProductName;
+import com.loopers.catalog.product.domain.model.vo.Stock;
 import com.loopers.catalog.product.infrastructure.entity.ProductEntity;
+import com.loopers.catalog.product.infrastructure.entity.ProductReadModelEntity;
 import com.loopers.catalog.product.infrastructure.jpa.ProductJpaRepository;
+import com.loopers.catalog.product.infrastructure.jpa.ProductReadModelJpaRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
@@ -18,6 +24,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -41,6 +48,9 @@ class ProductLikeCountConcurrencyTest {
 	private ProductJpaRepository productJpaRepository;
 
 	@Autowired
+	private ProductReadModelJpaRepository productReadModelJpaRepository;
+
+	@Autowired
 	private BrandJpaRepository brandJpaRepository;
 
 	@Autowired
@@ -54,14 +64,15 @@ class ProductLikeCountConcurrencyTest {
 
 
 	@Test
-	@DisplayName("[increaseLikeCount()] 동시 좋아요 수 증가 10건 -> likeCount 정확히 10. 원자적 카운터로 Lost Update 방지")
+	@DisplayName("[increaseLikeCount()] 동시 좋아요 수 증가 10건 -> Read Model likeCount 정확히 10. 원자적 카운터로 Lost Update 방지")
 	void concurrentIncreaseLikeCount() throws Exception {
 		// Arrange
 		BrandEntity brand = brandJpaRepository.save(
 			BrandEntity.of("테스트 브랜드", "설명", VisibleStatus.VISIBLE));
 		ProductEntity product = productJpaRepository.save(
-			ProductEntity.of(brand.getId(), "테스트 상품", new BigDecimal("10000.00"), 100L, "설명", 0L));
+			ProductEntity.of(brand.getId(), "테스트 상품", new BigDecimal("10000.00"), 100L, "설명"));
 		Long productId = product.getId();
+		saveReadModel(product, "테스트 브랜드", 0L);
 
 		int threadCount = 10;
 		ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
@@ -77,21 +88,22 @@ class ProductLikeCountConcurrencyTest {
 		}
 		executorService.shutdown();
 
-		// Assert
-		ProductEntity result = productJpaRepository.findById(productId).orElseThrow();
+		// Assert — Read Model의 likeCount 검증
+		ProductReadModelEntity result = productReadModelJpaRepository.findById(productId).orElseThrow();
 		assertThat(result.getLikeCount()).isEqualTo(10L);
 	}
 
 
 	@Test
-	@DisplayName("[decreaseLikeCount()] 동시 좋아요 수 감소 10건 -> likeCount 정확히 0. 원자적 카운터로 음수 방지")
+	@DisplayName("[decreaseLikeCount()] 동시 좋아요 수 감소 10건 -> Read Model likeCount 정확히 0. 원자적 카운터로 음수 방지")
 	void concurrentDecreaseLikeCount() throws Exception {
 		// Arrange
 		BrandEntity brand = brandJpaRepository.save(
 			BrandEntity.of("테스트 브랜드", "설명", VisibleStatus.VISIBLE));
 		ProductEntity product = productJpaRepository.save(
-			ProductEntity.of(brand.getId(), "테스트 상품", new BigDecimal("10000.00"), 100L, "설명", 10L));
+			ProductEntity.of(brand.getId(), "테스트 상품", new BigDecimal("10000.00"), 100L, "설명"));
 		Long productId = product.getId();
+		saveReadModel(product, "테스트 브랜드", 10L);
 
 		int threadCount = 10;
 		ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
@@ -107,21 +119,22 @@ class ProductLikeCountConcurrencyTest {
 		}
 		executorService.shutdown();
 
-		// Assert
-		ProductEntity result = productJpaRepository.findById(productId).orElseThrow();
+		// Assert — Read Model의 likeCount 검증
+		ProductReadModelEntity result = productReadModelJpaRepository.findById(productId).orElseThrow();
 		assertThat(result.getLikeCount()).isEqualTo(0L);
 	}
 
 
 	@Test
-	@DisplayName("[increaseLikeCount()] 동시 좋아요 수 증가 50건 -> likeCount 정확히 50. 높은 경합에서도 원자적 카운터 정확성 보장")
+	@DisplayName("[increaseLikeCount()] 동시 좋아요 수 증가 50건 -> Read Model likeCount 정확히 50. 높은 경합에서도 원자적 카운터 정확성 보장")
 	void concurrentIncreaseLikeCountHighContention() throws Exception {
 		// Arrange
 		BrandEntity brand = brandJpaRepository.save(
 			BrandEntity.of("테스트 브랜드", "설명", VisibleStatus.VISIBLE));
 		ProductEntity product = productJpaRepository.save(
-			ProductEntity.of(brand.getId(), "테스트 상품", new BigDecimal("10000.00"), 100L, "설명", 0L));
+			ProductEntity.of(brand.getId(), "테스트 상품", new BigDecimal("10000.00"), 100L, "설명"));
 		Long productId = product.getId();
+		saveReadModel(product, "테스트 브랜드", 0L);
 
 		int threadCount = 50;
 		ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
@@ -137,9 +150,25 @@ class ProductLikeCountConcurrencyTest {
 		}
 		executorService.shutdown();
 
-		// Assert
-		ProductEntity result = productJpaRepository.findById(productId).orElseThrow();
+		// Assert — Read Model의 likeCount 검증
+		ProductReadModelEntity result = productReadModelJpaRepository.findById(productId).orElseThrow();
 		assertThat(result.getLikeCount()).isEqualTo(50L);
+	}
+
+
+	// Read Model 저장 헬퍼
+	private void saveReadModel(ProductEntity productEntity, String brandName, Long likeCount) {
+		Product product = Product.reconstruct(
+			productEntity.getId(),
+			productEntity.getBrandId(),
+			ProductName.from(productEntity.getName()),
+			Money.from(productEntity.getPrice()),
+			Stock.from(productEntity.getStock()),
+			null,
+			productEntity.getDeletedAt()
+		);
+		productReadModelJpaRepository.save(
+			ProductReadModelEntity.of(product, brandName, ZonedDateTime.now(), likeCount));
 	}
 
 }

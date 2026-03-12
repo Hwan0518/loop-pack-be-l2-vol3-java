@@ -64,7 +64,7 @@ class ProductStockConcurrencyTest {
 		BrandEntity brand = brandJpaRepository.save(
 			BrandEntity.of("테스트 브랜드", "설명", VisibleStatus.VISIBLE));
 		ProductEntity product = productJpaRepository.save(
-			ProductEntity.of(brand.getId(), "테스트 상품", new BigDecimal("10000.00"), 100L, "설명", 0L));
+			ProductEntity.of(brand.getId(), "테스트 상품", new BigDecimal("10000.00"), 100L, "설명"));
 		Long productId = product.getId();
 
 		int threadCount = 10;
@@ -94,7 +94,7 @@ class ProductStockConcurrencyTest {
 		BrandEntity brand = brandJpaRepository.save(
 			BrandEntity.of("테스트 브랜드", "설명", VisibleStatus.VISIBLE));
 		ProductEntity product = productJpaRepository.save(
-			ProductEntity.of(brand.getId(), "테스트 상품", new BigDecimal("10000.00"), 5L, "설명", 0L));
+			ProductEntity.of(brand.getId(), "테스트 상품", new BigDecimal("10000.00"), 5L, "설명"));
 		Long productId = product.getId();
 
 		int threadCount = 10;

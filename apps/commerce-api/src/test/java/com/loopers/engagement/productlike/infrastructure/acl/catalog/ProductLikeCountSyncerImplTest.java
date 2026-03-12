@@ -7,9 +7,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.*;
 import static org.mockito.Mockito.verify;
 
@@ -35,16 +37,18 @@ class ProductLikeCountSyncerImplTest {
 	class IncreaseLikeCountTest {
 
 		@Test
-		@DisplayName("[increaseLikeCount()] 상품 ID 전달 -> Provider Facade에 좋아요 수 증가 위임")
+		@DisplayName("[increaseLikeCount()] 상품 ID 전달 -> Provider Facade에 동일한 상품 ID로 좋아요 수 증가 위임")
 		void increaseLikeCountSuccess() {
 			// Arrange
-			willDoNothing().given(productCommandFacade).increaseLikeCount(1L);
+			Long productId = 42L;
 
 			// Act
-			productLikeCountSyncerImpl.increaseLikeCount(1L);
+			productLikeCountSyncerImpl.increaseLikeCount(productId);
 
-			// Assert
-			verify(productCommandFacade).increaseLikeCount(1L);
+			// Assert — 전달된 상품 ID가 정확히 위임됨을 검증
+			ArgumentCaptor<Long> captor = ArgumentCaptor.forClass(Long.class);
+			verify(productCommandFacade).increaseLikeCount(captor.capture());
+			assertThat(captor.getValue()).isEqualTo(productId);
 		}
 
 	}
@@ -55,16 +59,18 @@ class ProductLikeCountSyncerImplTest {
 	class DecreaseLikeCountTest {
 
 		@Test
-		@DisplayName("[decreaseLikeCount()] 상품 ID 전달 -> Provider Facade에 좋아요 수 감소 위임")
+		@DisplayName("[decreaseLikeCount()] 상품 ID 전달 -> Provider Facade에 동일한 상품 ID로 좋아요 수 감소 위임")
 		void decreaseLikeCountSuccess() {
 			// Arrange
-			willDoNothing().given(productCommandFacade).decreaseLikeCount(1L);
+			Long productId = 42L;
 
 			// Act
-			productLikeCountSyncerImpl.decreaseLikeCount(1L);
+			productLikeCountSyncerImpl.decreaseLikeCount(productId);
 
-			// Assert
-			verify(productCommandFacade).decreaseLikeCount(1L);
+			// Assert — 전달된 상품 ID가 정확히 위임됨을 검증
+			ArgumentCaptor<Long> captor = ArgumentCaptor.forClass(Long.class);
+			verify(productCommandFacade).decreaseLikeCount(captor.capture());
+			assertThat(captor.getValue()).isEqualTo(productId);
 		}
 
 	}

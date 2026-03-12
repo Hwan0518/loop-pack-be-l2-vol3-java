@@ -8,10 +8,13 @@ import com.loopers.catalog.brand.application.dto.out.AdminBrandDetailOutDto;
 import com.loopers.catalog.brand.application.service.BrandCommandService;
 import com.loopers.catalog.brand.application.service.BrandQueryService;
 import com.loopers.catalog.brand.domain.model.Brand;
+import com.loopers.catalog.product.application.service.ProductCommandService;
 import com.loopers.catalog.product.application.service.ProductQueryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 
 @Service
@@ -22,12 +25,13 @@ public class BrandCommandFacade {
 	private final BrandCommandService brandCommandService;
 	private final BrandQueryService brandQueryService;
 	private final ProductQueryService productQueryService;
+	private final ProductCommandService productCommandService;
 
 
 	/**
 	 * 브랜드 명령 파사드
 	 * 1. 브랜드 생성
-	 * 2. 브랜드 수정
+	 * 2. 브랜드 수정 (브랜드명 변경 시 상품 상세 캐시 write-through)
 	 * 3. 브랜드 삭제
 	 * 4. 브랜드 노출 상태 변경
 	 */
@@ -44,7 +48,7 @@ public class BrandCommandFacade {
 	}
 
 
-	// 2. 브랜드 수정
+	// 2. 브랜드 수정 (브랜드명 변경 시 상품 상세 캐시 write-through)
 	@Transactional
 	public AdminBrandDetailOutDto updateBrand(Long id, AdminBrandUpdateInDto inDto) {
 
@@ -53,6 +57,15 @@ public class BrandCommandFacade {
 
 		// 브랜드 수정
 		Brand updatedBrand = brandCommandService.updateBrand(brand, inDto);
+
+		// 상품 Read Model의 brand_name 일괄 동기화
+		productCommandService.syncBrandNameInReadModel(id, updatedBrand.getName().value());
+
+		// 상품 상세 캐시 write-through (해당 브랜드의 전체 상품)
+		List<Long> productIds = productQueryService.findActiveIdsByBrandId(id);
+		for (Long productId : productIds) {
+			productCommandService.refreshProductDetailCache(productId);
+		}
 
 		// DTO 변환
 		return AdminBrandDetailOutDto.from(updatedBrand);
