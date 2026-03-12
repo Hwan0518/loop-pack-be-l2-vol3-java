@@ -1,9 +1,6 @@
 package com.loopers.catalog.product.application.facade;
 
 
-import com.loopers.catalog.brand.application.service.BrandQueryService;
-import com.loopers.catalog.brand.domain.model.Brand;
-import com.loopers.catalog.brand.domain.model.vo.BrandName;
 import com.loopers.catalog.product.application.dto.out.*;
 import com.loopers.catalog.product.application.service.ProductQueryService;
 import com.loopers.catalog.product.domain.model.Product;
@@ -34,17 +31,13 @@ class ProductQueryFacadeTest {
 
 	@Mock
 	private ProductQueryService productQueryService;
-	@Mock
-	private BrandQueryService brandQueryService;
 
 	private ProductQueryFacade productQueryFacade;
 
 
 	@BeforeEach
 	void setUp() {
-		productQueryFacade = new ProductQueryFacade(
-			productQueryService, brandQueryService
-		);
+		productQueryFacade = new ProductQueryFacade(productQueryService);
 	}
 
 
@@ -53,12 +46,7 @@ class ProductQueryFacadeTest {
 			ProductName.from("테스트 상품"),
 			Money.from(new BigDecimal("10000")),
 			Stock.from(100L),
-			null, 0L, null);
-	}
-
-
-	private Brand createTestBrand() {
-		return Brand.reconstruct(1L, BrandName.from("나이키"), null, null, null);
+			null, null);
 	}
 
 
@@ -67,13 +55,12 @@ class ProductQueryFacadeTest {
 	class GetProductTest {
 
 		@Test
-		@DisplayName("[getProduct()] 활성 상품 조회 -> ProductDetailOutDto 반환. 브랜드명 포함")
+		@DisplayName("[getProduct()] 활성 상품 조회 -> ProductQueryService.getOrLoadProductDetail()에 위임. ProductDetailOutDto 반환")
 		void getProductSuccess() {
 			// Arrange
-			Product product = createTestProduct();
-			Brand brand = createTestBrand();
-			given(productQueryService.findActiveById(1L)).willReturn(product);
-			given(brandQueryService.getBrandById(1L)).willReturn(brand);
+			ProductDetailOutDto detailOutDto = new ProductDetailOutDto(
+				1L, 1L, "나이키", "테스트 상품", new BigDecimal("10000"), 100L, null, 0L);
+			given(productQueryService.getOrLoadProductDetail(1L)).willReturn(detailOutDto);
 
 			// Act
 			ProductDetailOutDto result = productQueryFacade.getProduct(1L);
@@ -81,10 +68,13 @@ class ProductQueryFacadeTest {
 			// Assert
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(1L),
+				() -> assertThat(result.brandId()).isEqualTo(1L),
 				() -> assertThat(result.brandName()).isEqualTo("나이키"),
 				() -> assertThat(result.name()).isEqualTo("테스트 상품"),
-				() -> verify(productQueryService).findActiveById(1L),
-				() -> verify(brandQueryService).getBrandById(1L)
+				() -> assertThat(result.price()).isEqualByComparingTo(new BigDecimal("10000")),
+				() -> assertThat(result.stock()).isEqualTo(100L),
+				() -> assertThat(result.likeCount()).isEqualTo(0L),
+				() -> verify(productQueryService).getOrLoadProductDetail(1L)
 			);
 		}
 
@@ -122,13 +112,12 @@ class ProductQueryFacadeTest {
 	class GetAdminProductTest {
 
 		@Test
-		@DisplayName("[getAdminProduct()] 관리자 상세 조회 -> AdminProductDetailOutDto 반환. 브랜드명 포함")
+		@DisplayName("[getAdminProduct()] 관리자 상세 조회 -> ProductQueryService.getAdminProductDetail()에 위임. AdminProductDetailOutDto 반환")
 		void getAdminProductSuccess() {
 			// Arrange
-			Product product = createTestProduct();
-			Brand brand = createTestBrand();
-			given(productQueryService.findById(1L)).willReturn(product);
-			given(brandQueryService.getBrandById(1L)).willReturn(brand);
+			AdminProductDetailOutDto detailOutDto = new AdminProductDetailOutDto(
+				1L, 1L, "나이키", "테스트 상품", new BigDecimal("10000"), 100L, null, 0L, null);
+			given(productQueryService.getAdminProductDetail(1L)).willReturn(detailOutDto);
 
 			// Act
 			AdminProductDetailOutDto result = productQueryFacade.getAdminProduct(1L);
@@ -137,7 +126,8 @@ class ProductQueryFacadeTest {
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(1L),
 				() -> assertThat(result.brandName()).isEqualTo("나이키"),
-				() -> verify(productQueryService).findById(1L)
+				() -> assertThat(result.name()).isEqualTo("테스트 상품"),
+				() -> verify(productQueryService).getAdminProductDetail(1L)
 			);
 		}
 

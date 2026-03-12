@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TO-BE 캐시 성능 측정 결과 시각화</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 2rem 2rem 4rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #22c55e, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { text-align: center; color: #94a3b8; margin-bottom: 2rem; font-size: 0.9rem; }
+        .note-banner {
+            background: #1e293b;
+            border: 1px solid #f97316;
+            border-radius: 10px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            font-size: 0.82rem;
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+        .note-banner strong { color: #f97316; }
+        .note-banner code { background: #0f172a; padding: 2px 6px; border-radius: 3px; font-size: 0.78rem; color: #f97316; }
+        .section-title {
+            font-size: 1.4rem;
+            margin: 3rem 0 0.5rem;
+            padding-left: 1rem;
+            border-left: 4px solid #22c55e;
+            color: #f8fafc;
+        }
+        .section-desc { color: #94a3b8; margin-bottom: 1.5rem; padding-left: 1.2rem; font-size: 0.85rem; line-height: 1.6; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); gap: 1.5rem; margin-bottom: 1rem; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 1rem; }
+        .card { background: #1e293b; border-radius: 12px; padding: 1.5rem; border: 1px solid #334155; }
+        .card h3 { font-size: 0.95rem; margin-bottom: 1rem; color: #cbd5e1; line-height: 1.4; }
+        .chart-container { position: relative; height: 320px; }
+        .chart-container.tall { height: 400px; }
+        .full-width { grid-column: 1 / -1; }
+
+        /* KPI Cards */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .kpi { background: #1e293b; border-radius: 10px; padding: 1.2rem; border: 1px solid #334155; text-align: center; }
+        .kpi .value { font-size: 2rem; font-weight: 700; margin: 0.3rem 0; }
+        .kpi .label { font-size: 0.75rem; color: #94a3b8; }
+        .kpi .context { font-size: 0.7rem; color: #64748b; margin-top: 0.3rem; }
+        .kpi.danger .value { color: #ef4444; }
+        .kpi.warn .value { color: #f97316; }
+        .kpi.ok .value { color: #22c55e; }
+
+        /* Insight Box */
+        .insight { background: #1e293b; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; }
+        .insight.success { border: 1px solid #22c55e; }
+        .insight.warn { border: 1px solid #f97316; }
+        .insight h3 { margin-bottom: 0.75rem; font-size: 1rem; }
+        .insight.success h3 { color: #22c55e; }
+        .insight.warn h3 { color: #f97316; }
+        .insight ul { list-style: none; padding: 0; }
+        .insight li { padding: 0.3rem 0; color: #cbd5e1; font-size: 0.88rem; line-height: 1.5; }
+        .insight.success li::before { content: "# "; color: #22c55e; font-weight: 700; }
+        .insight.warn li::before { content: "# "; color: #f97316; font-weight: 700; }
+
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem; vertical-align: middle; }
+        .badge-ok { background: #22c55e33; color: #22c55e; }
+        .badge-info { background: #3b82f633; color: #3b82f6; }
+        .legend-note { text-align: center; color: #64748b; font-size: 0.75rem; margin-top: 2rem; }
+
+        /* Architecture Diagram */
+        .arch-diagram {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 2rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.82rem;
+            line-height: 1.8;
+            color: #cbd5e1;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        .arch-diagram .highlight { color: #22c55e; font-weight: 700; }
+        .arch-diagram .accent { color: #f97316; font-weight: 700; }
+        .arch-diagram .dim { color: #64748b; }
+        .arch-diagram .info { color: #3b82f6; }
+        .arch-diagram .warn { color: #eab308; }
+
+        /* Ref Table */
+        .ref-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 0.5rem; }
+        .ref-table th { background: #334155; color: #f8fafc; padding: 8px 12px; text-align: left; font-weight: 600; }
+        .ref-table td { padding: 6px 12px; border-bottom: 1px solid #334155; color: #cbd5e1; }
+        .ref-table tr:hover td { background: #334155; }
+        .ref-table code { background: #0f172a; padding: 2px 6px; border-radius: 3px; font-size: 0.8rem; color: #f97316; }
+
+        /* Nav */
+        .nav { position: fixed; top: 1rem; right: 1rem; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 0.75rem; z-index: 100; font-size: 0.78rem; }
+        .nav a { display: block; color: #94a3b8; text-decoration: none; padding: 0.25rem 0.5rem; border-radius: 4px; }
+        .nav a:hover { background: #334155; color: #f8fafc; }
+        .nav .nav-sep { border-top: 1px solid #334155; margin: 0.3rem 0; }
+
+        @media (max-width: 900px) {
+            .grid, .grid-3 { grid-template-columns: 1fr; }
+            .nav { display: none; }
+            body { padding: 1rem; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="nav">
+    <a href="#sec-kpi">KPI 요약</a>
+    <div class="nav-sep"></div>
+    <a href="#sec-hit-miss">1. Cache Hit vs Miss</a>
+    <a href="#sec-as-vs-to-hit">2. AS-IS vs TO-BE (Hit)</a>
+    <a href="#sec-as-vs-to-miss">3. AS-IS vs TO-BE (Miss)</a>
+    <a href="#sec-error">4. 에러율 비교</a>
+    <a href="#sec-qps">5. QPS 비교</a>
+    <a href="#sec-arch">6. 캐시 아키텍처</a>
+    <div class="nav-sep"></div>
+    <a href="#sec-conclusion">결론</a>
+</nav>
+
+<h1>TO-BE 캐시 성능 측정 결과</h1>
+<p class="subtitle">
+    Redis Cache-Aside + 스탬피드 보호 (PER + LocalCacheLock + TTL Jitter) &middot;
+    인덱스 최적화 Read Model &middot; TestContainers MySQL 8.0 + Redis
+</p>
+
+<div class="note-banner">
+    <strong>10만건 / 100만건 / 1000만건: 전체 실측 데이터</strong><br>
+    실측 재현 명령어: <code>./gradlew :apps:commerce-api:benchmarkTest --tests '*ProductApiPerformanceTest.measureApiCache_*'</code>
+</div>
+
+<!-- ============================================================ -->
+<!-- KPI Cards -->
+<!-- ============================================================ -->
+<div id="sec-kpi"></div>
+<div class="kpi-grid">
+    <div class="kpi ok">
+        <div class="label">Cache Hit 응답시간 (1000만건 실측)</div>
+        <div class="value">3.85~6.42ms</div>
+        <div class="context">hot-cache 단일 요청, 데이터 규모 영향 미미</div>
+    </div>
+    <div class="kpi ok">
+        <div class="label">Cold Cache Miss (1000만건 실측)</div>
+        <div class="value">44.58ms~3.88s</div>
+        <div class="context">대표 목록 cold-cache, 상세 miss는 6.32ms</div>
+    </div>
+    <div class="kpi ok">
+        <div class="label">1000만건 버스트 에러율</div>
+        <div class="value">0%</div>
+        <div class="context">AS-IS 목록: 90% (1000만건 실측)</div>
+    </div>
+    <div class="kpi ok">
+        <div class="label">1000만건 지속부하 QPS</div>
+        <div class="value">20.0</div>
+        <div class="context">avg 5.91~6.62ms, 에러 0%</div>
+    </div>
+    <div class="kpi ok">
+        <div class="label">Redis 장애 격리</div>
+        <div class="value">DB fallback</div>
+        <div class="context">try-catch, 가용성 100%</div>
+    </div>
+    <div class="kpi ok">
+        <div class="label">스탬피드 보호</div>
+        <div class="value">PER + Lock</div>
+        <div class="context">Jitter + PER + LocalCacheLock</div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 1. Cache Hit vs Miss -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-hit-miss">1. Cache Hit vs Cache Miss 응답시간</h2>
+<p class="section-desc">
+    Cache Hit: Redis GET(ID 리스트) + MGET(상세) + JSON 역직렬화 (3.85~6.42ms, 1000만건 실측).<br>
+    Cache Miss: warmup 오염 없이 Redis를 비운 실제 cold-cache 측정. 대표 목록 worst-case는 3.88s까지 상승.<br>
+    왼쪽: 전체 목록 대표 UC, 오른쪽: 브랜드 필터 + 상세.
+</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>전체 목록 — Cache Hit vs Cache Miss <span class="badge badge-ok">hot-cache 5~7ms</span></h3>
+        <div class="chart-container"><canvas id="hitMissAll"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>브랜드 필터 + 상세 — Cache Hit vs Cache Miss</h3>
+        <div class="chart-container"><canvas id="hitMissBrand"></canvas></div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 2. AS-IS vs TO-BE (Cache Hit) -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-as-vs-to-hit">2. AS-IS vs TO-BE 비교 (Cache Hit) <span class="badge badge-info">로그 스케일</span></h2>
+<p class="section-desc">
+    AS-IS는 `03-as-is-performance-measurement.md`의 Full Scan API 실측, TO-BE는 현재 cache hit 실측값이다.<br>
+    1000만건 목록 API 기준으로 hot-cache는 여전히 4.5~6.4ms이며, AS-IS 대비 최대 2,561배 개선된다.
+</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>목록 API: AS-IS vs TO-BE Cache Hit <span class="badge badge-ok">최대 2,561배 개선 (1000만건)</span></h3>
+        <div class="chart-container tall"><canvas id="asVsToHitList"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>상세 API: AS-IS vs TO-BE Cache Hit</h3>
+        <div class="chart-container tall"><canvas id="asVsToHitDetail"></canvas></div>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="card full-width">
+        <h3>개선 배율 (AS-IS / TO-BE Cache Hit) — 데이터 규모별</h3>
+        <div class="chart-container"><canvas id="improvementRatio"></canvas></div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 3. AS-IS vs TO-BE (Cache Miss) -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-as-vs-to-miss">3. AS-IS vs TO-BE 비교 (Cache Miss)</h2>
+<p class="section-desc">
+    Cache Miss는 이번에 warmup 오염을 제거한 실제 cold-cache 수치다.<br>
+    대표 UC 기준: 1000만건 전체+LATEST는 6,174ms → 1,166ms, 브랜드+LATEST는 6,643ms → 51.69ms로 개선된다.
+</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>목록 API: AS-IS vs TO-BE Cache Miss</h3>
+        <div class="chart-container"><canvas id="asVsToMissList"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>상세 API: AS-IS vs TO-BE Cache Miss</h3>
+        <div class="chart-container"><canvas id="asVsToMissDetail"></canvas></div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 4. Error Rate -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-error">4. 에러율 비교 (AS-IS vs TO-BE)</h2>
+<p class="section-desc">
+    AS-IS는 100만건부터 커넥션 타임아웃으로 실패가 시작되고, 1000만건 목록은 90~95% 실패한다.<br>
+    TO-BE는 캐시가 DB 부하를 흡수하여 hit/miss 대표 시나리오 모두 에러 0%.<br>
+    왼쪽: 버스트 (100 concurrent), 오른쪽: 지속 부하 (20 RPS x 10초).
+</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>버스트 에러율: AS-IS vs TO-BE (100 concurrent) <span class="badge badge-ok">TO-BE: 전규모 0%</span></h3>
+        <div class="chart-container"><canvas id="burstError"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>지속 부하 에러율: AS-IS vs TO-BE (20 RPS x 10초)</h3>
+        <div class="chart-container"><canvas id="sustainedError"></canvas></div>
+    </div>
+</div>
+
+<div class="insight success">
+    <h3>에러율 핵심 개선</h3>
+    <ul>
+        <li><strong>1000만건 버스트</strong>: AS-IS 목록 90% 실패 → TO-BE <strong>0%</strong></li>
+        <li><strong>1000만건 지속 부하</strong>: AS-IS 목록 90~95% 실패, QPS 0.3~0.5 → TO-BE <strong>0%</strong>, QPS 20.0</li>
+        <li><strong>Cache Miss 시에도 0%</strong>: same-key miss는 LocalCacheLock + double-check로 단일 로드로 수렴</li>
+    </ul>
+</div>
+
+<!-- ============================================================ -->
+<!-- 5. QPS -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-qps">5. QPS 비교 (지속 부하)</h2>
+<p class="section-desc">
+    목표: 20 RPS. 빨간 점선이 목표선.<br>
+    AS-IS는 100만건부터 목표 미달, 1000만건에서는 0.3~0.5 QPS까지 하락. TO-BE는 모든 규모에서 20 RPS 달성.
+</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>AS-IS 목록 QPS (20 RPS x 10초)</h3>
+        <div class="chart-container"><canvas id="qpsAsis"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>TO-BE QPS (20 RPS x 10초) <span class="badge badge-ok">전규모 20.0 달성</span></h3>
+        <div class="chart-container"><canvas id="qpsTobe"></canvas></div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 6. Cache Architecture -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-arch">6. 캐시 아키텍처</h2>
+<p class="section-desc">
+    2-Layer Cache-Aside + targeted write-through + Redis 장애 격리.
+</p>
+
+<div class="grid">
+    <div class="card full-width">
+        <h3>2-Layer Cache + 스탬피드 보호</h3>
+        <div class="arch-diagram"><span class="dim">// Cache Hit 경로 (95%+ 트래픽)</span>
+<span class="highlight">Client</span> --> <span class="highlight">Controller</span> --> <span class="highlight">Facade</span> --> <span class="accent">Redis GET</span> --> <span class="info">[HIT]</span> --> JSON Deserialize --> <span class="highlight">Response (~4-7ms)</span>
+
+<span class="dim">// Cache Miss 경로 (5%- 트래픽)</span>
+<span class="highlight">Client</span> --> <span class="highlight">Controller</span> --> <span class="highlight">Facade</span> --> <span class="accent">Redis GET</span> --> <span class="warn">[MISS]</span>
+    --> <span class="accent">LocalCacheLock</span> <span class="dim">(double-check: 다른 스레드가 이미 로드했는지 확인)</span>
+        --> <span class="highlight">Service</span> --> <span class="highlight">Repository</span> --> <span class="info">DB (Index Scan)</span>
+        --> <span class="accent">Redis SET</span> <span class="dim">(TTL + Jitter)</span>
+    --> <span class="highlight">Response (cold-cache, 조건별 6ms~3.88s)</span>
+
+<span class="dim">// Redis 장애 경로 (fallback)</span>
+<span class="highlight">Client</span> --> <span class="highlight">Controller</span> --> <span class="highlight">Facade</span> --> <span class="accent">Redis GET</span> --> <span class="warn">[ERROR]</span>
+    --> <span class="dim">try-catch: log & continue</span>
+    --> <span class="highlight">Service</span> --> <span class="highlight">Repository</span> --> <span class="info">DB (Index Scan)</span>
+    --> <span class="highlight">Response (DB fallback)</span> <span class="dim">(가용성 100% 유지)</span>
+
+<span class="dim">// PER (Probabilistic Early Refresh) - TTL 잔여 20% 구간</span>
+<span class="highlight">Client</span> --> <span class="highlight">Facade</span> --> <span class="accent">Redis GET</span> --> <span class="info">[HIT, TTL 잔여 &lt; 20%]</span>
+    --> <span class="warn">확률적 판단: 갱신 필요?</span>
+        --> <span class="info">[YES]</span> 비동기 DB 조회 + Redis SET <span class="dim">(기존 캐시 유지, stale 허용)</span>
+        --> <span class="info">[NO]</span>  기존 캐시 반환
+    --> <span class="highlight">Response (~4-7ms)</span> <span class="dim">(사용자는 항상 즉시 응답)</span>
+
+<span class="dim">// 캐시 무효화</span>
+<span class="highlight">상품 변경</span> --> <span class="accent">Targeted Write-Through</span>
+    --> 상세: <span class="accent">PUT product:v1:{id}</span> <span class="dim">(삭제만 DEL)</span>
+    --> 목록: <span class="accent">PUT products:ids:v1:{brandId|all}:{sort}:{page}:{size}</span> <span class="dim">(영향 키만 갱신)</span>
+    --> 좋아요: <span class="dim">상세만 갱신, ID 리스트는 TTL 자연 만료 허용</span></div>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h3>캐시 키 설계</h3>
+        <table class="ref-table">
+            <thead>
+            <tr><th>대상</th><th>키 패턴</th><th>TTL</th><th>무효화</th></tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td><strong>상품 상세</strong></td>
+                <td><code>product:v1:{id}</code></td>
+                <td>2분 + jitter</td>
+                <td>수정/좋아요/재고/브랜드명 write-through, 삭제만 DEL</td>
+            </tr>
+            <tr>
+                <td><strong>ID 리스트</strong></td>
+                <td><code>products:ids:v1:{brandId|all}:{sort}:{page}:{size}</code></td>
+                <td>3분 + jitter</td>
+                <td>생성/삭제 targeted refresh, 가격은 PRICE_ASC만, 좋아요는 TTL 자연 만료</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="card">
+        <h3>스탬피드 보호 3계층</h3>
+        <table class="ref-table">
+            <thead>
+            <tr><th>계층</th><th>기법</th><th>역할</th></tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>1</td>
+                <td><strong>TTL Jitter (0~10%)</strong></td>
+                <td>동시 만료 방지 (시간 분산)</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td><strong>PER (Early Refresh)</strong></td>
+                <td>만료 전 선제 갱신 (spike 제거)</td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td><strong>LocalCacheLock</strong></td>
+                <td>DB 동시 접근 1개로 제한</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Conclusion -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-conclusion">결론</h2>
+
+<div class="insight success">
+    <h3>캐시 적용 효과 요약 (1000만건 실측 기준)</h3>
+    <ul>
+        <li><strong>Cache Hit 응답시간 3.85~6.42ms</strong>: 10만~1000만 전 구간에서 hot-cache 단일 요청은 거의 동일한 수준이다.</li>
+        <li><strong>1000만건 목록 API</strong>: Cache Hit <strong>4.53~6.42ms</strong>, Cache Miss는 조건에 따라 <strong>44.58ms~3,884.57ms</strong>다.</li>
+        <li><strong>1000만건 버스트</strong>: hit/miss 대표 시나리오 모두 에러율 0%, 다만 전체 목록 hit avg는 1.2초대까지 상승한다.</li>
+        <li><strong>1000만건 지속 부하</strong>: avg 5.91~6.62ms, 에러율 0%, QPS 20.0 달성 (20 RPS x 10초, 실측)</li>
+        <li><strong>DB 부하 95% 감소</strong>: 캐시 적중률 95% 달성 시, DB는 전체 트래픽의 5%만 처리</li>
+        <li><strong>Redis 장애 시에도 서비스 유지</strong>: try-catch fallback + 인덱스 최적화 DB 조회</li>
+    </ul>
+</div>
+
+<div class="insight warn">
+    <h3>운영 시 고려사항</h3>
+    <ul>
+        <li><strong>캐시 적중률 모니터링</strong>: 적중률 90% 미만 시 TTL/키 전략 재검토 필요</li>
+        <li><strong>cold-cache worst case</strong>: brandId 없는 `PRICE_ASC`는 1000만건에서 3.88초까지 상승하므로 steady-state 적중률 관리가 핵심</li>
+        <li><strong>갱신 타이밍</strong>: write-through는 현재 트랜잭션 내부 best-effort이며, `afterCommit` 이벤트 전환은 후속 TODO</li>
+        <li><strong>일관성 윈도우</strong>: 좋아요 변경 시 ID 리스트는 즉시 갱신하지 않으므로 최대 3분 stale이 가능</li>
+        <li><strong>Redis 메모리</strong>: maxmemory 설정 + eviction policy (allkeys-lru) 적용 권장</li>
+    </ul>
+</div>
+
+<p class="legend-note">
+    10만건 / 100만건 / 1000만건: 전체 실측 데이터 &middot;
+    TestContainers MySQL 8.0 + Redis &middot;
+    상대적 비교(AS-IS vs TO-BE, Cache Hit vs Miss)가 핵심 지표
+</p>
+
+<!-- ============================================================ -->
+<!-- CHARTS -->
+<!-- ============================================================ -->
+<script>
+// 0 값 바에 "0" 라벨 표시 플러그인
+Chart.register({
+    id: 'zeroLabel',
+    afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        chart.data.datasets.forEach((dataset, di) => {
+            if (dataset.type === 'line') return;
+            const meta = chart.getDatasetMeta(di);
+            if (meta.hidden) return;
+            meta.data.forEach((bar, i) => {
+                const val = dataset.data[i];
+                if (val !== 0) return;
+                ctx.save();
+                ctx.fillStyle = dataset.borderColor || '#94a3b8';
+                ctx.font = 'bold 11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('0', bar.x, bar.y - 4);
+                ctx.restore();
+            });
+        });
+    }
+});
+
+const C = {
+    orange: '#f97316', orangeA: '#f9731640',
+    red:    '#ef4444', redA:    '#ef444440',
+    blue:   '#3b82f6', blueA:   '#3b82f640',
+    green:  '#22c55e', greenA:  '#22c55e40',
+    purple: '#a855f7', purpleA: '#a855f740',
+    cyan:   '#06b6d4', cyanA:   '#06b6d440',
+    yellow: '#eab308', yellowA: '#eab30840',
+    gray:   '#64748b', grayA:   '#64748b40',
+};
+
+const SCALES = ['10만건', '100만건', '1000만건'];
+
+function opts(yLabel, extra = {}) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+            tooltip: {
+                callbacks: {
+                    label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toLocaleString() : ctx.parsed.x.toLocaleString()}`
+                }
+            }
+        },
+        scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+            y: {
+                ticks: { color: '#94a3b8' },
+                grid: { color: '#334155' },
+                title: { display: true, text: yLabel, color: '#64748b' },
+                ...extra
+            }
+        }
+    };
+}
+
+function optsLog(yLabel) {
+    return opts(yLabel, { type: 'logarithmic' });
+}
+
+function optsFixed(yLabel, max) {
+    return opts(yLabel, { min: 0, max });
+}
+
+function ds(label, data, color, colorA, extra = {}) {
+    return { label, data, backgroundColor: colorA, borderColor: color, borderWidth: 2, ...extra };
+}
+function dsLine(label, data, color, extra = {}) {
+    return { label, data, borderColor: color, backgroundColor: color + '30', fill: false, tension: 0.3, type: 'line', pointRadius: 4, ...extra };
+}
+
+// ============================================================
+// 1. Cache Hit vs Miss (실측: 10만건, 100만건, 1000만건)
+// ============================================================
+
+// 전체 목록 Hit vs Miss
+new Chart(document.getElementById('hitMissAll'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('Cache Miss: 전체+최신순',    [39.85, 142.18, 1166.02], C.orange, C.orangeA),
+            ds('Cache Hit: 전체+최신순',     [5.99, 6.10, 5.15],      C.green,  C.greenA),
+            ds('Cache Miss: 전체+인기순',    [32.85, 122.44, 1160.68], C.blue,   C.blueA),
+            ds('Cache Hit: 전체+인기순',     [7.41, 5.67, 5.17],      C.cyan,   C.cyanA),
+        ]
+    },
+    options: opts('avg 응답시간 (ms)')
+});
+
+// 브랜드+상세 Hit vs Miss
+new Chart(document.getElementById('hitMissBrand'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('Cache Miss: 브랜드+최신순', [25.41, 22.51, 51.69], C.orange, C.orangeA),
+            ds('Cache Hit: 브랜드+최신순',  [7.17, 6.45, 4.85],    C.green,  C.greenA),
+            ds('Cache Miss: 상세 (PK)',     [9.50, 6.41, 6.32],    C.blue,   C.blueA),
+            ds('Cache Hit: 상세 (PK)',      [4.98, 4.77, 3.85],    C.cyan,   C.cyanA),
+        ]
+    },
+    options: opts('avg 응답시간 (ms)')
+});
+
+// ============================================================
+// 2. AS-IS vs TO-BE (Cache Hit) — Logarithmic
+// ============================================================
+
+// 목록 API
+new Chart(document.getElementById('asVsToHitList'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('AS-IS: 전체+최신순',          [60.18, 516.31, 6174.44],   C.red,    C.redA),
+            ds('TO-BE Hit: 전체+최신순',      [5.99, 6.10, 5.15],         C.green,  C.greenA),
+            ds('AS-IS: 브랜드+인기순 (최악)',  [48.07, 482.24, 11604.48],  C.orange, C.orangeA),
+            ds('TO-BE Hit: 브랜드+인기순',    [5.76, 4.66, 4.53],         C.cyan,   C.cyanA),
+        ]
+    },
+    options: optsLog('avg 응답시간 (ms) — 로그 스케일')
+});
+
+// 상세 API
+new Chart(document.getElementById('asVsToHitDetail'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('AS-IS: 상세 (PK lookup)',   [4.58, 11.41, 18.27],  C.red,   C.redA),
+            ds('TO-BE Hit: 상세',           [4.98, 4.77, 3.85],    C.green, C.greenA),
+        ]
+    },
+    options: optsLog('avg 응답시간 (ms) — 로그 스케일')
+});
+
+// 개선 배율
+new Chart(document.getElementById('improvementRatio'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('전체+최신순',       [10.05, 84.64, 1198.92], C.green,  C.greenA),
+            ds('브랜드+최신순',     [6.91, 77.85, 1370.85],  C.cyan,   C.cyanA),
+            ds('브랜드+인기순',     [8.35, 103.49, 2561.70], C.blue,   C.blueA),
+            ds('상세 (PK lookup)',  [0.92, 2.39, 4.75],      C.purple, C.purpleA),
+        ]
+    },
+    options: optsLog('개선 배율 (AS-IS / TO-BE) — 로그 스케일')
+});
+
+// ============================================================
+// 3. AS-IS vs TO-BE (Cache Miss)
+// ============================================================
+
+// 목록
+new Chart(document.getElementById('asVsToMissList'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('AS-IS: 전체+최신순',         [60.18, 516.31, 6174.44], C.red,    C.redA),
+            ds('TO-BE Miss: 전체+최신순',    [39.85, 142.18, 1166.02], C.orange, C.orangeA),
+            ds('AS-IS: 브랜드+최신순',       [49.52, 502.12, 6643.62], C.purple, C.purpleA),
+            ds('TO-BE Miss: 브랜드+최신순',  [25.41, 22.51, 51.69],    C.green,  C.greenA),
+        ]
+    },
+    options: opts('avg 응답시간 (ms)')
+});
+
+// 상세
+new Chart(document.getElementById('asVsToMissDetail'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('AS-IS: 상세',          [4.58, 11.41, 18.27],  C.red,   C.redA),
+            ds('TO-BE Miss: 상세',     [9.50, 6.41, 6.32],    C.green, C.greenA),
+        ]
+    },
+    options: opts('avg 응답시간 (ms)')
+});
+
+// ============================================================
+// 4. Error Rate — AS-IS vs TO-BE
+// ============================================================
+
+// 버스트 에러율
+new Chart(document.getElementById('burstError'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('AS-IS: 전체+최신순',         [0, 80, 90], C.red,    C.redA),
+            ds('AS-IS: 브랜드+최신순',       [0, 71, 90], C.orange, C.orangeA),
+            ds('TO-BE Hit: 모든 UC',          [0, 0, 0],  C.green,  C.greenA),
+            ds('TO-BE Miss (스탬피드 보호)',   [0, 0, 0],  C.cyan,   C.cyanA),
+        ]
+    },
+    options: optsFixed('에러율 (%)', 100)
+});
+
+// 지속 부하 에러율
+new Chart(document.getElementById('sustainedError'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('AS-IS: 전체+최신순',      [0, 37, 95],      C.red,    C.redA),
+            ds('AS-IS: 브랜드+최신순',    [0, 59.5, 90.5],  C.orange, C.orangeA),
+            ds('TO-BE: 모든 UC (Hit)',    [0, 0, 0],        C.green,  C.greenA),
+        ]
+    },
+    options: optsFixed('에러율 (%)', 100)
+});
+
+// ============================================================
+// 5. QPS — AS-IS vs TO-BE
+// ============================================================
+
+// AS-IS QPS
+new Chart(document.getElementById('qpsAsis'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('전체+최신순',    [20.0, 5.9, 0.3], C.orange, C.orangeA),
+            ds('전체+인기순',    [20.0, 5.3, 0.5], C.blue,   C.blueA),
+            ds('브랜드+최신순',  [20.0, 3.7, 0.5], C.green,  C.greenA),
+            dsLine('목표 20 RPS', [20, 20, 20], C.red, { borderDash: [8,4], pointRadius: 0, borderWidth: 2 }),
+        ]
+    },
+    options: optsFixed('실제 QPS (건/초)', 22)
+});
+
+// TO-BE QPS
+new Chart(document.getElementById('qpsTobe'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('목록: 전체+최신순',    [20.0, 20.0, 20.0], C.green,  C.greenA),
+            ds('목록: 브랜드+최신순',  [20.0, 20.0, 20.0], C.cyan,   C.cyanA),
+            ds('상세: PK lookup',      [20.0, 20.0, 20.0], C.blue,   C.blueA),
+            dsLine('목표 20 RPS', [20, 20, 20], C.red, { borderDash: [8,4], pointRadius: 0, borderWidth: 2 }),
+        ]
+    },
+    options: optsFixed('실제 QPS (건/초)', 22)
+});
+</script>
+
+</body>
+</html>

@@ -11,6 +11,7 @@ import com.loopers.support.common.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -48,6 +49,9 @@ class ProductControllerE2ETest {
 	@Autowired
 	private DatabaseCleanUp databaseCleanUp;
 
+	@Autowired
+	private RedisCleanUp redisCleanUp;
+
 	private static final String ADMIN_LDAP_HEADER = "X-Loopers-Ldap";
 	private static final String ADMIN_LDAP_VALUE = "loopers.admin";
 
@@ -55,6 +59,7 @@ class ProductControllerE2ETest {
 	@AfterEach
 	void tearDown() {
 		databaseCleanUp.truncateAllTables();
+		redisCleanUp.truncateAll();
 	}
 
 
@@ -729,6 +734,37 @@ class ProductControllerE2ETest {
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.code").value(ErrorType.PRODUCT_NOT_FOUND.getCode()));
+		}
+
+
+		@Test
+		@DisplayName("[PUT + GET /api/v1/products/{productId}] 상품 수정 후 상세 조회 -> 캐시 무효화되어 수정된 데이터 반환")
+		void updateProductThenGetReturnsUpdatedData() throws Exception {
+			// Arrange
+			Long brandId = createBrandAndGetId("나이키", "스포츠 브랜드");
+			Long productId = createProductAndGetId(brandId, "에어맥스", new BigDecimal("129000"), 100L, "러닝화");
+
+			// 상세 조회 (캐시에 저장됨)
+			mockMvc.perform(get("/api/v1/products/{productId}", productId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.name").value("에어맥스"));
+
+			// 상품 수정 (캐시 무효화 발생)
+			AdminProductUpdateRequest updateRequest = new AdminProductUpdateRequest(
+				"에어맥스 97", new BigDecimal("159000"), 200L, "레트로 러닝화");
+			mockMvc.perform(put("/api-admin/v1/products/{productId}", productId)
+					.header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(updateRequest)))
+				.andExpect(status().isOk());
+
+			// Act & Assert — 수정된 데이터가 반환되어야 함 (캐시 무효화 검증)
+			mockMvc.perform(get("/api/v1/products/{productId}", productId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.name").value("에어맥스 97"))
+				.andExpect(jsonPath("$.price").value(159000))
+				.andExpect(jsonPath("$.stock").value(200))
+				.andExpect(jsonPath("$.description").value("레트로 러닝화"));
 		}
 
 	}
