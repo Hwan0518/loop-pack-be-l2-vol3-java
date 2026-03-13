@@ -1,4 +1,4 @@
-package com.loopers.catalog.product.infrastructure.cache;
+package com.loopers.catalog.product.infrastructure.cache.lock;
 
 
 import org.junit.jupiter.api.BeforeEach;
@@ -32,7 +32,7 @@ class LocalCacheLockTest {
 	class ExecuteWithLockTest {
 
 		@Test
-		@DisplayName("[executeWithLock()] 같은 key 100개 동시 요청 -> 직렬 실행으로 loader 100회 호출. 스탬피드 보호는 CacheManager double-check에서 수행")
+		@DisplayName("[executeWithLock()] 같은 key 100개 동시 요청 -> 최대 동시 실행 수 1, 순차 직렬화")
 		void sameKeyConcurrentRequests_loaderCalledOnce() throws InterruptedException {
 
 			// Arrange
@@ -42,6 +42,8 @@ class LocalCacheLockTest {
 			CountDownLatch startLatch = new CountDownLatch(1);
 			CountDownLatch doneLatch = new CountDownLatch(threadCount);
 			AtomicInteger loaderCallCount = new AtomicInteger(0);
+			AtomicInteger concurrentCount = new AtomicInteger(0);
+			AtomicInteger maxConcurrent = new AtomicInteger(0);
 			String key = "same-key";
 
 			// Act
@@ -52,12 +54,16 @@ class LocalCacheLockTest {
 						startLatch.await();
 						localCacheLock.executeWithLock(key, () -> {
 							loaderCallCount.incrementAndGet();
+							int current = concurrentCount.incrementAndGet();
+							maxConcurrent.updateAndGet(max -> Math.max(max, current));
 
 							// loader 실행에 시간이 걸리는 상황 시뮬레이션
 							try {
 								Thread.sleep(50);
 							} catch (InterruptedException e) {
 								Thread.currentThread().interrupt();
+							} finally {
+								concurrentCount.decrementAndGet();
 							}
 
 							return "result";
@@ -76,10 +82,8 @@ class LocalCacheLockTest {
 			doneLatch.await();
 			executor.shutdown();
 
-			// Assert — 락에 의해 loader는 직렬 실행되므로 100회 호출 (대기 후 순차 실행)
-			// LocalCacheLock은 결과 캐싱을 하지 않으므로 각 스레드가 순서대로 loader 호출
-			// 실제 스탬피드 보호는 ProductCacheManager의 double-check 패턴에서 수행
 			assertThat(loaderCallCount.get()).isEqualTo(threadCount);
+			assertThat(maxConcurrent.get()).isEqualTo(1);
 		}
 
 

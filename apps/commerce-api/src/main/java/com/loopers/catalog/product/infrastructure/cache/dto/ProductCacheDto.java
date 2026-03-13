@@ -1,4 +1,4 @@
-package com.loopers.catalog.product.infrastructure.cache;
+package com.loopers.catalog.product.infrastructure.cache.dto;
 
 
 import com.loopers.catalog.product.application.dto.out.ProductDetailOutDto;

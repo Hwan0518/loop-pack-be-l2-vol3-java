@@ -1,4 +1,4 @@
-package com.loopers.catalog.product.infrastructure.cache;
+package com.loopers.catalog.product.infrastructure.cache.lock;
 
 
 import com.loopers.config.redis.RedisConfig;

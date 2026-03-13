@@ -48,7 +48,7 @@ class CacheStampedeTest {
 	class GetOrLoadStampedeTest {
 
 		@Test
-		@DisplayName("[getOrLoad()] single-key 스탬피드 - 캐시 미스 상태에서 100개 동시 요청 -> loader 호출 최소화 (이상: 1회)")
+		@DisplayName("[getOrLoad()] single-key 스탬피드 - 캐시 미스 상태에서 100개 동시 요청 -> loader 정확히 1회")
 		void singleKeyStampede_loaderMinimized() throws InterruptedException {
 
 			// Arrange
@@ -99,8 +99,8 @@ class CacheStampedeTest {
 			doneLatch.await();
 			executor.shutdown();
 
-			// Assert — loader 호출 최소화 (이상: 1회, 레이스 컨디션 허용: <= 2)
-			assertThat(loaderCallCount.get()).isLessThanOrEqualTo(2);
+			// Assert — 같은 key miss는 1회만 DB 로드되고 나머지는 double-check로 캐시 재사용
+			assertThat(loaderCallCount.get()).isEqualTo(1);
 		}
 
 

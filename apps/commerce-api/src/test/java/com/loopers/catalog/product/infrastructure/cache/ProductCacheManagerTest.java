@@ -4,6 +4,8 @@ package com.loopers.catalog.product.infrastructure.cache;
 import com.loopers.catalog.product.application.dto.out.ProductDetailOutDto;
 import com.loopers.catalog.product.application.dto.out.ProductOutDto;
 import com.loopers.catalog.product.application.dto.out.ProductPageOutDto;
+import com.loopers.catalog.product.infrastructure.cache.dto.IdListCacheEntry;
+import com.loopers.catalog.product.infrastructure.cache.dto.ProductCacheDto;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.RedisCleanUp;

@@ -3,6 +3,9 @@ package com.loopers.catalog.product.infrastructure.cache;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.catalog.product.infrastructure.cache.dto.IdListCacheEntry;
+import com.loopers.catalog.product.infrastructure.cache.dto.ProductCacheDto;
+import com.loopers.catalog.product.infrastructure.cache.lock.CacheLock;
 import com.loopers.config.redis.RedisConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
