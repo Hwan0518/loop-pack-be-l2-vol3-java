@@ -10,6 +10,7 @@ import com.loopers.catalog.product.application.dto.out.AdminProductDetailOutDto;
 import com.loopers.catalog.product.application.service.ProductCommandService;
 import com.loopers.catalog.product.application.service.ProductQueryService;
 import com.loopers.catalog.product.domain.model.Product;
+import com.loopers.catalog.product.domain.model.enums.ProductSortType;
 import com.loopers.catalog.product.domain.model.vo.Money;
 import com.loopers.catalog.product.domain.model.vo.ProductName;
 import com.loopers.catalog.product.domain.model.vo.Stock;
@@ -57,7 +58,7 @@ class ProductCommandFacadeTest {
 			ProductName.from("테스트 상품"),
 			Money.from(new BigDecimal("10000")),
 			Stock.from(100L),
-			null, 0L, null);
+			null, null);
 	}
 
 
@@ -71,7 +72,7 @@ class ProductCommandFacadeTest {
 	class CreateProductTest {
 
 		@Test
-		@DisplayName("[createProduct()] 유효한 요청 -> AdminProductDetailOutDto 반환. 브랜드명 포함")
+		@DisplayName("[createProduct()] 유효한 요청 -> AdminProductDetailOutDto 반환. 브랜드명 포함. Read Model 동기화 + write-through 캐시 갱신")
 		void createProductSuccess() {
 			// Arrange
 			AdminProductCreateInDto inDto = new AdminProductCreateInDto(
@@ -80,8 +81,12 @@ class ProductCommandFacadeTest {
 			Brand brand = createTestBrand();
 			Product product = createTestProduct();
 
+			AdminProductDetailOutDto detailOutDto = new AdminProductDetailOutDto(
+				1L, 1L, "나이키", "테스트 상품", new BigDecimal("10000"), 100L, null, 0L, null);
+
 			given(brandQueryService.getBrandById(1L)).willReturn(brand);
 			given(productCommandService.createProduct(inDto)).willReturn(product);
+			given(productQueryService.getAdminProductDetail(1L)).willReturn(detailOutDto);
 
 			// Act
 			AdminProductDetailOutDto result = productCommandFacade.createProduct(inDto);
@@ -92,7 +97,11 @@ class ProductCommandFacadeTest {
 				() -> assertThat(result.brandName()).isEqualTo("나이키"),
 				() -> assertThat(result.name()).isEqualTo("테스트 상품"),
 				() -> verify(brandQueryService).getBrandById(1L),
-				() -> verify(productCommandService).createProduct(inDto)
+				() -> verify(productCommandService).createProduct(inDto),
+				() -> verify(productCommandService).syncReadModel(product, "나이키"),
+				() -> verify(productCommandService).refreshProductDetailCache(1L),
+				() -> verify(productCommandService).refreshIdListCacheForAllSorts(1L),
+				() -> verify(productQueryService).getAdminProductDetail(1L)
 			);
 		}
 
@@ -104,7 +113,7 @@ class ProductCommandFacadeTest {
 	class UpdateProductTest {
 
 		@Test
-		@DisplayName("[updateProduct()] 유효한 수정 요청 -> AdminProductDetailOutDto 반환")
+		@DisplayName("[updateProduct()] 유효한 수정 요청 -> AdminProductDetailOutDto 반환. Read Model 동기화 + write-through 캐시 갱신")
 		void updateProductSuccess() {
 			// Arrange
 			AdminProductUpdateInDto inDto = new AdminProductUpdateInDto(
@@ -115,12 +124,16 @@ class ProductCommandFacadeTest {
 				ProductName.from("수정 상품"),
 				Money.from(new BigDecimal("20000")),
 				Stock.from(200L),
-				null, 0L, null);
+				null, null);
 			Brand brand = createTestBrand();
+
+			AdminProductDetailOutDto detailOutDto = new AdminProductDetailOutDto(
+				1L, 1L, "나이키", "수정 상품", new BigDecimal("20000"), 200L, "수정 설명", 0L, null);
 
 			given(productQueryService.findActiveById(1L)).willReturn(product);
 			given(productCommandService.updateProduct(eq(product), eq(inDto))).willReturn(updatedProduct);
 			given(brandQueryService.getBrandById(1L)).willReturn(brand);
+			given(productQueryService.getAdminProductDetail(1L)).willReturn(detailOutDto);
 
 			// Act
 			AdminProductDetailOutDto result = productCommandFacade.updateProduct(1L, inDto);
@@ -129,7 +142,11 @@ class ProductCommandFacadeTest {
 			assertAll(
 				() -> assertThat(result.name()).isEqualTo("수정 상품"),
 				() -> assertThat(result.brandName()).isEqualTo("나이키"),
-				() -> verify(productQueryService).findActiveById(1L)
+				() -> verify(productQueryService).findActiveById(1L),
+				() -> verify(productCommandService).syncReadModel(updatedProduct, "나이키"),
+				() -> verify(productCommandService).refreshProductDetailCache(1L),
+				() -> verify(productCommandService).refreshIdListCacheForSort(1L, ProductSortType.PRICE_ASC),
+				() -> verify(productQueryService).getAdminProductDetail(1L)
 			);
 		}
 
@@ -141,7 +158,7 @@ class ProductCommandFacadeTest {
 	class DeleteProductTest {
 
 		@Test
-		@DisplayName("[deleteProduct()] 활성 상품 ID -> 삭제 및 좋아요/장바구니 정리 수행")
+		@DisplayName("[deleteProduct()] 활성 상품 ID -> 삭제 및 좋아요/장바구니 정리 수행. 상세 캐시 삭제 + ID 리스트 write-through 갱신")
 		void deleteProductSuccess() {
 			// Arrange
 			Product product = createTestProduct();
@@ -156,6 +173,8 @@ class ProductCommandFacadeTest {
 			assertAll(
 				() -> verify(productQueryService).findActiveById(1L),
 				() -> verify(productCommandService).deleteProduct(product),
+				() -> verify(productCommandService).deleteProductDetailCache(1L),
+				() -> verify(productCommandService).refreshIdListCacheForAllSorts(1L),
 				() -> verify(productCommandService).deleteAllProductLikes(1L),
 				() -> verify(productCommandService).deleteAllCartItems(1L)
 			);

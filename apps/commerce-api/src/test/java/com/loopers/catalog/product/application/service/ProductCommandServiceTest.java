@@ -5,12 +5,16 @@ import com.loopers.catalog.product.application.dto.in.AdminProductCreateInDto;
 import com.loopers.catalog.product.application.dto.in.AdminProductUpdateInDto;
 import com.loopers.catalog.product.application.port.out.client.cart.CartItemCleanupManager;
 import com.loopers.catalog.product.application.port.out.client.engagement.ProductLikeCleanupManager;
+import com.loopers.catalog.product.application.port.out.query.ProductQueryPort;
 import com.loopers.catalog.product.domain.model.Product;
+import com.loopers.catalog.product.domain.model.enums.ProductSortType;
 import com.loopers.catalog.product.domain.model.vo.Money;
 import com.loopers.catalog.product.domain.model.vo.ProductName;
 import com.loopers.catalog.product.domain.model.vo.Stock;
 import com.loopers.catalog.product.domain.repository.ProductCommandRepository;
 import com.loopers.catalog.product.domain.repository.ProductQueryRepository;
+import com.loopers.catalog.product.domain.repository.ProductReadModelRepository;
+import com.loopers.catalog.product.infrastructure.cache.ProductCacheManager;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +31,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.*;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 
@@ -40,6 +46,12 @@ class ProductCommandServiceTest {
 	@Mock
 	private ProductQueryRepository productQueryRepository;
 	@Mock
+	private ProductReadModelRepository readModelRepository;
+	@Mock
+	private ProductCacheManager productCacheManager;
+	@Mock
+	private ProductQueryPort productQueryPort;
+	@Mock
 	private ProductLikeCleanupManager productLikeCleanupManager;
 	@Mock
 	private CartItemCleanupManager cartItemCleanupManager;
@@ -50,8 +62,8 @@ class ProductCommandServiceTest {
 	@BeforeEach
 	void setUp() {
 		productCommandService = new ProductCommandService(
-			productCommandRepository, productQueryRepository,
-			productLikeCleanupManager, cartItemCleanupManager
+			productCommandRepository, productQueryRepository, readModelRepository,
+			productCacheManager, productQueryPort, productLikeCleanupManager, cartItemCleanupManager
 		);
 	}
 
@@ -70,7 +82,7 @@ class ProductCommandServiceTest {
 			given(productCommandRepository.save(any(Product.class))).willAnswer(invocation -> {
 				Product p = invocation.getArgument(0);
 				return Product.reconstruct(1L, p.getBrandId(), p.getName(), p.getPrice(),
-					p.getStock(), p.getDescription(), p.getLikeCount(), p.getDeletedAt());
+					p.getStock(), p.getDescription(), p.getDeletedAt());
 			});
 
 			// Act
@@ -100,7 +112,7 @@ class ProductCommandServiceTest {
 				ProductName.from("원래 상품"),
 				Money.from(new BigDecimal("10000")),
 				Stock.from(100L),
-				null, 0L, null);
+				null, null);
 			AdminProductUpdateInDto inDto = new AdminProductUpdateInDto(
 				"수정 상품", new BigDecimal("20000"), 200L, "수정 설명"
 			);
@@ -126,14 +138,14 @@ class ProductCommandServiceTest {
 	class DeleteProductTest {
 
 		@Test
-		@DisplayName("[deleteProduct()] 활성 상품 -> soft delete 수행")
+		@DisplayName("[deleteProduct()] 활성 상품 -> soft delete 수행. Read Model soft delete 동기화")
 		void deleteProductSuccess() {
 			// Arrange
 			Product product = Product.reconstruct(1L, 1L,
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(100L),
-				null, 0L, null);
+				null, null);
 
 			// Act
 			productCommandService.deleteProduct(product);
@@ -141,7 +153,8 @@ class ProductCommandServiceTest {
 			// Assert
 			assertAll(
 				() -> assertThat(product.isDeleted()).isTrue(),
-				() -> verify(productCommandRepository).delete(product)
+				() -> verify(productCommandRepository).delete(product),
+				() -> verify(readModelRepository).softDelete(1L)
 			);
 		}
 
@@ -153,16 +166,16 @@ class ProductCommandServiceTest {
 	class IncreaseLikeCountTest {
 
 		@Test
-		@DisplayName("[increaseLikeCount()] 유효한 상품 ID -> 원자적 카운터로 좋아요 수 증가 위임")
+		@DisplayName("[increaseLikeCount()] 유효한 상품 ID -> Read Model 원자적 카운터로 좋아요 수 증가. 상세 캐시 write-through")
 		void increaseLikeCountSuccess() {
-			// Arrange
-			willDoNothing().given(productCommandRepository).increaseLikeCount(1L);
-
 			// Act
 			productCommandService.increaseLikeCount(1L);
 
 			// Assert
-			verify(productCommandRepository).increaseLikeCount(1L);
+			assertAll(
+				() -> verify(readModelRepository).increaseLikeCount(1L),
+				() -> verify(productCacheManager).refreshProductDetail(eq(1L), any())
+			);
 		}
 
 	}
@@ -173,16 +186,16 @@ class ProductCommandServiceTest {
 	class DecreaseLikeCountTest {
 
 		@Test
-		@DisplayName("[decreaseLikeCount()] 유효한 상품 ID -> 원자적 카운터로 좋아요 수 감소 위임")
+		@DisplayName("[decreaseLikeCount()] 유효한 상품 ID -> Read Model 원자적 카운터로 좋아요 수 감소. 상세 캐시 write-through")
 		void decreaseLikeCountSuccess() {
-			// Arrange
-			willDoNothing().given(productCommandRepository).decreaseLikeCount(1L);
-
 			// Act
 			productCommandService.decreaseLikeCount(1L);
 
 			// Assert
-			verify(productCommandRepository).decreaseLikeCount(1L);
+			assertAll(
+				() -> verify(readModelRepository).decreaseLikeCount(1L),
+				() -> verify(productCacheManager).refreshProductDetail(eq(1L), any())
+			);
 		}
 
 	}
@@ -193,14 +206,14 @@ class ProductCommandServiceTest {
 	class DecreaseStockTest {
 
 		@Test
-		@DisplayName("[decreaseStock()] 활성 상품 재고 차감 -> 차감 후 저장. 비관적 쓰기 락으로 조회")
+		@DisplayName("[decreaseStock()] 활성 상품 재고 차감 -> 차감 후 저장. 비관적 쓰기 락으로 조회. Read Model 재고 동기화. 상세 캐시 write-through")
 		void decreaseStockSuccess() {
 			// Arrange
 			Product product = Product.reconstruct(1L, 1L,
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(100L),
-				null, 0L, null);
+				null, null);
 			given(productQueryRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(product));
 			given(productCommandRepository.save(any(Product.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -211,7 +224,9 @@ class ProductCommandServiceTest {
 			assertAll(
 				() -> assertThat(product.getStock().value()).isEqualTo(90L),
 				() -> verify(productQueryRepository).findActiveByIdForUpdate(1L),
-				() -> verify(productCommandRepository).save(product)
+				() -> verify(productCommandRepository).save(product),
+				() -> verify(readModelRepository).updateStock(1L, 90L),
+				() -> verify(productCacheManager).refreshProductDetail(eq(1L), any())
 			);
 		}
 
@@ -240,7 +255,7 @@ class ProductCommandServiceTest {
 				ProductName.from("상품"),
 				Money.from(BigDecimal.TEN),
 				Stock.from(5L),
-				null, 0L, null);
+				null, null);
 			given(productQueryRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(product));
 
 			// Act
@@ -291,6 +306,115 @@ class ProductCommandServiceTest {
 
 			// Assert
 			verify(cartItemCleanupManager).deleteAllByProductId(1L);
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("syncReadModel()")
+	class SyncReadModelTest {
+
+		@Test
+		@DisplayName("[syncReadModel()] Product와 brandName으로 Read Model 저장 -> readModelRepository.save() 호출")
+		void syncReadModelSuccess() {
+			// Arrange
+			Product product = Product.reconstruct(1L, 1L,
+				ProductName.from("상품"),
+				Money.from(BigDecimal.TEN),
+				Stock.from(100L),
+				null, null);
+
+			// Act
+			productCommandService.syncReadModel(product, "나이키");
+
+			// Assert
+			verify(readModelRepository).save(product, "나이키");
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("syncBrandNameInReadModel()")
+	class SyncBrandNameInReadModelTest {
+
+		@Test
+		@DisplayName("[syncBrandNameInReadModel()] brandId와 brandName으로 Read Model 브랜드명 일괄 업데이트 -> readModelRepository.updateBrandName() 호출")
+		void syncBrandNameInReadModelSuccess() {
+			// Act
+			productCommandService.syncBrandNameInReadModel(1L, "아디다스");
+
+			// Assert
+			verify(readModelRepository).updateBrandName(1L, "아디다스");
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("deleteProductDetailCache()")
+	class DeleteProductDetailCacheTest {
+
+		@Test
+		@DisplayName("[deleteProductDetailCache()] 상품 ID로 상세 캐시 삭제 -> deleteProductDetail() 호출")
+		void deleteProductDetailCacheSuccess() {
+			// Act
+			productCommandService.deleteProductDetailCache(1L);
+
+			// Assert
+			verify(productCacheManager).deleteProductDetail(1L);
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("refreshProductDetailCache()")
+	class RefreshProductDetailCacheTest {
+
+		@Test
+		@DisplayName("[refreshProductDetailCache()] 상품 ID -> productCacheManager.refreshProductDetail() 호출. Supplier로 QueryPort 전달")
+		void refreshProductDetailCacheSuccess() {
+			// Act
+			productCommandService.refreshProductDetailCache(1L);
+
+			// Assert
+			verify(productCacheManager).refreshProductDetail(eq(1L), any());
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("refreshIdListCacheForAllSorts()")
+	class RefreshIdListCacheForAllSortsTest {
+
+		@Test
+		@DisplayName("[refreshIdListCacheForAllSorts()] brandId -> 모든 정렬 × cacheable 페이지 × (brand + all) ID 리스트 갱신")
+		void refreshIdListCacheForAllSortsSuccess() {
+			// Act
+			productCommandService.refreshIdListCacheForAllSorts(1L);
+
+			// Assert — 3 정렬 × 2 페이지 × 2 (brand + all) = 12 calls
+			verify(productCacheManager, times(12)).refreshIdList(any(), any());
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("refreshIdListCacheForSort()")
+	class RefreshIdListCacheForSortTest {
+
+		@Test
+		@DisplayName("[refreshIdListCacheForSort()] brandId + PRICE_ASC -> 해당 정렬의 cacheable 페이지 × (brand + all) ID 리스트 갱신")
+		void refreshIdListCacheForSortSuccess() {
+			// Act
+			productCommandService.refreshIdListCacheForSort(1L, ProductSortType.PRICE_ASC);
+
+			// Assert — 2 페이지 × 2 (brand + all) = 4 calls
+			verify(productCacheManager, times(4)).refreshIdList(any(), any());
 		}
 
 	}

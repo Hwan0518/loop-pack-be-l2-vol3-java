@@ -1,13 +1,12 @@
 package com.loopers.catalog.product.application.dto.out;
 
 
-import com.loopers.catalog.product.domain.model.Product;
-
 import java.math.BigDecimal;
 
 
 /**
  * 상품 목록 조회 결과 DTO
+ * - 캐시(ProductCacheDto) 또는 Read Model projection(QueryDSL)으로 직접 생성
  * - id: 상품 ID
  * - brandId: 브랜드 ID
  * - brandName: 브랜드명
@@ -18,32 +17,5 @@ import java.math.BigDecimal;
  */
 public record ProductOutDto(Long id, Long brandId, String brandName, String name,
 	BigDecimal price, Long stock, Long likeCount) {
-
-	// 1. Product 도메인 객체를 목록 조회 결과 DTO로 변환
-	public static ProductOutDto from(Product product) {
-		return new ProductOutDto(
-			product.getId(),
-			product.getBrandId(),
-			null,
-			product.getName().value(),
-			product.getPrice().value(),
-			product.getStock().value(),
-			product.getLikeCount()
-		);
-	}
-
-
-	// 2. Product 도메인 객체를 브랜드명 포함 목록 조회 결과 DTO로 변환
-	public static ProductOutDto from(Product product, String brandName) {
-		return new ProductOutDto(
-			product.getId(),
-			product.getBrandId(),
-			brandName,
-			product.getName().value(),
-			product.getPrice().value(),
-			product.getStock().value(),
-			product.getLikeCount()
-		);
-	}
 
 }

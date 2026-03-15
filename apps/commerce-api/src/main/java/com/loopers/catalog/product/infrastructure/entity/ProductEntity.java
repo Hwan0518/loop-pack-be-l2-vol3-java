@@ -17,7 +17,6 @@ import java.math.BigDecimal;
  * - price: 가격
  * - stock: 재고
  * - description: 상품 설명
- * - likeCount: 좋아요 수
  */
 @Entity
 @Table(name = "products")
@@ -40,32 +39,28 @@ public class ProductEntity extends SoftDeleteBaseEntity {
 	@Column(name = "description", length = 1000)
 	private String description;
 
-	@Column(name = "like_count", nullable = false)
-	private Long likeCount;
-
 
 	private ProductEntity(Long id, Long brandId, String name, BigDecimal price, Long stock,
-		String description, Long likeCount) {
+		String description) {
 		super(id);
 		this.brandId = brandId;
 		this.name = name;
 		this.price = price;
 		this.stock = stock;
 		this.description = description;
-		this.likeCount = likeCount;
 	}
 
 
 	// DB 복원용 (id 포함)
 	public static ProductEntity of(Long id, Long brandId, String name, BigDecimal price, Long stock,
-		String description, Long likeCount) {
-		return new ProductEntity(id, brandId, name, price, stock, description, likeCount);
+		String description) {
+		return new ProductEntity(id, brandId, name, price, stock, description);
 	}
 
 	// 신규 생성용 (id = null)
 	public static ProductEntity of(Long brandId, String name, BigDecimal price, Long stock,
-		String description, Long likeCount) {
-		return of(null, brandId, name, price, stock, description, likeCount);
+		String description) {
+		return of(null, brandId, name, price, stock, description);
 	}
 
 }

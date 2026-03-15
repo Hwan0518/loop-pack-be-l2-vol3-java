@@ -16,9 +16,15 @@ import lombok.NoArgsConstructor;
  * - selected: 선택 여부
  */
 @Entity
-@Table(name = "cart_items", uniqueConstraints = {
-	@UniqueConstraint(columnNames = {"user_id", "product_id"})
-})
+@Table(name = "cart_items",
+	uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "product_id"}),
+	indexes = {
+		// 선택된 장바구니 항목 조회: WHERE user_id = ? AND selected = true
+		@Index(name = "idx_cart_user_selected", columnList = "user_id, selected"),
+		// 상품 삭제 시 장바구니 정리: WHERE product_id = ?
+		@Index(name = "idx_cart_product", columnList = "product_id")
+	}
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CartItemEntity extends BaseEntity {

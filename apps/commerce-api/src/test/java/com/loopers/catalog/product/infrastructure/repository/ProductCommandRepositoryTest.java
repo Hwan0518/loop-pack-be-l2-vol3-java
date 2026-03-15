@@ -50,7 +50,6 @@ class ProductCommandRepositoryTest {
 				() -> assertThat(savedProduct.getPrice().value()).isEqualByComparingTo(new BigDecimal("10000")),
 				() -> assertThat(savedProduct.getStock().value()).isEqualTo(100L),
 				() -> assertThat(savedProduct.getDescription().value()).isEqualTo("설명"),
-				() -> assertThat(savedProduct.getLikeCount()).isEqualTo(0L),
 				() -> assertThat(savedProduct.getDeletedAt()).isNull()
 			);
 		}

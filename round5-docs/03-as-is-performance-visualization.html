@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AS-IS 성능 측정 결과 시각화</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 2rem 2rem 4rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #f97316, #ef4444);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { text-align: center; color: #94a3b8; margin-bottom: 2rem; font-size: 0.9rem; }
+        .section-title {
+            font-size: 1.4rem;
+            margin: 3rem 0 0.5rem;
+            padding-left: 1rem;
+            border-left: 4px solid #f97316;
+            color: #f8fafc;
+        }
+        .section-desc { color: #94a3b8; margin-bottom: 1.5rem; padding-left: 1.2rem; font-size: 0.85rem; line-height: 1.6; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); gap: 1.5rem; margin-bottom: 1rem; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 1rem; }
+        .card { background: #1e293b; border-radius: 12px; padding: 1.5rem; border: 1px solid #334155; }
+        .card h3 { font-size: 0.95rem; margin-bottom: 1rem; color: #cbd5e1; line-height: 1.4; }
+        .chart-container { position: relative; height: 320px; }
+        .chart-container.tall { height: 400px; }
+        .full-width { grid-column: 1 / -1; }
+
+        /* UC Reference Table */
+        .ref-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 0.5rem; }
+        .ref-table th { background: #334155; color: #f8fafc; padding: 8px 12px; text-align: left; font-weight: 600; }
+        .ref-table td { padding: 6px 12px; border-bottom: 1px solid #334155; color: #cbd5e1; }
+        .ref-table tr:hover td { background: #334155; }
+        .ref-table code { background: #0f172a; padding: 2px 6px; border-radius: 3px; font-size: 0.8rem; color: #f97316; }
+
+        /* Summary KPI Cards */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .kpi { background: #1e293b; border-radius: 10px; padding: 1.2rem; border: 1px solid #334155; text-align: center; }
+        .kpi .value { font-size: 2rem; font-weight: 700; margin: 0.3rem 0; }
+        .kpi .label { font-size: 0.75rem; color: #94a3b8; }
+        .kpi .context { font-size: 0.7rem; color: #64748b; margin-top: 0.3rem; }
+        .kpi.danger .value { color: #ef4444; }
+        .kpi.warn .value { color: #f97316; }
+        .kpi.ok .value { color: #22c55e; }
+
+        /* Insight Box */
+        .insight { background: #1e293b; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; }
+        .insight.danger { border: 1px solid #ef4444; }
+        .insight.warn { border: 1px solid #f97316; }
+        .insight h3 { margin-bottom: 0.75rem; font-size: 1rem; }
+        .insight.danger h3 { color: #ef4444; }
+        .insight.warn h3 { color: #f97316; }
+        .insight ul { list-style: none; padding: 0; }
+        .insight li { padding: 0.3rem 0; color: #cbd5e1; font-size: 0.88rem; line-height: 1.5; }
+        .insight.danger li::before { content: "# "; color: #ef4444; font-weight: 700; }
+        .insight.warn li::before { content: "# "; color: #f97316; font-weight: 700; }
+
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem; vertical-align: middle; }
+        .badge-danger { background: #ef444433; color: #ef4444; }
+        .badge-ok { background: #22c55e33; color: #22c55e; }
+        .legend-note { text-align: center; color: #64748b; font-size: 0.75rem; margin-top: 2rem; }
+
+        /* Nav */
+        .nav { position: fixed; top: 1rem; right: 1rem; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 0.75rem; z-index: 100; font-size: 0.78rem; }
+        .nav a { display: block; color: #94a3b8; text-decoration: none; padding: 0.25rem 0.5rem; border-radius: 4px; }
+        .nav a:hover { background: #334155; color: #f8fafc; }
+        .nav .nav-sep { border-top: 1px solid #334155; margin: 0.3rem 0; }
+
+        @media (max-width: 900px) {
+            .grid, .grid-3 { grid-template-columns: 1fr; }
+            .nav { display: none; }
+            body { padding: 1rem; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="nav">
+    <a href="#sec-ref">UC 레퍼런스</a>
+    <div class="nav-sep"></div>
+    <a href="#sec-latency">1. 응답시간</a>
+    <a href="#sec-error">2. 에러율</a>
+    <a href="#sec-throughput">3. 처리량(QPS)</a>
+    <a href="#sec-overhead">4. DB vs API</a>
+    <div class="nav-sep"></div>
+    <a href="#sec-conclusion">결론</a>
+</nav>
+
+<h1>AS-IS 성능 측정 결과</h1>
+<p class="subtitle">
+    PK만 존재 (인덱스 없음) &middot; Full Table Scan + filesort &middot;
+    products LEFT JOIN brands &middot; TestContainers MySQL 8.0
+</p>
+
+<!-- ============================================================ -->
+<!-- Summary KPIs -->
+<!-- ============================================================ -->
+<div class="kpi-grid">
+    <div class="kpi ok">
+        <div class="label">10만건 단일 쿼리</div>
+        <div class="value">~25ms</div>
+        <div class="context">DB 쿼리 avg</div>
+    </div>
+    <div class="kpi warn">
+        <div class="label">100만건 단일 쿼리</div>
+        <div class="value">~530ms</div>
+        <div class="context">DB 쿼리 avg (x20 증가)</div>
+    </div>
+    <div class="kpi danger">
+        <div class="label">1000만건 단일 쿼리</div>
+        <div class="value">~3.8s</div>
+        <div class="context">DB 쿼리 avg (x7 재증가)</div>
+    </div>
+    <div class="kpi danger">
+        <div class="label">1000만건 버스트 에러율</div>
+        <div class="value">90%</div>
+        <div class="context">100 concurrent, 목록 API</div>
+    </div>
+    <div class="kpi danger">
+        <div class="label">1000만건 지속부하 QPS</div>
+        <div class="value">0.3~0.5</div>
+        <div class="context">목표 20 RPS의 1.5~2.5%</div>
+    </div>
+    <div class="kpi ok">
+        <div class="label">상세 API (PK Lookup)</div>
+        <div class="value">18ms</div>
+        <div class="context">1000만건에서도 안정</div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- UC Reference -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-ref">UC(Use Case) 레퍼런스</h2>
+<p class="section-desc">
+    모든 차트에서 사용되는 쿼리 유형 정의. 공통 패턴:
+    <code style="background:#0f172a; padding:2px 6px; border-radius:3px; color:#f97316;">
+        SELECT ... FROM products p LEFT JOIN brands b ON b.id = p.brand_id WHERE p.deleted_at IS NULL [AND ...] ORDER BY ... LIMIT 20
+    </code>
+</p>
+
+<div class="card" style="margin-bottom: 2rem; overflow-x: auto;">
+    <table class="ref-table">
+        <thead>
+        <tr>
+            <th>쿼리 유형</th>
+            <th>WHERE 조건</th>
+            <th>ORDER BY</th>
+            <th>설명</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td><strong>목록: 전체+최신순</strong></td>
+            <td><code>deleted_at IS NULL</code></td>
+            <td><code>created_at DESC</code></td>
+            <td>브랜드 필터 없이 최신순 정렬</td>
+        </tr>
+        <tr>
+            <td><strong>목록: 전체+가격순</strong></td>
+            <td><code>deleted_at IS NULL</code></td>
+            <td><code>price ASC</code></td>
+            <td>브랜드 필터 없이 가격 오름차순</td>
+        </tr>
+        <tr>
+            <td><strong>목록: 전체+인기순</strong></td>
+            <td><code>deleted_at IS NULL</code></td>
+            <td><code>like_count DESC</code></td>
+            <td>브랜드 필터 없이 좋아요 내림차순</td>
+        </tr>
+        <tr>
+            <td><strong>목록: 브랜드+최신순</strong></td>
+            <td><code>deleted_at IS NULL AND brand_id = 1</code></td>
+            <td><code>created_at DESC</code></td>
+            <td>특정 브랜드 필터 + 최신순</td>
+        </tr>
+        <tr>
+            <td><strong>목록: 브랜드+가격순</strong></td>
+            <td><code>deleted_at IS NULL AND brand_id = 1</code></td>
+            <td><code>price ASC</code></td>
+            <td>특정 브랜드 필터 + 가격 오름차순</td>
+        </tr>
+        <tr>
+            <td><strong>목록: 브랜드+인기순</strong></td>
+            <td><code>deleted_at IS NULL AND brand_id = 1</code></td>
+            <td><code>like_count DESC</code></td>
+            <td>특정 브랜드 필터 + 좋아요 내림차순</td>
+        </tr>
+        <tr style="border-top: 2px solid #475569;">
+            <td><strong>COUNT: 전체</strong></td>
+            <td><code>deleted_at IS NULL</code></td>
+            <td>-</td>
+            <td>페이지네이션용 전체 건수 조회</td>
+        </tr>
+        <tr>
+            <td><strong>COUNT: 브랜드</strong></td>
+            <td><code>deleted_at IS NULL AND brand_id = 1</code></td>
+            <td>-</td>
+            <td>페이지네이션용 브랜드별 건수</td>
+        </tr>
+        <tr style="border-top: 2px solid #475569;">
+            <td><strong>상세 (PK)</strong></td>
+            <td><code>id = 1</code></td>
+            <td>-</td>
+            <td>PK lookup, O(1) 성능</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card" style="margin-bottom: 2rem; overflow-x: auto;">
+    <h3>트래픽 유형 정의</h3>
+    <table class="ref-table">
+        <thead>
+        <tr><th>트래픽 유형</th><th>설정</th><th>측정 지표</th><th>목적</th></tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td><strong>단일 쿼리/요청</strong></td>
+            <td>1 thread, warmup 3회 + 측정 5회</td>
+            <td>avg 응답시간 (ms)</td>
+            <td>순수 쿼리/API 성능 측정 (경합 없음)</td>
+        </tr>
+        <tr>
+            <td><strong>버스트</strong></td>
+            <td>100 concurrent threads, 동시 시작</td>
+            <td>에러율(%), avg/p50/p95/p99/max</td>
+            <td>순간 폭주 시나리오 (커넥션 풀 경합)</td>
+        </tr>
+        <tr>
+            <td><strong>지속 부하</strong></td>
+            <td>20 RPS x 10초 = 200 요청</td>
+            <td>실제 QPS(건/초), 에러율(%)</td>
+            <td>일정 트래픽 유지 시나리오</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 1. 응답시간 비교 -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-latency">1. 응답시간 비교 (단일 쿼리/요청)</h2>
+<p class="section-desc">
+    경합 없는 단일 실행에서의 순수 성능.<br>
+    왼쪽: DB 쿼리 레벨 (JDBC 직접), 오른쪽: API 레벨 (MockMvc, Spring 전체 스택).<br>
+    모든 목록 쿼리: EXPLAIN type=ALL (Full Table Scan), Using filesort.
+</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>DB 쿼리 — 전체 목록 (브랜드 필터 없음)</h3>
+        <div class="chart-container"><canvas id="dbSingleAll"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>API — 전체 목록 (브랜드 필터 없음)</h3>
+        <div class="chart-container"><canvas id="apiSingleAll"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>DB 쿼리 — 브랜드 필터 (brand_id = 1)</h3>
+        <div class="chart-container"><canvas id="dbSingleBrand"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>API — 브랜드 필터 (brand_id = 1)</h3>
+        <div class="chart-container"><canvas id="apiSingleBrand"></canvas></div>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h3>DB 쿼리 — COUNT</h3>
+        <div class="chart-container"><canvas id="dbCount"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>목록 vs 상세 API <span class="badge badge-ok">상세: PK Lookup O(1)</span></h3>
+        <div class="chart-container"><canvas id="apiListVsDetail"></canvas></div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 2. 에러율 비교 -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-error">2. 에러율 비교 (버스트 + 지속 부하)</h2>
+<p class="section-desc">
+    모든 차트가 동일한 Y축(에러율 0~100%)을 사용하여 직접 비교 가능.<br>
+    HikariCP 커넥션 풀 10개. 쿼리가 느릴수록 커넥션 점유 시간 증가 -> 대기 스레드 타임아웃.
+</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>DB 버스트 에러율 (100 concurrent) <span class="badge badge-danger">커넥션 타임아웃</span></h3>
+        <div class="chart-container"><canvas id="dbBurstError"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>API 버스트 에러율 (100 concurrent) <span class="badge badge-danger">Spring 오버헤드 가중</span></h3>
+        <div class="chart-container"><canvas id="apiBurstError"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>DB 지속 부하 에러율 (20 RPS x 10초)</h3>
+        <div class="chart-container"><canvas id="dbSustainedError"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>API 지속 부하 에러율 (20 RPS x 10초)</h3>
+        <div class="chart-container"><canvas id="apiSustainedError"></canvas></div>
+    </div>
+</div>
+
+<div class="insight danger">
+    <h3>에러율 핵심 발견</h3>
+    <ul>
+        <li><strong>10만건</strong>: 모든 시나리오에서 에러 0%. 단일 쿼리 20~30ms이므로 커넥션 풀 10개로 충분.</li>
+        <li><strong>100만건</strong>: 단일 쿼리 400~580ms로 증가 -> 버스트 시 70~80% 타임아웃, 지속 부하에서도 37~60% 실패.</li>
+        <li><strong>1000만건</strong>: 단일 쿼리 3.5~4초 -> 버스트 90%, 지속 부하 90~95% 실패. 서비스 완전 불능.</li>
+        <li><strong>API가 DB보다 에러율 더 높음</strong>: Spring TX + JPA + 직렬화 오버헤드로 커넥션 점유 시간이 더 길어짐.</li>
+        <li><strong>상세 API(PK lookup)는 모든 규모에서 에러 0%</strong>: 커넥션 점유 시간이 극히 짧아 경합 없음.</li>
+    </ul>
+</div>
+
+<!-- ============================================================ -->
+<!-- 3. 처리량 비교 -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-throughput">3. 처리량(QPS) 비교 (지속 부하)</h2>
+<p class="section-desc">
+    목표: 20 RPS. 빨간 점선이 목표선. 모든 차트가 동일한 Y축(0~22 QPS)을 사용.<br>
+    DB 레벨과 API 레벨을 나란히 배치하여 Spring 스택 오버헤드에 의한 QPS 감소를 직접 비교.
+</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>DB 쿼리 — 실제 QPS (20 RPS x 10초)</h3>
+        <div class="chart-container"><canvas id="dbQps"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>API — 실제 QPS (20 RPS x 10초)</h3>
+        <div class="chart-container"><canvas id="apiQps"></canvas></div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 4. DB vs API 오버헤드 -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-overhead">4. DB vs API 오버헤드 비교</h2>
+<p class="section-desc">
+    동일 쿼리(전체 목록 + 최신순)에 대해 DB 직접 실행 vs API 전체 스택의 응답시간 차이.<br>
+    그리고 버스트/지속 부하의 에러율을 DB와 API 레벨에서 규모별로 나란히 비교.
+</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>단일 실행: DB 쿼리 vs API (전체+최신순) <span class="badge badge-ok">로그 스케일</span></h3>
+        <div class="chart-container"><canvas id="overheadLatency"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>에러율: DB vs API (버스트 + 지속 부하)</h3>
+        <div class="chart-container"><canvas id="overheadError"></canvas></div>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="card full-width">
+        <h3>버스트 응답시간: DB vs API (전체+최신순, 성공 요청만)</h3>
+        <div class="chart-container"><canvas id="burstLatencyCompare"></canvas></div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 결론 -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-conclusion">결론</h2>
+
+<div class="insight warn">
+    <h3>핵심 문제</h3>
+    <ul>
+        <li>모든 목록 쿼리가 <strong>Full Table Scan + filesort</strong> (type=ALL, key=null)</li>
+        <li>데이터 10배 증가 시 응답시간 7~26배 증가 (O(N) 선형 저하)</li>
+        <li>100만건부터 20 RPS도 감당 불가, 1000만건에서 서비스 완전 불능</li>
+        <li>brandId 필터가 있어도 <strong>인덱스 없이 Full Scan 후 필터링</strong>이라 개선 효과 미미</li>
+    </ul>
+</div>
+
+<div class="insight warn">
+    <h3>개선 방향 (TO-BE)</h3>
+    <ul>
+        <li><strong>복합 인덱스</strong> (brand_id, deleted_at, sort_col — 카디널리티 높은 brand_id 선두) -> Full Table Scan -> range/ref scan, filesort 제거</li>
+        <li><strong>Redis 캐시</strong> -> 반복 조회 시 DB 쿼리 자체를 회피</li>
+        <li><strong>캐시 스탬피드 보호</strong> (CacheLock + PER) -> 캐시 만료 시 DB 폭주 방지</li>
+    </ul>
+</div>
+
+<p class="legend-note">
+    TestContainers MySQL 8.0 &middot; 상대적 비교(AS-IS vs TO-BE, 규모별 증가율)가 핵심 지표
+</p>
+
+<!-- ============================================================ -->
+<!-- CHARTS -->
+<!-- ============================================================ -->
+<script>
+// 0 값 바에 "0" 라벨 표시 플러그인
+Chart.register({
+    id: 'zeroLabel',
+    afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        chart.data.datasets.forEach((dataset, di) => {
+            if (dataset.type === 'line') return;
+            const meta = chart.getDatasetMeta(di);
+            if (meta.hidden) return;
+            meta.data.forEach((bar, i) => {
+                const val = dataset.data[i];
+                if (val !== 0) return;
+                ctx.save();
+                ctx.fillStyle = dataset.borderColor || '#94a3b8';
+                ctx.font = 'bold 11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('0', bar.x, bar.y - 4);
+                ctx.restore();
+            });
+        });
+    }
+});
+
+const C = {
+    orange: '#f97316', orangeA: '#f9731640',
+    red:    '#ef4444', redA:    '#ef444440',
+    blue:   '#3b82f6', blueA:   '#3b82f640',
+    green:  '#22c55e', greenA:  '#22c55e40',
+    purple: '#a855f7', purpleA: '#a855f740',
+    cyan:   '#06b6d4', cyanA:   '#06b6d440',
+    yellow: '#eab308', yellowA: '#eab30840',
+    gray:   '#64748b', grayA:   '#64748b40',
+};
+
+const SCALES = ['10만건', '100만건', '1000만건'];
+
+function opts(yLabel, extra = {}) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+            tooltip: {
+                callbacks: {
+                    label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toLocaleString() : ctx.parsed.x.toLocaleString()}`
+                }
+            }
+        },
+        scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+            y: {
+                ticks: { color: '#94a3b8' },
+                grid: { color: '#334155' },
+                title: { display: true, text: yLabel, color: '#64748b' },
+                ...extra
+            }
+        }
+    };
+}
+
+function optsLog(yLabel) {
+    return opts(yLabel, { type: 'logarithmic' });
+}
+
+function optsFixed(yLabel, max) {
+    return opts(yLabel, { min: 0, max });
+}
+
+// dataset helper
+function ds(label, data, color, colorA, extra = {}) {
+    return { label, data, backgroundColor: colorA, borderColor: color, borderWidth: 2, ...extra };
+}
+function dsLine(label, data, color, extra = {}) {
+    return { label, data, borderColor: color, backgroundColor: color + '30', fill: false, tension: 0.3, type: 'line', pointRadius: 4, ...extra };
+}
+
+// ============================================================
+// 1. 응답시간 비교
+// ============================================================
+
+// DB - 전체 목록
+new Chart(document.getElementById('dbSingleAll'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('최신순 (created_at DESC)',    [27.68, 585.45, 3897.22], C.orange, C.orangeA),
+            ds('가격순 (price ASC)',          [33.44, 560.41, 4184.09], C.blue,   C.blueA),
+            ds('인기순 (like_count DESC)',    [25.69, 526.67, 3614.20], C.green,  C.greenA),
+        ]
+    },
+    options: opts('avg 응답시간 (ms)')
+});
+
+// API - 전체 목록
+new Chart(document.getElementById('apiSingleAll'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('최신순 (created_at DESC)',    [60.18, 516.31, 6174.44],  C.orange, C.orangeA),
+            ds('가격순 (price ASC)',          [59.55, 497.88, 6522.14],  C.blue,   C.blueA),
+            ds('인기순 (like_count DESC)',    [51.51, 473.23, 6663.48],  C.green,  C.greenA),
+        ]
+    },
+    options: opts('avg 응답시간 (ms)')
+});
+
+// DB - 브랜드 필터
+new Chart(document.getElementById('dbSingleBrand'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('최신순 (created_at DESC)',    [21.88, 422.82, 3782.83], C.orange, C.orangeA),
+            ds('가격순 (price ASC)',          [22.11, 408.43, 3489.15], C.blue,   C.blueA),
+            ds('인기순 (like_count DESC)',    [20.80, 429.17, 3961.33], C.green,  C.greenA),
+        ]
+    },
+    options: opts('avg 응답시간 (ms)')
+});
+
+// API - 브랜드 필터
+new Chart(document.getElementById('apiSingleBrand'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('최신순 (created_at DESC)',    [49.52, 502.12, 6643.62],  C.orange, C.orangeA),
+            ds('가격순 (price ASC)',          [48.82, 463.31, 9901.90],  C.blue,   C.blueA),
+            ds('인기순 (like_count DESC)',    [48.07, 482.24, 11604.48], C.green,  C.greenA),
+        ]
+    },
+    options: opts('avg 응답시간 (ms)')
+});
+
+// DB COUNT
+new Chart(document.getElementById('dbCount'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('전체 (deleted_at IS NULL)',           [10.59, 279.32, 2147.34], C.purple, C.purpleA),
+            ds('브랜드 (+ brand_id = 1)',             [11.88, 314.32, 2323.93], C.cyan,   C.cyanA),
+        ]
+    },
+    options: opts('avg 응답시간 (ms)')
+});
+
+// 목록 vs 상세
+new Chart(document.getElementById('apiListVsDetail'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('목록: 전체+최신순',         [60.18, 516.31, 6174.44],  C.red,    C.redA),
+            ds('목록: 브랜드+인기순 (최악)', [48.07, 482.24, 11604.48], C.orange, C.orangeA),
+            ds('상세: PK lookup (id=1)',     [4.58, 11.41, 18.27],      C.green,  C.greenA),
+        ]
+    },
+    options: optsLog('avg 응답시간 (ms) — 로그 스케일')
+});
+
+// ============================================================
+// 2. 에러율 비교 (동일 Y축 0~100%)
+// ============================================================
+
+// DB 버스트 에러율
+new Chart(document.getElementById('dbBurstError'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('전체+최신순',    [0, 71, 90], C.orange, C.orangeA),
+            ds('전체+인기순',    [0, 70, 90], C.blue,   C.blueA),
+            ds('브랜드+최신순',  [0, 70, 90], C.green,  C.greenA),
+        ]
+    },
+    options: optsFixed('에러율 (%)', 100)
+});
+
+// API 버스트 에러율
+new Chart(document.getElementById('apiBurstError'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('목록: 전체+최신순',    [0, 80, 90], C.orange, C.orangeA),
+            ds('목록: 전체+인기순',    [0, 73, 90], C.blue,   C.blueA),
+            ds('목록: 브랜드+최신순',  [0, 71, 90], C.green,  C.greenA),
+            ds('상세: PK lookup',      [0, 0, 0],   C.cyan,   C.cyanA),
+        ]
+    },
+    options: optsFixed('에러율 (%)', 100)
+});
+
+// DB 지속 부하 에러율
+new Chart(document.getElementById('dbSustainedError'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('전체+최신순',    [0, 45, 90],   C.orange, C.orangeA),
+            ds('전체+인기순',    [0, 22.5, 90], C.blue,   C.blueA),
+            ds('브랜드+최신순',  [0, 21, 90],   C.green,  C.greenA),
+        ]
+    },
+    options: optsFixed('에러율 (%)', 100)
+});
+
+// API 지속 부하 에러율
+new Chart(document.getElementById('apiSustainedError'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('목록: 전체+최신순',    [0, 37, 95],   C.orange, C.orangeA),
+            ds('목록: 전체+인기순',    [0, 42, 91.5], C.blue,   C.blueA),
+            ds('목록: 브랜드+최신순',  [0, 59.5, 90.5], C.green,  C.greenA),
+            ds('상세: PK lookup',      [0, 0, 0],       C.cyan,   C.cyanA),
+        ]
+    },
+    options: optsFixed('에러율 (%)', 100)
+});
+
+// ============================================================
+// 3. 처리량 비교 (동일 Y축 0~22)
+// ============================================================
+
+// DB QPS
+new Chart(document.getElementById('dbQps'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('전체+최신순',    [20.0, 5.8, 0.6], C.orange, C.orangeA),
+            ds('전체+인기순',    [20.0, 9.9, 0.8], C.blue,   C.blueA),
+            ds('브랜드+최신순',  [20.0, 9.9, 0.8], C.green,  C.greenA),
+            dsLine('목표 20 RPS', [20, 20, 20], C.red, { borderDash: [8,4], pointRadius: 0, borderWidth: 2 }),
+        ]
+    },
+    options: optsFixed('실제 QPS (건/초)', 22)
+});
+
+// API QPS
+new Chart(document.getElementById('apiQps'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('목록: 전체+최신순',    [20.0, 5.9, 0.3], C.orange, C.orangeA),
+            ds('목록: 전체+인기순',    [20.0, 5.3, 0.5], C.blue,   C.blueA),
+            ds('목록: 브랜드+최신순',  [20.0, 3.7, 0.5], C.green,  C.greenA),
+            ds('상세: PK lookup',      [20.0, 20.0, 20.0], C.cyan,   C.cyanA),
+            dsLine('목표 20 RPS', [20, 20, 20], C.red, { borderDash: [8,4], pointRadius: 0, borderWidth: 2 }),
+        ]
+    },
+    options: optsFixed('실제 QPS (건/초)', 22)
+});
+
+// ============================================================
+// 4. DB vs API 오버헤드
+// ============================================================
+
+// 단일 응답시간 비교
+new Chart(document.getElementById('overheadLatency'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('DB 쿼리: 전체+최신순',  [27.68, 585.45, 3897.22], C.blue,   C.blueA),
+            ds('API: 전체+최신순',       [60.18, 516.31, 6174.44], C.orange, C.orangeA),
+            ds('API: 상세 (PK lookup)',  [4.58, 11.41, 18.27],     C.green,  C.greenA),
+        ]
+    },
+    options: optsLog('avg 응답시간 (ms) — 로그 스케일')
+});
+
+// 에러율 비교 (DB vs API, 버스트 + 지속)
+new Chart(document.getElementById('overheadError'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('DB 버스트 (전체+최신순)',     [0, 71, 90], C.blue,   C.blueA),
+            ds('API 버스트 (전체+최신순)',     [0, 80, 90], C.orange, C.orangeA),
+            ds('DB 지속부하 (전체+최신순)',    [0, 45, 90], C.cyan,   C.cyanA),
+            ds('API 지속부하 (전체+최신순)',   [0, 37, 95], C.red,    C.redA),
+        ]
+    },
+    options: optsFixed('에러율 (%)', 100)
+});
+
+// 버스트 응답시간 비교 (성공 요청)
+new Chart(document.getElementById('burstLatencyCompare'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('DB avg',  [433, 2793, 12021],  C.blue,   C.blueA),
+            ds('DB p95',  [835, 4306, 12389],  C.cyan,   C.cyanA),
+            ds('API avg', [726, 2769, 37129],  C.orange, C.orangeA),
+            ds('API p95', [1335, 3599, 37701], C.red,    C.redA),
+        ]
+    },
+    options: opts('응답시간 (ms) — 성공 요청만')
+});
+</script>
+
+</body>
+</html>

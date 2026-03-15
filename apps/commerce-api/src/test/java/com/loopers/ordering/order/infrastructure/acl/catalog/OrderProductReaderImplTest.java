@@ -48,24 +48,28 @@ class OrderProductReaderImplTest {
 			ProductName.from("나이키 에어맥스"),
 			Money.from(new BigDecimal("100000")),
 			Stock.from(10L),
-			null, 0L, null);
+			null, null);
 		Product p2 = Product.reconstruct(2L, 1L,
 			ProductName.from("아디다스 울트라부스트"),
 			Money.from(new BigDecimal("200000")),
 			Stock.from(5L),
-			null, 0L, null);
+			null, null);
 		given(productQueryFacade.findActiveByIds(productIds)).willReturn(List.of(p1, p2));
 
 		// Act
 		List<OrderProductInfo> result = orderProductReaderImpl.readProducts(productIds);
 
-		// Assert
+		// Assert — Product → OrderProductInfo 변환 전체 필드 검증
 		assertAll(
 			() -> assertThat(result).hasSize(2),
 			() -> assertThat(result.get(0).productId()).isEqualTo(1L),
 			() -> assertThat(result.get(0).name()).isEqualTo("나이키 에어맥스"),
+			() -> assertThat(result.get(0).price()).isEqualByComparingTo(new BigDecimal("100000")),
+			() -> assertThat(result.get(0).stock()).isEqualTo(10L),
 			() -> assertThat(result.get(1).productId()).isEqualTo(2L),
-			() -> verify(productQueryFacade).findActiveByIds(productIds)
+			() -> assertThat(result.get(1).name()).isEqualTo("아디다스 울트라부스트"),
+			() -> assertThat(result.get(1).price()).isEqualByComparingTo(new BigDecimal("200000")),
+			() -> assertThat(result.get(1).stock()).isEqualTo(5L)
 		);
 	}
 

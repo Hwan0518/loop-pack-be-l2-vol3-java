@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TO-BE 인덱스 성능 측정 결과 (Read Model + 복합 인덱스)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 2rem 2rem 4rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #22c55e, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { text-align: center; color: #94a3b8; margin-bottom: 0.5rem; font-size: 0.9rem; }
+        .estimate-note {
+            text-align: center;
+            color: #22c55e;
+            margin-bottom: 2rem;
+            font-size: 0.8rem;
+            background: #22c55e15;
+            border: 1px solid #22c55e40;
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .section-title {
+            font-size: 1.4rem;
+            margin: 3rem 0 0.5rem;
+            padding-left: 1rem;
+            border-left: 4px solid #f97316;
+            color: #f8fafc;
+        }
+        .section-desc { color: #94a3b8; margin-bottom: 1.5rem; padding-left: 1.2rem; font-size: 0.85rem; line-height: 1.6; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); gap: 1.5rem; margin-bottom: 1rem; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 1rem; }
+        .card { background: #1e293b; border-radius: 12px; padding: 1.5rem; border: 1px solid #334155; }
+        .card h3 { font-size: 0.95rem; margin-bottom: 1rem; color: #cbd5e1; line-height: 1.4; }
+        .chart-container { position: relative; height: 320px; }
+        .chart-container.tall { height: 400px; }
+        .full-width { grid-column: 1 / -1; }
+
+        /* UC Reference Table */
+        .ref-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-bottom: 0.5rem; }
+        .ref-table th { background: #334155; color: #f8fafc; padding: 8px 12px; text-align: left; font-weight: 600; }
+        .ref-table td { padding: 6px 12px; border-bottom: 1px solid #334155; color: #cbd5e1; }
+        .ref-table tr:hover td { background: #334155; }
+        .ref-table code { background: #0f172a; padding: 2px 6px; border-radius: 3px; font-size: 0.8rem; color: #f97316; }
+
+        /* Summary KPI Cards */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .kpi { background: #1e293b; border-radius: 10px; padding: 1.2rem; border: 1px solid #334155; text-align: center; }
+        .kpi .value { font-size: 2rem; font-weight: 700; margin: 0.3rem 0; }
+        .kpi .label { font-size: 0.75rem; color: #94a3b8; }
+        .kpi .context { font-size: 0.7rem; color: #64748b; margin-top: 0.3rem; }
+        .kpi.danger .value { color: #ef4444; }
+        .kpi.warn .value { color: #f97316; }
+        .kpi.ok .value { color: #22c55e; }
+
+        /* Insight Box */
+        .insight { background: #1e293b; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; }
+        .insight.success { border: 1px solid #22c55e; }
+        .insight.warn { border: 1px solid #f97316; }
+        .insight h3 { margin-bottom: 0.75rem; font-size: 1rem; }
+        .insight.success h3 { color: #22c55e; }
+        .insight.warn h3 { color: #f97316; }
+        .insight ul { list-style: none; padding: 0; }
+        .insight li { padding: 0.3rem 0; color: #cbd5e1; font-size: 0.88rem; line-height: 1.5; }
+        .insight.success li::before { content: "# "; color: #22c55e; font-weight: 700; }
+        .insight.warn li::before { content: "# "; color: #f97316; font-weight: 700; }
+
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem; vertical-align: middle; }
+        .badge-danger { background: #ef444433; color: #ef4444; }
+        .badge-ok { background: #22c55e33; color: #22c55e; }
+        .badge-info { background: #3b82f633; color: #3b82f6; }
+        .legend-note { text-align: center; color: #64748b; font-size: 0.75rem; margin-top: 2rem; }
+
+        /* Nav */
+        .nav { position: fixed; top: 1rem; right: 1rem; background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 0.75rem; z-index: 100; font-size: 0.78rem; }
+        .nav a { display: block; color: #94a3b8; text-decoration: none; padding: 0.25rem 0.5rem; border-radius: 4px; }
+        .nav a:hover { background: #334155; color: #f8fafc; }
+        .nav .nav-sep { border-top: 1px solid #334155; margin: 0.3rem 0; }
+
+        @media (max-width: 900px) {
+            .grid, .grid-3 { grid-template-columns: 1fr; }
+            .nav { display: none; }
+            body { padding: 1rem; }
+            .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+<nav class="nav">
+    <a href="#sec-ref">EXPLAIN 비교</a>
+    <div class="nav-sep"></div>
+    <a href="#sec-latency">1. 응답시간</a>
+    <a href="#sec-improvement">2. 개선율</a>
+    <a href="#sec-error">3. 에러율</a>
+    <a href="#sec-throughput">4. 처리량(QPS)</a>
+    <div class="nav-sep"></div>
+    <a href="#sec-conclusion">결론</a>
+</nav>
+
+<h1>TO-BE 인덱스 성능 측정 결과 (Read Model + 복합 인덱스)</h1>
+<p class="subtitle">
+    product_read_model (비정규화) &middot; 복합 인덱스 12개 &middot;
+    단일 테이블 SELECT (JOIN 제거) &middot; TestContainers MySQL 8.0
+</p>
+<p class="estimate-note">
+    실측 재현: <code>./gradlew :apps:commerce-api:benchmarkTest --tests '*ProductIndexPerformanceTest.measureToBe*'</code><br>
+    10만건/100만건/1000만건 모두 실측 완료 (SQL batch INSERT).
+</p>
+
+<!-- ============================================================ -->
+<!-- Summary KPIs -->
+<!-- ============================================================ -->
+<div class="kpi-grid">
+    <div class="kpi ok">
+        <div class="label">1000만건 단일쿼리 (brand 최신순)</div>
+        <div class="value">2.32ms</div>
+        <div class="context">1,631배 개선 (AS-IS 3,783ms → 3,781ms 단축)</div>
+    </div>
+    <div class="kpi ok">
+        <div class="label">1000만건 단일쿼리 (전체 최신순)</div>
+        <div class="value">3.89ms</div>
+        <div class="context">1,002배 개선 (AS-IS 3,897ms → 3,893ms 단축)</div>
+    </div>
+    <div class="kpi ok">
+        <div class="label">1000만건 버스트 에러율</div>
+        <div class="value">0%</div>
+        <div class="context">AS-IS 90% -> 완전 해소 (실측)</div>
+    </div>
+    <div class="kpi ok">
+        <div class="label">1000만건 지속부하 QPS</div>
+        <div class="value">20.0</div>
+        <div class="context">AS-IS 0.6~0.8 -> 목표 달성 (실측)</div>
+    </div>
+    <div class="kpi ok">
+        <div class="label">EXPLAIN type</div>
+        <div class="value">ref</div>
+        <div class="context">AS-IS ALL -> 인덱스 활용</div>
+    </div>
+    <div class="kpi ok">
+        <div class="label">filesort 제거</div>
+        <div class="value">모든 쿼리</div>
+        <div class="context">전용 2/3-column 인덱스</div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- EXPLAIN Comparison -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-ref">EXPLAIN 비교 (AS-IS vs TO-BE)</h2>
+<p class="section-desc">
+    AS-IS: <code style="background:#0f172a; padding:2px 6px; border-radius:3px; color:#ef4444;">type=ALL, key=null, Using filesort</code>
+    &rarr; TO-BE: <code style="background:#0f172a; padding:2px 6px; border-radius:3px; color:#22c55e;">type=ref, key=idx_read_*, filesort 제거</code>
+</p>
+
+<div class="card" style="margin-bottom: 2rem; overflow-x: auto;">
+    <table class="ref-table">
+        <thead>
+        <tr>
+            <th>항목</th>
+            <th>AS-IS</th>
+            <th>TO-BE (브랜드 필터)</th>
+            <th>TO-BE (필터 없음)</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td><strong>type</strong></td>
+            <td style="color: #ef4444;"><code>ALL</code></td>
+            <td style="color: #22c55e;"><code>ref</code></td>
+            <td style="color: #22c55e;"><code>ref</code></td>
+        </tr>
+        <tr>
+            <td><strong>key</strong></td>
+            <td style="color: #ef4444;"><code>null</code></td>
+            <td style="color: #22c55e;"><code>idx_read_brand_deleted_*</code></td>
+            <td style="color: #22c55e;"><code>idx_read_deleted_*</code></td>
+        </tr>
+        <tr>
+            <td><strong>rows</strong></td>
+            <td style="color: #ef4444;">전체 행</td>
+            <td style="color: #22c55e;">~2,000 (브랜드당)</td>
+            <td style="color: #f97316;">~50,000 (활성 전체)</td>
+        </tr>
+        <tr>
+            <td><strong>Extra</strong></td>
+            <td style="color: #ef4444;">Using where; Using filesort</td>
+            <td style="color: #22c55e;">Backward index scan / Using index condition</td>
+            <td style="color: #22c55e;">Backward index scan / Using index condition</td>
+        </tr>
+        <tr>
+            <td><strong>JOIN</strong></td>
+            <td style="color: #ef4444;">LEFT JOIN brands</td>
+            <td style="color: #22c55e;">없음 (단일 테이블)</td>
+            <td style="color: #22c55e;">없음 (단일 테이블)</td>
+        </tr>
+        <tr>
+            <td><strong>filesort</strong></td>
+            <td style="color: #ef4444;">항상 발생</td>
+            <td style="color: #22c55e;">제거</td>
+            <td style="color: #22c55e;">제거 (전용 2-column 인덱스)</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card" style="margin-bottom: 2rem; overflow-x: auto;">
+    <h3>복합 인덱스 설계 (12개)</h3>
+    <table class="ref-table">
+        <thead>
+        <tr><th>인덱스명</th><th>컬럼</th><th>용도</th><th>효과</th></tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td><code>idx_read_brand_deleted_created</code></td>
+            <td>(brand_id, deleted_at, created_at)</td>
+            <td>사용자: 브랜드+최신순</td>
+            <td>3컬럼 활용, filesort 제거</td>
+        </tr>
+        <tr>
+            <td><code>idx_read_brand_deleted_price</code></td>
+            <td>(brand_id, deleted_at, price)</td>
+            <td>사용자: 브랜드+가격순</td>
+            <td>3컬럼 활용, filesort 제거</td>
+        </tr>
+        <tr>
+            <td><code>idx_read_brand_deleted_likecount</code></td>
+            <td>(brand_id, deleted_at, like_count)</td>
+            <td>사용자: 브랜드+인기순</td>
+            <td>3컬럼 활용, filesort 제거</td>
+        </tr>
+        <tr>
+            <td><code>idx_read_deleted_created</code></td>
+            <td>(deleted_at, created_at)</td>
+            <td>사용자: 전체+최신순</td>
+            <td>2컬럼 활용, filesort 제거</td>
+        </tr>
+        <tr>
+            <td><code>idx_read_deleted_price</code></td>
+            <td>(deleted_at, price)</td>
+            <td>사용자: 전체+가격순</td>
+            <td>2컬럼 활용, filesort 제거</td>
+        </tr>
+        <tr>
+            <td><code>idx_read_deleted_likecount</code></td>
+            <td>(deleted_at, like_count)</td>
+            <td>사용자: 전체+인기순</td>
+            <td>2컬럼 활용, filesort 제거</td>
+        </tr>
+        <tr>
+            <td><code>idx_read_brand_created</code></td>
+            <td>(brand_id, created_at)</td>
+            <td>관리자: 브랜드+최신순</td>
+            <td>deleted_at 필터 없이 사용</td>
+        </tr>
+        <tr>
+            <td><code>idx_read_brand_price</code></td>
+            <td>(brand_id, price)</td>
+            <td>관리자: 브랜드+가격순</td>
+            <td>deleted_at 필터 없이 사용</td>
+        </tr>
+        <tr>
+            <td><code>idx_read_brand_likecount</code></td>
+            <td>(brand_id, like_count)</td>
+            <td>관리자: 브랜드+인기순</td>
+            <td>deleted_at 필터 없이 사용</td>
+        </tr>
+        <tr>
+            <td><code>idx_read_created</code></td>
+            <td>(created_at)</td>
+            <td>관리자: 전체+최신순</td>
+            <td>단일 컬럼 인덱스</td>
+        </tr>
+        <tr>
+            <td><code>idx_read_price</code></td>
+            <td>(price)</td>
+            <td>관리자: 전체+가격순</td>
+            <td>단일 컬럼 인덱스</td>
+        </tr>
+        <tr>
+            <td><code>idx_read_likecount</code></td>
+            <td>(like_count)</td>
+            <td>관리자: 전체+인기순</td>
+            <td>단일 컬럼 인덱스</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- 1. 응답시간 AS-IS vs TO-BE -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-latency">1. 응답시간 비교 (AS-IS vs TO-BE, 단일 쿼리)</h2>
+<p class="section-desc">
+    로그 스케일: AS-IS와 TO-BE의 차이가 수십~수천 배이므로 로그 축을 사용.<br>
+    빨강/주황 = AS-IS (Full Table Scan), 초록/파랑 = TO-BE (Index Range Scan).
+</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>전체 목록 (브랜드 필터 없음) <span class="badge badge-info">로그 스케일</span></h3>
+        <div class="chart-container"><canvas id="latencyNoBrand"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>브랜드 필터 (brand_id = 1) <span class="badge badge-info">로그 스케일</span></h3>
+        <div class="chart-container"><canvas id="latencyBrand"></canvas></div>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h3>COUNT 쿼리 <span class="badge badge-info">로그 스케일</span></h3>
+        <div class="chart-container"><canvas id="latencyCount"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>1000만건 전체 UC 비교 (AS-IS vs TO-BE) <span class="badge badge-info">로그 스케일</span></h3>
+        <div class="chart-container"><canvas id="latency10mAll"></canvas></div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 2. 개선율 -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-improvement">2. 개선율 (AS-IS 대비 몇 배 빨라졌는가)</h2>
+<p class="section-desc">
+    AS-IS 응답시간 / TO-BE 응답시간 = 개선 배수. 높을수록 좋음.<br>
+    모든 UC에서 1000만건 실측 기준 <strong>441~1,631배</strong> 개선. 전용 2/3-column 인덱스로 모든 UC에서 filesort 제거.
+</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>데이터 규모별 개선율 — 전체 목록 (UC1~3) <span class="badge badge-ok">로그 스케일</span></h3>
+        <div class="chart-container"><canvas id="improvementNoBrand"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>데이터 규모별 개선율 — 브랜드 필터 (UC4~6) <span class="badge badge-ok">로그 스케일</span></h3>
+        <div class="chart-container"><canvas id="improvementBrand"></canvas></div>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="card full-width">
+        <h3>1000만건 개선율 요약 (모든 UC + COUNT) <span class="badge badge-ok">로그 스케일</span></h3>
+        <div class="chart-container tall"><canvas id="improvement10m"></canvas></div>
+    </div>
+</div>
+
+<div class="insight success">
+    <h3>개선율 핵심 발견</h3>
+    <ul>
+        <li><strong>전체 쿼리(UC1~3)</strong>: 전용 2-column 인덱스로 filesort 완전 제거. 100만건 실측 <strong>240~545배</strong>, 1000만건 실측 <strong>441~1,533배</strong> 개선.</li>
+        <li><strong>브랜드 필터 쿼리(UC4~6)</strong>: 3-column 인덱스로 O(1) 성능. 100만건 실측 <strong>250~493배</strong>, 1000만건 실측 <strong>1,524~1,631배</strong> 개선.</li>
+        <li><strong>COUNT + 브랜드</strong>: Covering Index + equality 축소. 100만건 실측 <strong>91배</strong>, 1000만건 실측 <strong>85배</strong> 개선.</li>
+        <li><strong>COUNT + 전체</strong>: Covering Index로 테이블 접근 불필요하지만, 전체 인덱스 스캔 필요. 1000만건 실측 <strong>2.15배</strong> 개선.</li>
+    </ul>
+</div>
+
+<!-- ============================================================ -->
+<!-- 3. 에러율 비교 -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-error">3. 에러율 비교 (AS-IS vs TO-BE)</h2>
+<p class="section-desc">
+    모든 차트가 동일한 Y축(에러율 0~100%)을 사용하여 직접 비교 가능.<br>
+    빨강 = AS-IS, 초록 = TO-BE. 인덱스 적용으로 커넥션 점유 시간이 대폭 감소 -> 에러율 해소.
+</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>버스트 에러율 비교 (100 concurrent) <span class="badge badge-ok">에러 사실상 0</span></h3>
+        <div class="chart-container"><canvas id="burstError"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>지속 부하 에러율 비교 (20 RPS x 10초) <span class="badge badge-ok">에러 0</span></h3>
+        <div class="chart-container"><canvas id="sustainedError"></canvas></div>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h3>버스트 응답시간 비교 — 1000만건 (AS-IS vs TO-BE) <span class="badge badge-info">로그 스케일</span></h3>
+        <div class="chart-container"><canvas id="burstLatency"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>지속 부하 응답시간 비교 — 1000만건 <span class="badge badge-info">로그 스케일</span></h3>
+        <div class="chart-container"><canvas id="sustainedLatency"></canvas></div>
+    </div>
+</div>
+
+<div class="insight success">
+    <h3>에러율 핵심 개선</h3>
+    <ul>
+        <li><strong>100만건 버스트</strong>: AS-IS 70~71% 에러 -> TO-BE <strong>0% 에러</strong>. avg 2,407~2,793ms -> 20~35ms (실측).</li>
+        <li><strong>1000만건 버스트</strong>: AS-IS 90% 에러 -> TO-BE <strong>0% 에러</strong>. avg 22~41ms, p95 33~75ms (실측).</li>
+        <li><strong>1000만건 지속 부하</strong>: AS-IS 90% 에러 -> TO-BE <strong>0% 에러</strong>. avg 4.28~4.43ms, QPS <strong>20.0 달성</strong> (실측).</li>
+        <li><strong>근본 원인 해결</strong>: 쿼리 실행시간 단축 -> 커넥션 점유 시간 감소 -> 커넥션 풀 경합 해소.</li>
+    </ul>
+</div>
+
+<!-- ============================================================ -->
+<!-- 4. 처리량 비교 -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-throughput">4. 처리량(QPS) 비교 (지속 부하)</h2>
+<p class="section-desc">
+    목표: 20 RPS. 빨간 점선이 목표선.<br>
+    AS-IS: 100만건부터 목표 미달, 1000만건에서 QPS 0.6~0.8.<br>
+    TO-BE: 모든 규모에서 20 RPS 달성 (1000만건 실측 확인).
+</p>
+
+<div class="grid">
+    <div class="card">
+        <h3>AS-IS 실제 QPS</h3>
+        <div class="chart-container"><canvas id="qpsAsIs"></canvas></div>
+    </div>
+    <div class="card">
+        <h3>TO-BE 실제 QPS <span class="badge badge-ok">목표 달성</span></h3>
+        <div class="chart-container"><canvas id="qpsToBe"></canvas></div>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="card full-width">
+        <h3>QPS 개선 배수 (TO-BE / AS-IS)</h3>
+        <div class="chart-container"><canvas id="qpsImprovement"></canvas></div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 결론 -->
+<!-- ============================================================ -->
+<h2 class="section-title" id="sec-conclusion">결론</h2>
+
+<div class="insight success">
+    <h3>인덱스 + Read Model 적용 효과</h3>
+    <ul>
+        <li><strong>EXPLAIN type=ALL -> ref</strong>: Full Table Scan 제거, 인덱스 범위 스캔으로 전환</li>
+        <li><strong>LEFT JOIN 제거</strong>: 비정규화 Read Model로 단일 테이블 접근. 조인 비용 0</li>
+        <li><strong>filesort 완전 제거</strong>: 전용 2/3-column 인덱스로 브랜드 유무와 관계없이 모든 정렬에서 filesort 제거</li>
+        <li><strong>전체 쿼리 100만건: 560ms -> 1.06ms (529배 개선, 실측)</strong></li>
+        <li><strong>브랜드 필터 쿼리 100만건: 409ms -> 0.85ms (481배 개선, 실측)</strong></li>
+        <li><strong>100만건 버스트 에러율: 70~71% -> 0% (실측)</strong></li>
+        <li><strong>1000만건 단일쿼리: 3,489~4,184ms -> 2.29~8.20ms (441~1,631배 개선, 실측)</strong></li>
+        <li><strong>1000만건 버스트 avg: 10~14초 -> 22~41ms, 에러율 90% -> 0% (실측)</strong></li>
+        <li><strong>1000만건 지속 부하 QPS: 0.6~0.8 -> 20.0 (목표 달성, 실측)</strong></li>
+    </ul>
+</div>
+
+<div class="insight warn">
+    <h3>추가 개선 영역</h3>
+    <ul>
+        <li><strong>COUNT(전체)</strong>: 인덱스 전체 스캔 필요. 100만건 실측 103.84ms, 1000만건 실측 996.76ms. Redis 캐시로 COUNT 결과 캐싱 권장</li>
+        <li><strong>Redis 캐시</strong>: 반복 조회 시 DB 접근 자체를 회피하여 응답시간 1ms 이하로 추가 단축</li>
+        <li><strong>캐시 스탬피드 보호</strong>: CacheLock + PER로 캐시 만료 시 DB 폭주 방지</li>
+    </ul>
+</div>
+
+<p class="legend-note">
+    TestContainers MySQL 8.0 &middot; 상대적 비교(AS-IS vs TO-BE)가 핵심 지표
+</p>
+
+<!-- ============================================================ -->
+<!-- CHARTS -->
+<!-- ============================================================ -->
+<script>
+// 0 값 바에 "0" 라벨 표시 플러그인
+Chart.register({
+    id: 'zeroLabel',
+    afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        chart.data.datasets.forEach((dataset, di) => {
+            if (dataset.type === 'line') return;
+            const meta = chart.getDatasetMeta(di);
+            if (meta.hidden) return;
+            meta.data.forEach((bar, i) => {
+                const val = dataset.data[i];
+                if (val !== 0) return;
+                ctx.save();
+                ctx.fillStyle = dataset.borderColor || '#94a3b8';
+                ctx.font = 'bold 11px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('0', bar.x, bar.y - 4);
+                ctx.restore();
+            });
+        });
+    }
+});
+
+const C = {
+    orange: '#f97316', orangeA: '#f9731640',
+    red:    '#ef4444', redA:    '#ef444440',
+    blue:   '#3b82f6', blueA:   '#3b82f640',
+    green:  '#22c55e', greenA:  '#22c55e40',
+    purple: '#a855f7', purpleA: '#a855f740',
+    cyan:   '#06b6d4', cyanA:   '#06b6d440',
+    yellow: '#eab308', yellowA: '#eab30840',
+    gray:   '#64748b', grayA:   '#64748b40',
+    teal:   '#14b8a6', tealA:   '#14b8a640',
+};
+
+const SCALES = ['10만건', '100만건', '1000만건'];
+
+function opts(yLabel, extra = {}) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+            tooltip: {
+                callbacks: {
+                    label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y != null ? ctx.parsed.y.toLocaleString() : ctx.parsed.x.toLocaleString()}`
+                }
+            }
+        },
+        scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+            y: {
+                ticks: { color: '#94a3b8' },
+                grid: { color: '#334155' },
+                title: { display: true, text: yLabel, color: '#64748b' },
+                ...extra
+            }
+        }
+    };
+}
+
+function optsLog(yLabel) {
+    return opts(yLabel, { type: 'logarithmic' });
+}
+
+function optsFixed(yLabel, max) {
+    return opts(yLabel, { min: 0, max });
+}
+
+function optsHorizontal(xLabel, extra = {}) {
+    return {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+            tooltip: {
+                callbacks: {
+                    label: ctx => `${ctx.dataset.label}: ${ctx.parsed.x != null ? ctx.parsed.x.toLocaleString() : ''}x`
+                }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: '#94a3b8' },
+                grid: { color: '#334155' },
+                title: { display: true, text: xLabel, color: '#64748b' },
+                ...extra
+            },
+            y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
+        }
+    };
+}
+
+// dataset helper
+function ds(label, data, color, colorA, extra = {}) {
+    return { label, data, backgroundColor: colorA, borderColor: color, borderWidth: 2, ...extra };
+}
+function dsLine(label, data, color, extra = {}) {
+    return { label, data, borderColor: color, backgroundColor: color + '30', fill: false, tension: 0.3, type: 'line', pointRadius: 4, ...extra };
+}
+
+// ============================================================
+// 1. 응답시간 AS-IS vs TO-BE
+// ============================================================
+
+// 전체 목록 (브랜드 필터 없음) — 최신순/가격순 대표
+new Chart(document.getElementById('latencyNoBrand'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('AS-IS 최신순',    [27.68, 585.45, 3897.22], C.red,   C.redA),
+            ds('AS-IS 가격순',    [33.44, 560.41, 4184.09], C.orange, C.orangeA),
+            ds('TO-BE 최신순',    [0.94, 2.44, 3.89],    C.green, C.greenA),
+            ds('TO-BE 가격순',    [1.16, 1.06, 2.73],    C.cyan,  C.cyanA),
+        ]
+    },
+    options: optsLog('avg 응답시간 (ms) -- 로그 스케일')
+});
+
+// 브랜드 필터
+new Chart(document.getElementById('latencyBrand'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('AS-IS 최신순',    [21.88, 422.82, 3782.83], C.red,   C.redA),
+            ds('AS-IS 가격순',    [22.11, 408.43, 3489.15], C.orange, C.orangeA),
+            ds('TO-BE 최신순',    [6.96, 1.69, 2.32],    C.green, C.greenA),
+            ds('TO-BE 가격순',    [1.16, 0.85, 2.29],    C.cyan,  C.cyanA),
+        ]
+    },
+    options: optsLog('avg 응답시간 (ms) -- 로그 스케일')
+});
+
+// COUNT 쿼리
+new Chart(document.getElementById('latencyCount'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('AS-IS 전체',       [10.59, 279.32, 2147.34], C.red,    C.redA),
+            ds('AS-IS 브랜드',     [11.88, 314.32, 2323.93], C.orange, C.orangeA),
+            ds('TO-BE 전체',       [9.65, 103.84, 996.76], C.green,  C.greenA),
+            ds('TO-BE 브랜드',     [0.74, 3.46, 27.23],   C.cyan,   C.cyanA),
+        ]
+    },
+    options: optsLog('avg 응답시간 (ms) -- 로그 스케일')
+});
+
+// 1000만건 전체 UC 비교
+new Chart(document.getElementById('latency10mAll'), {
+    type: 'bar',
+    data: {
+        labels: ['UC1\n전체+최신순', 'UC2\n전체+가격순', 'UC3\n전체+인기순', 'UC4\n브랜드+최신순', 'UC5\n브랜드+가격순', 'UC6\n브랜드+인기순', 'COUNT\n전체', 'COUNT\n브랜드'],
+        datasets: [
+            ds('AS-IS', [3897.22, 4184.09, 3614.20, 3782.83, 3489.15, 3961.33, 2147.34, 2323.93], C.red, C.redA),
+            ds('TO-BE', [3.89, 2.73, 8.20, 2.32, 2.29, 2.56, 996.76, 27.23], C.green, C.greenA),
+        ]
+    },
+    options: optsLog('avg 응답시간 (ms) -- 로그 스케일')
+});
+
+// ============================================================
+// 2. 개선율
+// ============================================================
+
+// 전체 목록 개선율
+new Chart(document.getElementById('improvementNoBrand'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('UC1: 최신순',    [29.4, 240, 1002],  C.green,  C.greenA),
+            ds('UC2: 가격순',    [28.8, 529, 1533],  C.cyan,   C.cyanA),
+            ds('UC3: 인기순',    [10.9, 545, 441],   C.teal,   C.tealA),
+        ]
+    },
+    options: optsLog('개선 배수 (AS-IS / TO-BE)')
+});
+
+// 브랜드 필터 개선율
+new Chart(document.getElementById('improvementBrand'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('UC4: 최신순',    [3.1, 250, 1631],   C.green, C.greenA),
+            ds('UC5: 가격순',    [19.1, 481, 1524],  C.cyan,  C.cyanA),
+            ds('UC6: 인기순',    [20.8, 493, 1548],  C.teal,  C.tealA),
+        ]
+    },
+    options: optsLog('개선 배수 (AS-IS / TO-BE)')
+});
+
+// 1000만건 개선율 요약 (Horizontal bar)
+new Chart(document.getElementById('improvement10m'), {
+    type: 'bar',
+    data: {
+        labels: [
+            'UC2: 전체+가격순',
+            'UC3: 전체+인기순',
+            'UC6: 브랜드+인기순',
+            'UC4: 브랜드+최신순',
+            'UC5: 브랜드+가격순',
+            'UC1: 전체+최신순',
+            'COUNT: 브랜드',
+            'COUNT: 전체'
+        ],
+        datasets: [
+            ds('1000만건 개선 배수 (실측)', [1533, 441, 1548, 1631, 1524, 1002, 85.3, 2.15], C.green, C.greenA),
+        ]
+    },
+    options: optsHorizontal('개선 배수 (AS-IS / TO-BE)', { type: 'logarithmic' })
+});
+
+// ============================================================
+// 3. 에러율 비교
+// ============================================================
+
+// 버스트 에러율
+new Chart(document.getElementById('burstError'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('AS-IS: 전체+최신순',    [0, 71, 90],  C.red,    C.redA),
+            ds('AS-IS: 브랜드+최신순',   [0, 70, 90],  C.orange, C.orangeA),
+            ds('TO-BE: 전체+최신순',    [0, 0, 0],    C.green,  C.greenA),
+            ds('TO-BE: 브랜드+최신순',   [0, 0, 0],    C.cyan,   C.cyanA),
+        ]
+    },
+    options: optsFixed('에러율 (%)', 100)
+});
+
+// 지속 부하 에러율
+new Chart(document.getElementById('sustainedError'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('AS-IS: 전체+최신순',    [0, 45, 90],  C.red,    C.redA),
+            ds('AS-IS: 브랜드+최신순',   [0, 21, 90],  C.orange, C.orangeA),
+            ds('TO-BE: 전체+최신순',    [0, 0, 0],    C.green,  C.greenA),
+            ds('TO-BE: 브랜드+최신순',   [0, 0, 0],    C.cyan,   C.cyanA),
+        ]
+    },
+    options: optsFixed('에러율 (%)', 100)
+});
+
+// 버스트 응답시간 1000만건 (실측)
+new Chart(document.getElementById('burstLatency'), {
+    type: 'bar',
+    data: {
+        labels: ['전체+최신순', '전체+인기순', '브랜드+최신순'],
+        datasets: [
+            ds('AS-IS avg',  [12021, 14824, 10591], C.red,    C.redA),
+            ds('AS-IS p95',  [12389, 15146, 10972], C.orange, C.orangeA),
+            ds('TO-BE avg',  [35.90, 41.05, 22.87], C.green,  C.greenA),
+            ds('TO-BE p95',  [51.19, 75.42, 33.99], C.cyan,   C.cyanA),
+        ]
+    },
+    options: optsLog('응답시간 (ms) -- 로그 스케일')
+});
+
+// 지속 부하 응답시간 1000만건 (실측)
+new Chart(document.getElementById('sustainedLatency'), {
+    type: 'bar',
+    data: {
+        labels: ['전체+최신순', '전체+인기순', '브랜드+최신순'],
+        datasets: [
+            ds('AS-IS avg',  [15273, 12011, 12471], C.red,    C.redA),
+            ds('AS-IS p95',  [18156, 13674, 16677], C.orange, C.orangeA),
+            ds('TO-BE avg',  [4.28, 4.41, 4.43],   C.green,  C.greenA),
+            ds('TO-BE p95',  [6.05, 6.17, 6.34],   C.cyan,   C.cyanA),
+        ]
+    },
+    options: optsLog('응답시간 (ms) -- 로그 스케일')
+});
+
+// ============================================================
+// 4. 처리량(QPS) 비교
+// ============================================================
+
+// AS-IS QPS
+new Chart(document.getElementById('qpsAsIs'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('전체+최신순',    [20.0, 5.8, 0.6], C.red,    C.redA),
+            ds('전체+인기순',    [20.0, 9.9, 0.8], C.orange, C.orangeA),
+            ds('브랜드+최신순',  [20.0, 9.9, 0.8], C.yellow, C.yellowA),
+            dsLine('목표 20 RPS', [20, 20, 20], C.gray, { borderDash: [8,4], pointRadius: 0, borderWidth: 2 }),
+        ]
+    },
+    options: optsFixed('실제 QPS (건/초)', 22)
+});
+
+// TO-BE QPS
+new Chart(document.getElementById('qpsToBe'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('전체+최신순',    [20.0, 20.0, 20.0], C.green, C.greenA),
+            ds('전체+인기순',    [20.0, 20.0, 20.0], C.cyan,  C.cyanA),
+            ds('브랜드+최신순',  [20.0, 20.0, 20.0], C.teal,  C.tealA),
+            dsLine('목표 20 RPS', [20, 20, 20], C.gray, { borderDash: [8,4], pointRadius: 0, borderWidth: 2 }),
+        ]
+    },
+    options: optsFixed('실제 QPS (건/초)', 22)
+});
+
+// QPS 개선 배수
+new Chart(document.getElementById('qpsImprovement'), {
+    type: 'bar',
+    data: {
+        labels: SCALES,
+        datasets: [
+            ds('전체+최신순',    [1.0, 3.4, 33.3],  C.green, C.greenA),
+            ds('전체+인기순',    [1.0, 2.0, 25.0],  C.cyan,  C.cyanA),
+            ds('브랜드+최신순',  [1.0, 2.0, 25.0],  C.teal,  C.tealA),
+        ]
+    },
+    options: opts('QPS 개선 배수 (TO-BE / AS-IS)')
+});
+</script>
+
+</body>
+</html>

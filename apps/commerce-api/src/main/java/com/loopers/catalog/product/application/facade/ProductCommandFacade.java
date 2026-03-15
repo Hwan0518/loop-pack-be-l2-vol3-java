@@ -9,6 +9,7 @@ import com.loopers.catalog.product.application.dto.out.AdminProductDetailOutDto;
 import com.loopers.catalog.product.application.service.ProductCommandService;
 import com.loopers.catalog.product.application.service.ProductQueryService;
 import com.loopers.catalog.product.domain.model.Product;
+import com.loopers.catalog.product.domain.model.enums.ProductSortType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,8 +45,15 @@ public class ProductCommandFacade {
 		// 상품 생성
 		Product savedProduct = productCommandService.createProduct(inDto);
 
-		// DTO 변환 (브랜드명 포함)
-		return AdminProductDetailOutDto.from(savedProduct, brand.getName().value());
+		// Read Model 동기화
+		productCommandService.syncReadModel(savedProduct, brand.getName().value());
+
+		// write-through: 상세 캐시 + 모든 정렬 ID 리스트
+		productCommandService.refreshProductDetailCache(savedProduct.getId());
+		productCommandService.refreshIdListCacheForAllSorts(savedProduct.getBrandId());
+
+		// Read Model 재조회 (likeCount는 Read Model이 SoT)
+		return productQueryService.getAdminProductDetail(savedProduct.getId());
 	}
 
 
@@ -62,8 +70,15 @@ public class ProductCommandFacade {
 		// 브랜드 조회 (브랜드명 포함 응답)
 		Brand brand = brandQueryService.getBrandById(updatedProduct.getBrandId());
 
-		// DTO 변환
-		return AdminProductDetailOutDto.from(updatedProduct, brand.getName().value());
+		// Read Model 동기화
+		productCommandService.syncReadModel(updatedProduct, brand.getName().value());
+
+		// write-through: 상세 캐시 + PRICE_ASC 정렬 ID 리스트 (가격 변경 영향)
+		productCommandService.refreshProductDetailCache(id);
+		productCommandService.refreshIdListCacheForSort(updatedProduct.getBrandId(), ProductSortType.PRICE_ASC);
+
+		// Read Model 재조회 (likeCount는 Read Model이 SoT)
+		return productQueryService.getAdminProductDetail(id);
 	}
 
 
@@ -76,6 +91,12 @@ public class ProductCommandFacade {
 
 		// 상품 삭제
 		productCommandService.deleteProduct(product);
+
+		// 상세 캐시: evict (삭제된 상품이므로)
+		productCommandService.deleteProductDetailCache(id);
+
+		// ID 리스트: write-through (모든 정렬 — 삭제 상품 제거)
+		productCommandService.refreshIdListCacheForAllSorts(product.getBrandId());
 
 		// 상품 좋아요 정리 (Cross-BC 부수효과)
 		productCommandService.deleteAllProductLikes(product.getId());
