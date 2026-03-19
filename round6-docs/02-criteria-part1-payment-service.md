@@ -117,7 +117,7 @@ Payment
 
 ```
 REQUESTED ──→ SUCCESS    (콜백/폴링: PG 결제 성공)
-REQUESTED ──→ FAILED     (콜백/폴링: PG 결제 실패 / PG 요청 실패 / 주문 만료)
+REQUESTED ──→ FAILED     (콜백/폴링: PG 결제 실패 / PG 요청 실패)
 SUCCESS   ──→ (변경 불가, 최종 상태)
 FAILED    ──→ (변경 불가, 최종 상태)
 ```
