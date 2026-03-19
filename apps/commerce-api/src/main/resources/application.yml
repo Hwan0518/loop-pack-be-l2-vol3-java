@@ -1,3 +1,8 @@
+payment:
+  pg:
+    base-url: http://localhost:8082
+    callback-url: http://localhost:8080/api/v1/payments/callback
+
 server:
   shutdown: graceful
   tomcat:
@@ -23,6 +28,60 @@ spring:
       - redis.yml
       - logging.yml
       - monitoring.yml
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      # === 결제 요청 전용 서킷브레이커 ===
+      pgCircuitBreaker:
+        sliding-window-type: TIME_BASED           # 시간 기준 실패율 계산 (결제 API는 트래픽 변동이 크므로 COUNT보다 적합)
+        sliding-window-size: 30                    # 최근 30초 동안의 호출을 평가
+        minimum-number-of-calls: 10                # 최소 10건 이상 호출되어야 실패율 판단 (과민 반응 방지)
+        failure-rate-threshold: 50                 # 실패율 50% 이상이면 OPEN (결제는 크리티컬 → 빠르게 차단)
+        slow-call-duration-threshold: 1s           # 1초 이상 소요 시 slow call로 분류
+        slow-call-rate-threshold: 80               # slow call 비율 80% 이상이면 OPEN
+        wait-duration-in-open-state: 30s           # OPEN 상태 30초 유지 후 HALF_OPEN 전환
+        permitted-number-of-calls-in-half-open-state: 3  # HALF_OPEN에서 3건 시험 호출 허용
+        automatic-transition-from-open-to-half-open-enabled: true  # waitDuration 후 자동 HALF_OPEN 전환
+        record-exceptions:                         # 서킷 실패로 기록할 예외 (PG 장애 징후)
+          - com.loopers.payment.payment.infrastructure.pg.exception.PgRequestFailedException
+          - com.loopers.payment.payment.infrastructure.pg.exception.PgConnectionTimeoutException
+          - com.loopers.payment.payment.infrastructure.pg.exception.PgReadTimeoutException
+        ignore-exceptions:                         # 서킷 판단에서 제외할 예외 (PG 장애가 아닌 요청 오류)
+          - com.loopers.payment.payment.infrastructure.pg.exception.PgBadRequestException
+      # === PG 조회 전용 서킷브레이커 ===
+      # 결제 요청 CB와 분리: PG의 특정 API만 장애일 수 있으므로 독립 판단
+      # 폴링 스케줄러(getPaymentByTransactionKey, getPaymentsByOrderId)에서 사용
+      pgQueryCircuitBreaker:
+        sliding-window-type: TIME_BASED           # 시간 기준 실패율 계산
+        sliding-window-size: 30                    # 최근 30초 동안의 호출을 평가
+        minimum-number-of-calls: 10                # 최소 10건 이상 호출되어야 실패율 판단
+        failure-rate-threshold: 50                 # 실패율 50% 이상이면 OPEN
+        slow-call-duration-threshold: 1s           # 1초 이상 소요 시 slow call로 분류
+        slow-call-rate-threshold: 80               # slow call 비율 80% 이상이면 OPEN
+        wait-duration-in-open-state: 30s           # OPEN 상태 30초 유지 후 HALF_OPEN 전환
+        permitted-number-of-calls-in-half-open-state: 3  # HALF_OPEN에서 3건 시험 호출 허용
+        automatic-transition-from-open-to-half-open-enabled: true  # waitDuration 후 자동 HALF_OPEN 전환
+        record-exceptions:                         # 서킷 실패로 기록할 예외
+          - com.loopers.payment.payment.infrastructure.pg.exception.PgRequestFailedException
+          - com.loopers.payment.payment.infrastructure.pg.exception.PgConnectionTimeoutException
+          - com.loopers.payment.payment.infrastructure.pg.exception.PgReadTimeoutException
+        ignore-exceptions:                         # 서킷 판단에서 제외할 예외
+          - com.loopers.payment.payment.infrastructure.pg.exception.PgBadRequestException
+  retry:
+    instances:
+      pgRetry:
+        max-attempts: 3
+        wait-duration: 200ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        enable-randomized-wait: true
+        retry-exceptions:
+          - com.loopers.payment.payment.infrastructure.pg.exception.PgRequestFailedException
+          - com.loopers.payment.payment.infrastructure.pg.exception.PgConnectionTimeoutException
+        ignore-exceptions:
+          - com.loopers.payment.payment.infrastructure.pg.exception.PgReadTimeoutException
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
 
 springdoc:
   use-fqn: true
