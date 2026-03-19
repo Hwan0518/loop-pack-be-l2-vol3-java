@@ -26,8 +26,8 @@ public class IssuedCouponCommandFacade {
 	/**
 	 * 발급 쿠폰 명령 파사드
 	 * 1. 쿠폰 발급 (1차: 로컬 캐시, 2차: DB 존재 확인으로 중복 차단, DB 복합 유니크 제약이 데이터 무결성 보장)
-	 * 2. 쿠폰 적용 (주문 BC -> Cross-BC 호출 전용)
-	 * 3. 쿠폰 복원 (주문 BC -> Cross-BC 호출 전용, 보상 트랜잭션)
+	 * 2. 쿠폰 적용 (Cross-BC 전용 — ACL에서 호출)
+	 * 3. 쿠폰 복원 (Cross-BC 전용 — ACL에서 호출, 보상 트랜잭션)
 	 */
 
 	// 1. 쿠폰 발급 (1차: 로컬 캐시, 2차: DB 존재 확인으로 중복 차단, DB 복합 유니크 제약이 데이터 무결성 보장)
@@ -53,7 +53,8 @@ public class IssuedCouponCommandFacade {
 	}
 
 
-	// 2. 쿠폰 적용 (주문 BC에서 Cross-BC Port를 통해 호출 — 비관적 락으로 동시 사용 방지)
+	// 2. 쿠폰 적용 (Cross-BC 전용 — ACL에서 호출, 비관적 락으로 동시 사용 방지)
+	@Transactional
 	public CouponApplyResult applyToCoupon(Long issuedCouponId, Long userId, BigDecimal totalPrice) {
 
 		// 발급 쿠폰 조회 (비관적 쓰기 락 — 1차 캐시 오염 방지를 위해 FOR UPDATE가 첫 번째 조회)
@@ -67,7 +68,7 @@ public class IssuedCouponCommandFacade {
 	}
 
 
-	// 3. 쿠폰 복원 (주문 BC → Cross-BC 호출 전용, 보상 트랜잭션 — USED → AVAILABLE)
+	// 3. 쿠폰 복원 (Cross-BC 전용 — ACL에서 호출, 보상 트랜잭션 — USED → AVAILABLE)
 	@Transactional
 	public void restoreCoupon(Long issuedCouponId) {
 		issuedCouponCommandService.restoreCoupon(issuedCouponId);

@@ -86,7 +86,22 @@ public enum ErrorType {
 	COUPON_ALREADY_USED(HttpStatus.CONFLICT, "COUPON_ALREADY_USED", "이미 사용된 쿠폰입니다."),
 	COUPON_EXPIRED(HttpStatus.CONFLICT, "COUPON_EXPIRED", "만료된 쿠폰입니다."),
 	COUPON_MIN_ORDER_AMOUNT_NOT_MET(HttpStatus.BAD_REQUEST, "COUPON_MIN_ORDER_AMOUNT_NOT_MET", "최소 주문 금액 조건을 충족하지 못했습니다."),
-	COUPON_ISSUE_DUPLICATED(HttpStatus.CONFLICT, "COUPON_ISSUE_DUPLICATED", "이미 발급된 쿠폰입니다.");
+	COUPON_ISSUE_DUPLICATED(HttpStatus.CONFLICT, "COUPON_ISSUE_DUPLICATED", "이미 발급된 쿠폰입니다."),
+
+	/** Order - Payment 연동 에러 */
+	ORDER_NOT_PAYABLE(HttpStatus.BAD_REQUEST, "ORDER_NOT_PAYABLE", "주문이 결제 가능한 상태가 아닙니다."),
+
+	/** Payment 도메인 에러 */
+	PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제 정보를 찾을 수 없습니다."),
+	PAYMENT_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "PAYMENT_ALREADY_IN_PROGRESS", "이미 결제가 진행 중입니다."),
+	INVALID_CARD_TYPE(HttpStatus.BAD_REQUEST, "INVALID_CARD_TYPE", "지원하지 않는 카드 타입입니다."),
+	INVALID_CARD_NO(HttpStatus.BAD_REQUEST, "INVALID_CARD_NO", "잘못된 카드번호 형식입니다."),
+
+	/** PG 연동 에러 */
+	PG_BAD_REQUEST(HttpStatus.BAD_REQUEST, "PG_BAD_REQUEST", "PG 요청이 올바르지 않습니다."),
+	PG_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "PG_REQUEST_FAILED", "PG 결제 요청에 실패했습니다."),
+	PG_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "PG_SERVICE_UNAVAILABLE", "PG 서비스를 일시적으로 사용할 수 없습니다."),
+	PG_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "PG_TIMEOUT", "PG 응답 시간이 초과되었습니다.");
 
 	private final HttpStatus status;
 	private final String code;
