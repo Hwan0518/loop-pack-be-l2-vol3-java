@@ -31,8 +31,9 @@ public class ProductCommandFacade {
 	 * 2. 상품 수정
 	 * 3. 상품 삭제
 	 * 4. 상품 재고 차감 (Cross-BC 전용 — ACL에서 호출)
-	 * 5. 좋아요 수 증가 (Cross-BC 전용 — ACL에서 호출)
-	 * 6. 좋아요 수 감소 (Cross-BC 전용 — ACL에서 호출)
+	 * 5. 상품 재고 증가 (Cross-BC 전용 — ACL에서 호출, 보상 트랜잭션)
+	 * 6. 좋아요 수 증가 (Cross-BC 전용 — ACL에서 호출)
+	 * 7. 좋아요 수 감소 (Cross-BC 전용 — ACL에서 호출)
 	 */
 
 	// 1. 상품 생성
@@ -113,14 +114,21 @@ public class ProductCommandFacade {
 	}
 
 
-	// 5. 좋아요 수 증가 (Cross-BC 전용 — ACL에서 호출)
+	// 5. 상품 재고 증가 (Cross-BC 전용 — ACL에서 호출, 보상 트랜잭션)
+	@Transactional
+	public void increaseStock(Long productId, Long quantity) {
+		productCommandService.increaseStock(productId, quantity);
+	}
+
+
+	// 6. 좋아요 수 증가 (Cross-BC 전용 — ACL에서 호출)
 	@Transactional
 	public void increaseLikeCount(Long productId) {
 		productCommandService.increaseLikeCount(productId);
 	}
 
 
-	// 6. 좋아요 수 감소 (Cross-BC 전용 — ACL에서 호출)
+	// 7. 좋아요 수 감소 (Cross-BC 전용 — ACL에서 호출)
 	@Transactional
 	public void decreaseLikeCount(Long productId) {
 		productCommandService.decreaseLikeCount(productId);

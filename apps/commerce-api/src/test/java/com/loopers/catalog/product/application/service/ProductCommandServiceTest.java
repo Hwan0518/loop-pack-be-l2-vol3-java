@@ -272,6 +272,54 @@ class ProductCommandServiceTest {
 
 
 	@Nested
+	@DisplayName("increaseStock()")
+	class IncreaseStockTest {
+
+		@Test
+		@DisplayName("[increaseStock()] 활성 상품 재고 증가 -> 증가 후 저장. 비관적 쓰기 락으로 조회. Read Model 재고 동기화. 상세 캐시 write-through")
+		void increaseStockSuccess() {
+			// Arrange
+			Product product = Product.reconstruct(1L, 1L,
+				ProductName.from("상품"),
+				Money.from(BigDecimal.TEN),
+				Stock.from(100L),
+				null, null);
+			given(productQueryRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(product));
+			given(productCommandRepository.save(any(Product.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+			// Act
+			productCommandService.increaseStock(1L, 10L);
+
+			// Assert
+			assertAll(
+				() -> assertThat(product.getStock().value()).isEqualTo(110L),
+				() -> verify(productQueryRepository).findActiveByIdForUpdate(1L),
+				() -> verify(productCommandRepository).save(product),
+				() -> verify(readModelRepository).updateStock(1L, 110L),
+				() -> verify(productCacheManager).refreshProductDetail(eq(1L), any())
+			);
+		}
+
+		@Test
+		@DisplayName("[increaseStock()] 존재하지 않는 상품 -> PRODUCT_NOT_FOUND 예외")
+		void increaseStockProductNotFound() {
+			// Arrange
+			given(productQueryRepository.findActiveByIdForUpdate(999L)).willReturn(Optional.empty());
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> productCommandService.increaseStock(999L, 10L));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.PRODUCT_NOT_FOUND.getMessage())
+			);
+		}
+	}
+
+
+	@Nested
 	@DisplayName("deleteAllProductLikes() 테스트")
 	class DeleteAllProductLikesTest {
 
