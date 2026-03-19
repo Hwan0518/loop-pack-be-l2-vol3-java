@@ -28,9 +28,11 @@ public class OrderQueryService {
 	 * 주문 조회 서비스
 	 * 1. ID로 주문 조회
 	 * 2. ID + 사용자 ID로 주문 조회 (본인 주문만)
-	 * 3. 사용자별 주문 목록 조회
+	 * 3. 사용자별 주문 목록 조회 (날짜 필터)
 	 * 4. 전체 주문 목록 조회 (관리자)
 	 * 5. userId + requestId로 주문 조회 (멱등성 확인)
+	 * 6. ID로 주문 조회 (비관적 쓰기 락 — 결제 시 동시 상태 변경 방지)
+	 * 7. 만료 대상 주문 목록 조회
 	 */
 
 	// 1. ID로 주문 조회
@@ -101,6 +103,23 @@ public class OrderQueryService {
 	@Transactional(readOnly = true)
 	public Optional<Order> findByUserIdAndRequestId(Long userId, String requestId) {
 		return orderQueryRepository.findByUserIdAndRequestId(userId, requestId);
+	}
+
+
+	// 6. ID로 주문 조회 (비관적 쓰기 락 — 결제 시 동시 상태 변경 방지)
+	// NOTE: QueryService에 위치하지만 비관적 쓰기 락이므로 @Transactional(readOnly = false) 사용.
+	//       락 조회는 조회 계약의 일부이며, 상태 변경은 CommandService에서 수행한다.
+	@Transactional
+	public Order findByIdForUpdate(Long id) {
+		return orderQueryRepository.findByIdForUpdate(id)
+			.orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+	}
+
+
+	// 7. 만료 대상 주문 목록 조회
+	@Transactional(readOnly = true)
+	public java.util.List<Order> findExpirableOrders(java.time.LocalDateTime expirationThreshold) {
+		return orderQueryRepository.findExpirableOrders(expirationThreshold);
 	}
 
 }

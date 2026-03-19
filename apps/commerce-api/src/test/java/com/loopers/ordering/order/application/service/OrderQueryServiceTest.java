@@ -5,6 +5,7 @@ import com.loopers.ordering.order.application.dto.out.AdminOrderPageOutDto;
 import com.loopers.ordering.order.application.dto.out.OrderPageOutDto;
 import com.loopers.ordering.order.domain.model.Order;
 import com.loopers.ordering.order.domain.model.OrderItem;
+import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import com.loopers.ordering.order.domain.model.vo.SnapshotName;
 import com.loopers.ordering.order.domain.model.vo.SnapshotPrice;
 import com.loopers.ordering.order.domain.repository.OrderQueryRepository;
@@ -48,7 +49,7 @@ class OrderQueryServiceTest {
 
 	private Order createTestOrder(Long id, Long userId) {
 		return Order.reconstruct(id, userId, "req-test-" + id, new BigDecimal("200000"),
-			BigDecimal.ZERO, new BigDecimal("200000"),
+			BigDecimal.ZERO, new BigDecimal("200000"), OrderStatus.PENDING_PAYMENT,
 			List.of(OrderItem.reconstruct(1L, 1L,
 				SnapshotName.from("나이키 에어맥스"),
 				SnapshotPrice.from(new BigDecimal("100000")),

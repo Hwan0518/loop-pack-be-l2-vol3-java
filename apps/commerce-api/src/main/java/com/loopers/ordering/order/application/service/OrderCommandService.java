@@ -9,8 +9,10 @@ import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItem
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponApplier;
+import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponRestorer;
 import com.loopers.ordering.order.domain.model.Order;
 import com.loopers.ordering.order.domain.model.OrderItem;
+import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import com.loopers.ordering.order.domain.model.vo.CouponSnapshot;
 import com.loopers.ordering.order.domain.repository.OrderCommandRepository;
 import com.loopers.support.common.error.CoreException;
@@ -37,11 +39,14 @@ public class OrderCommandService {
 	private final OrderStockManager orderStockManager;
 	private final OrderCouponApplier orderCouponApplier;
 	private final OrderCartItemCleaner orderCartItemCleaner;
+	private final OrderCouponRestorer orderCouponRestorer;
 
 
 	/**
-	 * 주문 명령 서비스 (Facade에서 분리된 짧은 TX)
+	 * 주문 명령 서비스 (Facade에서 분리된 짧은 TX — 쓰기 연산 전담)
 	 * 1. 주문 생성 (재고 차감 → 쿠폰 적용 → 주문 저장 → 장바구니 정리)
+	 * 2. 주문 상태 변경 (CAS UPDATE — stale 객체로 인한 잘못된 덮어쓰기 방지)
+	 * 3. 주문 만료 보상 (단일 TX — 재고 복원 + 쿠폰 복원 + EXPIRED 변경)
 	 */
 
 	// 1. 주문 생성 (짧은 TX — 재고 차감 → 쿠폰 적용 → 주문 저장 → 장바구니 정리)
@@ -66,6 +71,43 @@ public class OrderCommandService {
 		orderCartItemCleaner.deleteCartItems(userId, resolvedCartItemIds);
 
 		return OrderDetailOutDto.from(savedOrder);
+	}
+
+
+	// 2. 주문 상태 변경 (Cross-BC — Payment BC에서 호출)
+	@Transactional
+	public void changeOrderStatus(Order order, OrderStatus status) {
+
+		// 현재 상태 보존 (CAS 비교용)
+		OrderStatus currentStatus = order.getStatus();
+
+		// 주문 상태 변경 (도메인 로직 — 전이 불가 시 ORDER_NOT_PAYABLE 예외)
+		order.changeStatus(status);
+
+		// CAS UPDATE (현재 status 검증 — stale 객체로 인한 잘못된 덮어쓰기 방지)
+		int updatedRows = orderCommandRepository.updateStatus(order.getId(), currentStatus, status);
+		if (updatedRows == 0) {
+			throw new CoreException(ErrorType.ORDER_NOT_PAYABLE);
+		}
+	}
+
+
+	// 3. 주문 만료 보상 (단일 TX — 재고 복원 + 쿠폰 복원 + EXPIRED 변경)
+	@Transactional
+	public void expireOrder(Order order) {
+
+		// 재고 복원 (각 주문 항목의 productId, quantity)
+		for (OrderItem item : order.getItems()) {
+			orderStockManager.restoreStock(item.getProductId(), item.getQuantity());
+		}
+
+		// 쿠폰 복원 (쿠폰 사용한 주문만)
+		if (order.getCouponSnapshot() != null) {
+			orderCouponRestorer.restoreCoupon(order.getCouponSnapshot().issuedCouponId());
+		}
+
+		// 주문 상태 EXPIRED로 변경 (CAS — stale 방어)
+		changeOrderStatus(order, OrderStatus.EXPIRED);
 	}
 
 
