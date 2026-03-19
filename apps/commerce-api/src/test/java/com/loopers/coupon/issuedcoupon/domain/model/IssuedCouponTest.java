@@ -5,6 +5,8 @@ import com.loopers.coupon.coupontemplate.domain.model.CouponTemplate;
 import com.loopers.coupon.coupontemplate.domain.model.enums.CouponType;
 import com.loopers.coupon.issuedcoupon.domain.model.enums.CouponStatusView;
 import com.loopers.coupon.issuedcoupon.domain.model.enums.IssuedCouponStatus;
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -213,6 +215,44 @@ class IssuedCouponTest {
 
 			// Assert
 			assertThat(issuedCoupon.getStatus()).isEqualTo(IssuedCouponStatus.USED);
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("restore()")
+	class RestoreTest {
+
+		@Test
+		@DisplayName("[restore()] USED 상태 -> status AVAILABLE로 복원 성공")
+		void restoreFromUsedSuccess() {
+			// Arrange
+			IssuedCoupon issuedCoupon = IssuedCoupon.reconstruct(1L, 1L, 100L, IssuedCouponStatus.USED, null);
+
+			// Act
+			issuedCoupon.restore();
+
+			// Assert
+			assertThat(issuedCoupon.getStatus()).isEqualTo(IssuedCouponStatus.AVAILABLE);
+		}
+
+
+		@Test
+		@DisplayName("[restore()] AVAILABLE 상태 -> BAD_REQUEST 예외. USED 상태에서만 복원 가능")
+		void restoreFromAvailableFails() {
+			// Arrange
+			IssuedCoupon issuedCoupon = IssuedCoupon.create(1L, 100L);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				issuedCoupon::restore);
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.BAD_REQUEST.getMessage())
+			);
 		}
 
 	}

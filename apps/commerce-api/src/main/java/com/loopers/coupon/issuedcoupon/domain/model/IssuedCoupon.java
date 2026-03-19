@@ -4,6 +4,8 @@ package com.loopers.coupon.issuedcoupon.domain.model;
 import com.loopers.coupon.coupontemplate.domain.model.CouponTemplate;
 import com.loopers.coupon.issuedcoupon.domain.model.enums.CouponStatusView;
 import com.loopers.coupon.issuedcoupon.domain.model.enums.IssuedCouponStatus;
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
@@ -47,6 +49,7 @@ public class IssuedCoupon {
 	 * 3. 만료 여부 확인 (동적 계산)
 	 * 4. 상태 뷰 반환 (API 응답용)
 	 * 5. 쿠폰 사용 처리
+	 * 6. 쿠폰 복원 (보상 트랜잭션 — 주문 만료 시 USED → AVAILABLE)
 	 */
 
 	// 1. 발급 쿠폰 생성 (1인 1쿠폰 — (user_id, coupon_template_id) 복합 유니크 제약이 DB 레벨에서 보장)
@@ -85,6 +88,15 @@ public class IssuedCoupon {
 	// 5. 쿠폰 사용 처리 (상태 USED로 변경)
 	public void use() {
 		this.status = IssuedCouponStatus.USED;
+	}
+
+
+	// 6. 쿠폰 복원 (보상 트랜잭션 — USED → AVAILABLE, USED 아닌 상태에서 호출 시 예외)
+	public void restore() {
+		if (this.status != IssuedCouponStatus.USED) {
+			throw new CoreException(ErrorType.BAD_REQUEST);
+		}
+		this.status = IssuedCouponStatus.AVAILABLE;
 	}
 
 }

@@ -35,6 +35,7 @@ public class IssuedCouponCommandService {
 	 * 3. 발급 쿠폰 저장
 	 * 4. 발급 쿠폰 조회 (비관적 쓰기 락)
 	 * 5. 쿠폰 적용 (주문 BC에서 호출)
+	 * 6. 쿠폰 복원 (보상 트랜잭션 — 주문 만료 시 USED → AVAILABLE)
 	 */
 
 	// 1. 중복 발급 차단 (1차: 로컬 캐시 — 따닥 차단, 2차: DB 존재 확인 — 캐시 TTL 만료 후 재요청 방어)
@@ -75,7 +76,8 @@ public class IssuedCouponCommandService {
 
 	// 5. 쿠폰 적용 (Facade에서 비관적 락으로 조회한 쿠폰을 전달받아 검증 + 상태 변경 + 할인 계산)
 	@Transactional
-	public CouponApplyResult applyToCoupon(IssuedCoupon issuedCoupon, Long userId, BigDecimal totalPrice, CouponTemplate template) {
+	public CouponApplyResult applyToCoupon(IssuedCoupon issuedCoupon, Long userId, BigDecimal totalPrice,
+		CouponTemplate template) {
 
 		// userId 검증 (소유자 확인)
 		if (!issuedCoupon.getUserId().equals(userId)) {
@@ -112,6 +114,22 @@ public class IssuedCouponCommandService {
 			template.getType().name(),
 			template.getValue()
 		);
+	}
+
+
+	// 6. 쿠폰 복원 (보상 트랜잭션 — 주문 만료 시 USED → AVAILABLE, 비관적 락으로 동시성 방어)
+	@Transactional
+	public void restoreCoupon(Long issuedCouponId) {
+
+		// 발급 쿠폰 조회 (비관적 쓰기 락 — 동시 사용/복원 경합 방지)
+		IssuedCoupon issuedCoupon = issuedCouponQueryRepository.findByIdForUpdate(issuedCouponId)
+			.orElseThrow(() -> new CoreException(ErrorType.ISSUED_COUPON_NOT_FOUND));
+
+		// 쿠폰 복원 (도메인 로직 — USED → AVAILABLE)
+		issuedCoupon.restore();
+
+		// 저장
+		issuedCouponCommandRepository.save(issuedCoupon);
 	}
 
 }

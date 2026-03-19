@@ -343,4 +343,48 @@ class IssuedCouponCommandServiceTest {
 
 	}
 
+
+	@Nested
+	@DisplayName("restoreCoupon()")
+	class RestoreCouponTest {
+
+		@Test
+		@DisplayName("[restoreCoupon()] USED 상태 쿠폰 -> AVAILABLE로 복원 성공. 비관적 락 조회 + restore + save")
+		void restoreCouponSuccess() {
+			// Arrange
+			IssuedCoupon issuedCoupon = IssuedCoupon.reconstruct(1L, 1L, 100L, IssuedCouponStatus.USED, ZonedDateTime.now());
+			given(issuedCouponQueryRepository.findByIdForUpdate(1L)).willReturn(Optional.of(issuedCoupon));
+			given(issuedCouponCommandRepository.save(any(IssuedCoupon.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+			// Act
+			issuedCouponCommandService.restoreCoupon(1L);
+
+			// Assert
+			assertAll(
+				() -> assertThat(issuedCoupon.getStatus()).isEqualTo(IssuedCouponStatus.AVAILABLE),
+				() -> verify(issuedCouponQueryRepository).findByIdForUpdate(1L),
+				() -> verify(issuedCouponCommandRepository).save(issuedCoupon)
+			);
+		}
+
+
+		@Test
+		@DisplayName("[restoreCoupon()] 존재하지 않는 발급 쿠폰 ID -> ISSUED_COUPON_NOT_FOUND 예외")
+		void restoreCouponNotFound() {
+			// Arrange
+			given(issuedCouponQueryRepository.findByIdForUpdate(999L)).willReturn(Optional.empty());
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> issuedCouponCommandService.restoreCoupon(999L));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.ISSUED_COUPON_NOT_FOUND),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.ISSUED_COUPON_NOT_FOUND.getMessage())
+			);
+		}
+
+	}
+
 }
