@@ -5,15 +5,20 @@ import com.loopers.ordering.order.application.dto.in.OrderCreateInDto;
 import com.loopers.ordering.order.application.dto.out.OrderDetailOutDto;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
+import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
+import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponRestorer;
 import com.loopers.ordering.order.application.service.OrderCheckoutCommandService;
 import com.loopers.ordering.order.application.service.OrderQueryService;
 import com.loopers.ordering.order.application.service.OrderCommandService;
 import com.loopers.ordering.order.domain.model.Order;
+import com.loopers.ordering.order.domain.model.OrderItem;
+import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +37,9 @@ public class OrderCommandFacade {
 	/**
 	 * 주문 명령 파사드
 	 * 1. 주문 생성 (읽기: NO TX — 쓰기: OrderCommandService 짧은 TX)
+	 * 2. 결제용 주문 조회 (Cross-BC 전용 — ACL에서 호출, 비관적 락 + 사용자 검증)
+	 * 3. 주문 상태 변경 — Order 객체 직접 전달 (내부 스케줄러에서 호출)
+	 * 4. 주문 상태 변경 — orderId로 조회 후 변경 (Cross-BC 전용 — ACL에서 호출)
 	 */
 
 	// 1. 주문 생성
@@ -73,6 +81,43 @@ public class OrderCommandFacade {
 		}
 	}
 
+
+	// 2. 결제용 주문 조회 (Cross-BC 전용 — ACL에서 호출, 비관적 락 + 사용자 검증)
+	public Order findOrderForPayment(Long orderId, Long userId) {
+
+		// 비관적 쓰기 락으로 주문 조회 (같은 BC 내 QueryService 호출)
+		Order order = orderQueryService.findByIdForUpdate(orderId);
+
+		// 본인 주문 검증
+		if (!order.getUserId().equals(userId)) {
+			throw new CoreException(ErrorType.ORDER_NOT_FOUND);
+		}
+
+		return order;
+	}
+
+
+	// 3. 주문 상태 변경 — Order 객체 직접 전달 (내부 스케줄러에서 호출)
+	public void changeOrderStatus(Order order, OrderStatus status) {
+		orderCommandService.changeOrderStatus(order, status);
+	}
+
+
+	// 4. 주문 상태 변경 — orderId로 조회 후 변경 (Cross-BC 전용 — ACL에서 호출)
+	public void changeOrderStatusById(Long orderId, OrderStatus status) {
+
+		// 주문 조회 (같은 BC 내 QueryService 호출)
+		Order order = orderQueryService.findById(orderId);
+
+		// 주문 상태 변경
+		orderCommandService.changeOrderStatus(order, status);
+	}
+
+
+	/**
+	 * private method
+	 * - MySQL 유니크 제약 위반 여부 판별
+	 */
 
 	// MySQL "Duplicate entry" 메시지로 유니크 제약 위반 여부 판별
 	private boolean isDuplicateKeyViolation(DataIntegrityViolationException e) {
