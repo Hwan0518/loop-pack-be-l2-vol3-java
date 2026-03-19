@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
  * - id: 주문 ID
  * - userId: 주문자 ID
  * - totalPrice: 주문 총액
+ * - status: 주문 상태
  * - itemCount: 주문 항목 수
  * - createdAt: 주문 생성 일시
  */
@@ -19,6 +20,7 @@ public record OrderResponse(
 	Long id,
 	Long userId,
 	BigDecimal totalPrice,
+	String status,
 	int itemCount,
 	LocalDateTime createdAt
 ) {
@@ -29,6 +31,7 @@ public record OrderResponse(
 			outDto.id(),
 			outDto.userId(),
 			outDto.totalPrice(),
+			outDto.status().name(),
 			outDto.itemCount(),
 			outDto.createdAt()
 		);

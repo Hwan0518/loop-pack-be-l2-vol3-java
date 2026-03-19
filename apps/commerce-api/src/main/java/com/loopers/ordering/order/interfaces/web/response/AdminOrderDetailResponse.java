@@ -13,6 +13,7 @@ import java.util.List;
  * - id: 주문 ID
  * - userId: 주문자 ID
  * - totalPrice: 주문 총액
+ * - status: 주문 상태
  * - items: 주문 항목 목록
  * - createdAt: 주문 생성 일시
  */
@@ -20,6 +21,7 @@ public record AdminOrderDetailResponse(
 	Long id,
 	Long userId,
 	BigDecimal totalPrice,
+	String status,
 	List<OrderItemResponse> items,
 	LocalDateTime createdAt
 ) {
@@ -30,6 +32,7 @@ public record AdminOrderDetailResponse(
 			outDto.id(),
 			outDto.userId(),
 			outDto.totalPrice(),
+			outDto.status().name(),
 			outDto.items().stream().map(OrderItemResponse::from).toList(),
 			outDto.createdAt()
 		);

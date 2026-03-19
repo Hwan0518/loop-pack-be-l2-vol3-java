@@ -15,6 +15,7 @@ import java.util.List;
  * - originalTotalPrice: 쿠폰 적용 전 총액
  * - discountAmount: 할인 금액
  * - totalPrice: 최종 결제 금액
+ * - status: 주문 상태
  * - items: 주문 항목 목록
  * - couponSnapshot: 적용된 쿠폰 스냅샷 (nullable)
  * - createdAt: 주문 생성 일시
@@ -25,6 +26,7 @@ public record OrderDetailResponse(
 	BigDecimal originalTotalPrice,
 	BigDecimal discountAmount,
 	BigDecimal totalPrice,
+	String status,
 	List<OrderItemResponse> items,
 	CouponSnapshotDto couponSnapshot,
 	LocalDateTime createdAt
@@ -68,6 +70,7 @@ public record OrderDetailResponse(
 			outDto.originalTotalPrice(),
 			outDto.discountAmount(),
 			outDto.totalPrice(),
+			outDto.status().name(),
 			outDto.items().stream().map(OrderItemResponse::from).toList(),
 			CouponSnapshotDto.from(outDto.couponSnapshot()),
 			outDto.createdAt()

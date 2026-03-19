@@ -2,6 +2,7 @@ package com.loopers.ordering.order.application.dto.out;
 
 
 import com.loopers.ordering.order.domain.model.Order;
+import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
  * - id: 주문 ID
  * - userId: 주문자 ID
  * - totalPrice: 주문 총액
+ * - status: 주문 상태
  * - itemCount: 주문 항목 수
  * - createdAt: 주문 생성 일시
  */
@@ -19,6 +21,7 @@ public record OrderOutDto(
 	Long id,
 	Long userId,
 	BigDecimal totalPrice,
+	OrderStatus status,
 	int itemCount,
 	LocalDateTime createdAt
 ) {
@@ -29,6 +32,7 @@ public record OrderOutDto(
 			order.getId(),
 			order.getUserId(),
 			order.getTotalPrice(),
+			order.getStatus(),
 			order.getItems().size(),
 			order.getCreatedAt()
 		);
