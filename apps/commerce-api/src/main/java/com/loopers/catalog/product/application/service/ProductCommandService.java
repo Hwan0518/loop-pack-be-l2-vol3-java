@@ -67,14 +67,15 @@ public class ProductCommandService {
 	 * 4. 좋아요 수 증가 (Read Model 원자적 카운터 + 상세 캐시 write-through)
 	 * 5. 좋아요 수 감소 (Read Model 원자적 카운터 + 상세 캐시 write-through)
 	 * 6. 상품 재고 차감 (비관적 쓰기 락 + 상세 캐시 write-through)
-	 * 7. 상품 좋아요 전체 삭제
-	 * 8. 장바구니 항목 전체 삭제
-	 * 9. Read Model 동기화 (상품 생성/수정 시 Facade에서 호출)
-	 * 10. Read Model 브랜드명 일괄 동기화 (브랜드 수정 시 호출)
-	 * 11. 상품 상세 캐시 write-through (Facade에서 호출)
-	 * 12. 상품 상세 캐시 삭제 (상품 삭제 시 Facade에서 호출)
-	 * 13. ID 리스트 캐시 write-through — 모든 정렬 (Facade에서 호출)
-	 * 14. ID 리스트 캐시 write-through — 특정 정렬 (Facade에서 호출)
+	 * 7. 상품 재고 증가 (비관적 쓰기 락 + 상세 캐시 write-through — 보상 트랜잭션)
+	 * 8. 상품 좋아요 전체 삭제
+	 * 9. 장바구니 항목 전체 삭제
+	 * 10. Read Model 동기화 (상품 생성/수정 시 Facade에서 호출)
+	 * 11. Read Model 브랜드명 일괄 동기화 (브랜드 수정 시 호출)
+	 * 12. 상품 상세 캐시 write-through (Facade에서 호출)
+	 * 13. 상품 상세 캐시 삭제 (상품 삭제 시 Facade에서 호출)
+	 * 14. ID 리스트 캐시 write-through — 모든 정렬 (Facade에서 호출)
+	 * 15. ID 리스트 캐시 write-through — 특정 정렬 (Facade에서 호출)
 	 */
 
 	// 1. 상품 생성
@@ -171,47 +172,69 @@ public class ProductCommandService {
 	}
 
 
-	// 7. 상품 좋아요 전체 삭제
+	// 7. 상품 재고 증가 (비관적 쓰기 락 + 상세 캐시 write-through — 보상 트랜잭션)
+	@Transactional
+	public void increaseStock(Long productId, Long quantity) {
+
+		// 활성 상품 조회 (비관적 쓰기 락 — 동시 재고 변경 경합 방지)
+		Product product = productQueryRepository.findActiveByIdForUpdate(productId)
+			.orElseThrow(() -> new CoreException(ErrorType.PRODUCT_NOT_FOUND));
+
+		// 재고 증가 (도메인 로직)
+		product.increaseStock(quantity);
+
+		// 재고가 증가된 상품 저장
+		productCommandRepository.save(product);
+
+		// Read Model 재고 동기화
+		readModelRepository.updateStock(productId, product.getStock().value());
+
+		// 상세 캐시 write-through (재고는 정렬 기준 아님 — ID 리스트 갱신 불필요)
+		productCacheManager.refreshProductDetail(productId, () -> productQueryPort.findProductCacheDtoById(productId));
+	}
+
+
+	// 8. 상품 좋아요 전체 삭제
 	@Transactional
 	public void deleteAllProductLikes(Long productId) {
 		productLikeCleanupManager.deleteAllByProductId(productId);
 	}
 
 
-	// 8. 장바구니 항목 전체 삭제
+	// 9. 장바구니 항목 전체 삭제
 	@Transactional
 	public void deleteAllCartItems(Long productId) {
 		cartItemCleanupManager.deleteAllByProductId(productId);
 	}
 
 
-	// 9. Read Model 동기화 (상품 생성/수정 시 Facade에서 호출)
+	// 10. Read Model 동기화 (상품 생성/수정 시 Facade에서 호출)
 	@Transactional
 	public void syncReadModel(Product product, String brandName) {
 		readModelRepository.save(product, brandName);
 	}
 
 
-	// 10. Read Model 브랜드명 일괄 동기화 (브랜드 수정 시 BrandCommandFacade에서 호출)
+	// 11. Read Model 브랜드명 일괄 동기화 (브랜드 수정 시 BrandCommandFacade에서 호출)
 	@Transactional
 	public void syncBrandNameInReadModel(Long brandId, String brandName) {
 		readModelRepository.updateBrandName(brandId, brandName);
 	}
 
 
-	// 11. 상품 상세 캐시 write-through (Facade에서 호출 — Read Model projection 기반)
+	// 12. 상품 상세 캐시 write-through (Facade에서 호출 — Read Model projection 기반)
 	public void refreshProductDetailCache(Long productId) {
 		productCacheManager.refreshProductDetail(productId, () -> productQueryPort.findProductCacheDtoById(productId));
 	}
 
 
-	// 12. 상품 상세 캐시 삭제 (상품 삭제 시 Facade에서 호출)
+	// 13. 상품 상세 캐시 삭제 (상품 삭제 시 Facade에서 호출)
 	public void deleteProductDetailCache(Long productId) {
 		productCacheManager.deleteProductDetail(productId);
 	}
 
 
-	// 13. ID 리스트 캐시 write-through — 모든 정렬 (Facade에서 호출)
+	// 14. ID 리스트 캐시 write-through — 모든 정렬 (Facade에서 호출)
 	public void refreshIdListCacheForAllSorts(Long brandId) {
 		for (ProductSortType sort : ProductSortType.values()) {
 			refreshIdListCacheForSort(brandId, sort);
@@ -219,7 +242,7 @@ public class ProductCommandService {
 	}
 
 
-	// 14. ID 리스트 캐시 write-through — 특정 정렬 (Facade에서 호출)
+	// 15. ID 리스트 캐시 write-through — 특정 정렬 (Facade에서 호출)
 	public void refreshIdListCacheForSort(Long brandId, ProductSortType sortType) {
 		for (int page = 0; page < MAX_CACHEABLE_PAGE; page++) {
 			// brandId 조건 갱신

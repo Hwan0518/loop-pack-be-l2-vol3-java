@@ -20,6 +20,7 @@ public record Stock(Long value) {
 	 * 1. 재고 생성
 	 * 2. DB 복원용 재고 생성
 	 * 3. 재고 차감
+	 * 4. 재고 증가 (보상 트랜잭션용)
 	 */
 
 	// 1. 재고 생성
@@ -49,6 +50,18 @@ public record Stock(Long value) {
 		}
 
 		return new Stock(this.value - quantity);
+	}
+
+
+	// 4. 재고 증가 (보상 트랜잭션 — 주문 만료 시 재고 복원)
+	public Stock increase(Long quantity) {
+
+		// 증가 수량 검증
+		if (quantity == null || quantity <= 0) {
+			throw new CoreException(ErrorType.INVALID_PRODUCT_STOCK);
+		}
+
+		return new Stock(this.value + quantity);
 	}
 
 

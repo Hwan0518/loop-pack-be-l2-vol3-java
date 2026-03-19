@@ -59,8 +59,9 @@ public class Product {
 	 * 5. 재고 변경
 	 * 6. 설명 변경
 	 * 7. 재고 차감
-	 * 8. 삭제 (soft delete)
-	 * 9. 삭제 여부 확인
+	 * 8. 재고 증가 (보상 트랜잭션용)
+	 * 9. 삭제 (soft delete)
+	 * 10. 삭제 여부 확인
 	 */
 
 	// 1. 상품 생성
@@ -117,7 +118,13 @@ public class Product {
 	}
 
 
-	// 8. 삭제 (soft delete)
+	// 8. 재고 증가 (보상 트랜잭션 — 주문 만료 시 재고 복원)
+	public void increaseStock(Long quantity) {
+		this.stock = this.stock.increase(quantity);
+	}
+
+
+	// 9. 삭제 (soft delete)
 	public void delete() {
 
 		// 이미 삭제된 경우 예외
@@ -129,7 +136,7 @@ public class Product {
 	}
 
 
-	// 9. 삭제 여부 확인
+	// 10. 삭제 여부 확인
 	public boolean isDeleted() {
 		return this.deletedAt != null;
 	}

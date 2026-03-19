@@ -20,14 +20,22 @@ public class OrderStockManagerImpl implements OrderStockManager {
 
 
 	/**
-	 * 상품 재고 차감
-	 * 1. Provider Facade에 위임 (비관적 쓰기 락 + 도메인 로직은 Service에서 처리)
+	 * 상품 재고 관리
+	 * 1. 재고 차감 — Provider Facade에 위임
+	 * 2. 재고 복원 — Provider Facade에 위임 (보상 트랜잭션)
 	 */
 
 	// 1. 상품 재고 차감 — Provider Facade에 위임
 	@Override
 	public void decreaseStock(Long productId, Long quantity) {
 		productCommandFacade.decreaseStock(productId, quantity);
+	}
+
+
+	// 2. 상품 재고 복원 — Provider Facade에 위임 (보상 트랜잭션)
+	@Override
+	public void restoreStock(Long productId, Long quantity) {
+		productCommandFacade.increaseStock(productId, quantity);
 	}
 
 }
