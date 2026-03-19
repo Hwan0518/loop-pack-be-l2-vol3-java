@@ -2,6 +2,7 @@ package com.loopers.ordering.order.infrastructure.entity;
 
 
 import com.loopers.domain.BaseEntity;
+import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -17,6 +18,7 @@ import java.math.BigDecimal;
  * - originalTotalPrice: 쿠폰 적용 전 총액
  * - discountAmount: 할인 금액 (0 = 쿠폰 미사용)
  * - totalPrice: 최종 결제 금액
+ * - status: 주문 상태
  * - issuedCouponId: 적용된 발급 쿠폰 ID (nullable)
  * - couponSnapshotName: 쿠폰 이름 스냅샷 (nullable)
  * - couponSnapshotType: 쿠폰 타입 스냅샷 (nullable)
@@ -49,6 +51,10 @@ public class OrderEntity extends BaseEntity {
 	@Column(name = "total_price", nullable = false, precision = 15, scale = 2)
 	private BigDecimal totalPrice;
 
+	@Enumerated(EnumType.STRING)
+	@Column(name = "status", nullable = false, columnDefinition = "varchar(20) default 'PENDING_PAYMENT'")
+	private OrderStatus status;
+
 	@Column(name = "issued_coupon_id")
 	private Long issuedCouponId;
 
@@ -63,13 +69,14 @@ public class OrderEntity extends BaseEntity {
 
 
 	private OrderEntity(Long userId, String requestId, BigDecimal originalTotalPrice, BigDecimal discountAmount,
-		BigDecimal totalPrice, Long issuedCouponId, String couponSnapshotName,
+		BigDecimal totalPrice, OrderStatus status, Long issuedCouponId, String couponSnapshotName,
 		String couponSnapshotType, BigDecimal couponSnapshotValue) {
 		this.userId = userId;
 		this.requestId = requestId;
 		this.originalTotalPrice = originalTotalPrice;
 		this.discountAmount = discountAmount;
 		this.totalPrice = totalPrice;
+		this.status = status;
 		this.issuedCouponId = issuedCouponId;
 		this.couponSnapshotName = couponSnapshotName;
 		this.couponSnapshotType = couponSnapshotType;
@@ -78,9 +85,9 @@ public class OrderEntity extends BaseEntity {
 
 
 	public static OrderEntity of(Long userId, String requestId, BigDecimal originalTotalPrice, BigDecimal discountAmount,
-		BigDecimal totalPrice, Long issuedCouponId, String couponSnapshotName,
+		BigDecimal totalPrice, OrderStatus status, Long issuedCouponId, String couponSnapshotName,
 		String couponSnapshotType, BigDecimal couponSnapshotValue) {
-		return new OrderEntity(userId, requestId, originalTotalPrice, discountAmount, totalPrice,
+		return new OrderEntity(userId, requestId, originalTotalPrice, discountAmount, totalPrice, status,
 			issuedCouponId, couponSnapshotName, couponSnapshotType, couponSnapshotValue);
 	}
 
