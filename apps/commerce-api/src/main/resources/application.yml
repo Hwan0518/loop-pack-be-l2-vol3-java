@@ -48,7 +48,7 @@ resilience4j:
           - com.loopers.payment.payment.infrastructure.pg.exception.PgConnectionTimeoutException
           - com.loopers.payment.payment.infrastructure.pg.exception.PgReadTimeoutException
         ignore-exceptions:                         # 서킷 판단에서 제외할 예외 (PG 장애가 아닌 요청 오류)
-          - com.loopers.payment.payment.infrastructure.pg.exception.PgBadRequestException
+          - org.springframework.web.client.HttpClientErrorException
       # === PG 조회 전용 서킷브레이커 ===
       # 결제 요청 CB와 분리: PG의 특정 API만 장애일 수 있으므로 독립 판단
       # 폴링 스케줄러(getPaymentByTransactionKey, getPaymentsByOrderId)에서 사용
@@ -67,7 +67,7 @@ resilience4j:
           - com.loopers.payment.payment.infrastructure.pg.exception.PgConnectionTimeoutException
           - com.loopers.payment.payment.infrastructure.pg.exception.PgReadTimeoutException
         ignore-exceptions:                         # 서킷 판단에서 제외할 예외
-          - com.loopers.payment.payment.infrastructure.pg.exception.PgBadRequestException
+          - org.springframework.web.client.HttpClientErrorException
   retry:
     instances:
       pgRetry:
