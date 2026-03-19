@@ -42,6 +42,9 @@ dependencies {
     implementation("org.springframework.retry:spring-retry")
     implementation("org.springframework.boot:spring-boot-starter-aop")
 
+    // resilience4j
+    implementation("io.github.resilience4j:resilience4j-spring-boot3")
+
     // cache
     implementation("com.github.ben-manes.caffeine:caffeine")
 
