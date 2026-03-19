@@ -7,6 +7,7 @@ import com.loopers.ordering.order.application.port.out.client.catalog.OrderProdu
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductReader;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponRestorer;
+import com.loopers.ordering.order.application.port.out.client.payment.OrderPaymentReader;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -79,6 +80,12 @@ public class OrderPortTestConfig {
 		return issuedCouponId -> {
 			// 테스트용: 쿠폰 복원 성공
 		};
+	}
+
+	@Bean
+	@Primary
+	public OrderPaymentReader testOrderPaymentReader() {
+		return orderId -> false; // 테스트용: 진행 중인 결제 없음
 	}
 
 }
