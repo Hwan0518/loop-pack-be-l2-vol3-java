@@ -97,6 +97,71 @@ class StockTest {
 
 
 	@Nested
+	@DisplayName("increase()")
+	class IncreaseTest {
+
+		@Test
+		@DisplayName("[increase()] 유효한 증가 -> 증가된 Stock 반환")
+		void increaseValid() {
+			// Arrange
+			Stock stock = Stock.create(100L);
+
+			// Act
+			Stock increased = stock.increase(30L);
+
+			// Assert
+			assertThat(increased.value()).isEqualTo(130L);
+		}
+
+
+		@Test
+		@DisplayName("[increase()] null 증가 수량 -> INVALID_PRODUCT_STOCK 예외")
+		void increaseNull() {
+			// Arrange
+			Stock stock = Stock.create(10L);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> stock.increase(null));
+
+			// Assert
+			assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_PRODUCT_STOCK);
+		}
+
+
+		@Test
+		@DisplayName("[increase()] 0 증가 수량 -> INVALID_PRODUCT_STOCK 예외")
+		void increaseZero() {
+			// Arrange
+			Stock stock = Stock.create(10L);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> stock.increase(0L));
+
+			// Assert
+			assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_PRODUCT_STOCK);
+		}
+
+
+		@Test
+		@DisplayName("[increase()] 음수 증가 수량 -> INVALID_PRODUCT_STOCK 예외")
+		void increaseNegative() {
+			// Arrange
+			Stock stock = Stock.create(10L);
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> stock.increase(-5L));
+
+			// Assert
+			assertThat(exception.getErrorType()).isEqualTo(ErrorType.INVALID_PRODUCT_STOCK);
+		}
+
+	}
+
+
+	@Nested
 	@DisplayName("decrease()")
 	class DecreaseTest {
 

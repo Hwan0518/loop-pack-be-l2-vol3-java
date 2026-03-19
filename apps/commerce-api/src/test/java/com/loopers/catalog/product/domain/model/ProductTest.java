@@ -267,6 +267,26 @@ class ProductTest {
 
 
 	@Nested
+	@DisplayName("increaseStock()")
+	class IncreaseStockTest {
+
+		@Test
+		@DisplayName("[increaseStock()] 유효한 증가 -> 재고 증가")
+		void increaseStockSuccess() {
+			// Arrange
+			Product product = Product.create(1L, "상품", new BigDecimal("10000"), 100L, null);
+
+			// Act
+			product.increaseStock(30L);
+
+			// Assert
+			assertThat(product.getStock().value()).isEqualTo(130L);
+		}
+
+	}
+
+
+	@Nested
 	@DisplayName("delete()")
 	class DeleteTest {
 
