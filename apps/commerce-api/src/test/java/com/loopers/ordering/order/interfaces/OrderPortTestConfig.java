@@ -6,6 +6,7 @@ import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItem
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductReader;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
+import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponRestorer;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
@@ -59,8 +60,24 @@ public class OrderPortTestConfig {
 	@Bean
 	@Primary
 	public OrderStockManager testOrderStockManager() {
-		return (productId, quantity) -> {
-			// 테스트용: 재고 차감 성공
+		return new OrderStockManager() {
+			@Override
+			public void decreaseStock(Long productId, Long quantity) {
+				// 테스트용: 재고 차감 성공
+			}
+
+			@Override
+			public void restoreStock(Long productId, Long quantity) {
+				// 테스트용: 재고 복원 성공
+			}
+		};
+	}
+
+	@Bean
+	@Primary
+	public OrderCouponRestorer testOrderCouponRestorer() {
+		return issuedCouponId -> {
+			// 테스트용: 쿠폰 복원 성공
 		};
 	}
 
