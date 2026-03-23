@@ -2,6 +2,7 @@ package com.loopers.ordering.order.application.dto.out;
 
 
 import com.loopers.ordering.order.domain.model.Order;
+import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import com.loopers.ordering.order.domain.model.vo.CouponSnapshot;
 
 import java.math.BigDecimal;
@@ -26,6 +27,7 @@ public record OrderDetailOutDto(
 	BigDecimal originalTotalPrice,
 	BigDecimal discountAmount,
 	BigDecimal totalPrice,
+	OrderStatus status,
 	List<OrderItemOutDto> items,
 	CouponSnapshotDto couponSnapshot,
 	LocalDateTime createdAt
@@ -69,6 +71,7 @@ public record OrderDetailOutDto(
 			order.getOriginalTotalPrice(),
 			order.getDiscountAmount(),
 			order.getTotalPrice(),
+			order.getStatus(),
 			order.getItems().stream().map(OrderItemOutDto::from).toList(),
 			CouponSnapshotDto.from(order.getCouponSnapshot()),
 			order.getCreatedAt()

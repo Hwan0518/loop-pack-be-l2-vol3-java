@@ -39,6 +39,7 @@ public class OrderEntityMapper {
 			order.getOriginalTotalPrice(),
 			order.getDiscountAmount(),
 			order.getTotalPrice(),
+			order.getStatus(),
 			snapshot != null ? snapshot.issuedCouponId() : null,
 			snapshot != null ? snapshot.name() : null,
 			snapshot != null ? snapshot.type() : null,
@@ -68,6 +69,7 @@ public class OrderEntityMapper {
 			entity.getOriginalTotalPrice(),
 			entity.getDiscountAmount(),
 			entity.getTotalPrice(),
+			entity.getStatus(),
 			items,
 			couponSnapshot,
 			entity.getCreatedAt() != null ? entity.getCreatedAt().toLocalDateTime() : null

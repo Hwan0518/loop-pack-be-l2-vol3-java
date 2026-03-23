@@ -1,6 +1,7 @@
 package com.loopers.ordering.order.domain.model;
 
 
+import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import com.loopers.ordering.order.domain.model.vo.SnapshotName;
 import com.loopers.ordering.order.domain.model.vo.SnapshotPrice;
 import com.loopers.support.common.error.CoreException;
@@ -26,7 +27,7 @@ class OrderTest {
 	class CreateTest {
 
 		@Test
-		@DisplayName("[Order.create()] 유효한 인자 -> Order 생성. id=null, createdAt=null, 최종 금액=원래 총액-할인")
+		@DisplayName("[Order.create()] 유효한 인자 -> Order 생성. id=null, status=PENDING_PAYMENT, createdAt=null, 최종 금액=원래 총액-할인")
 		void createSuccess() {
 			// Arrange
 			List<OrderItem> items = List.of(
@@ -44,6 +45,7 @@ class OrderTest {
 				() -> assertThat(order.getOriginalTotalPrice()).isEqualByComparingTo(new BigDecimal("200000")),
 				() -> assertThat(order.getDiscountAmount()).isEqualByComparingTo(BigDecimal.ZERO),
 				() -> assertThat(order.getTotalPrice()).isEqualByComparingTo(new BigDecimal("200000")),
+				() -> assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT),
 				() -> assertThat(order.getItems()).hasSize(1),
 				() -> assertThat(order.getCouponSnapshot()).isNull(),
 				() -> assertThat(order.getCreatedAt()).isNull()
@@ -182,7 +184,7 @@ class OrderTest {
 	class ReconstructTest {
 
 		@Test
-		@DisplayName("[Order.reconstruct()] 유효한 인자 -> Order 복원. 검증 없이 값 설정, requestId 포함")
+		@DisplayName("[Order.reconstruct()] 유효한 인자 -> Order 복원. 검증 없이 값 설정, status 포함")
 		void reconstructSuccess() {
 			// Arrange
 			LocalDateTime createdAt = LocalDateTime.now();
@@ -195,7 +197,7 @@ class OrderTest {
 
 			// Act
 			Order order = Order.reconstruct(1L, 100L, "req-123", new BigDecimal("200000"),
-				BigDecimal.ZERO, new BigDecimal("200000"), items, null, createdAt);
+				BigDecimal.ZERO, new BigDecimal("200000"), OrderStatus.PAID, items, null, createdAt);
 
 			// Assert
 			assertAll(
@@ -205,10 +207,139 @@ class OrderTest {
 				() -> assertThat(order.getOriginalTotalPrice()).isEqualByComparingTo(new BigDecimal("200000")),
 				() -> assertThat(order.getDiscountAmount()).isEqualByComparingTo(BigDecimal.ZERO),
 				() -> assertThat(order.getTotalPrice()).isEqualByComparingTo(new BigDecimal("200000")),
+				() -> assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID),
 				() -> assertThat(order.getItems()).hasSize(1),
 				() -> assertThat(order.getCouponSnapshot()).isNull(),
 				() -> assertThat(order.getCreatedAt()).isEqualTo(createdAt)
 			);
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("changeStatus() 테스트")
+	class ChangeStatusTest {
+
+		@Test
+		@DisplayName("[Order.changeStatus()] PENDING_PAYMENT → PAID -> 상태 변경 성공")
+		void changeStatusToPaidSuccess() {
+			// Arrange
+			List<OrderItem> items = List.of(
+				OrderItem.create(1L, "나이키 에어맥스", new BigDecimal("100000"), 2L)
+			);
+			Order order = Order.create(1L, "req-123", new BigDecimal("200000"), BigDecimal.ZERO, items, null);
+
+			// Act
+			order.changeStatus(OrderStatus.PAID);
+
+			// Assert
+			assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+		}
+
+
+		@Test
+		@DisplayName("[Order.changeStatus()] PENDING_PAYMENT → EXPIRED -> 상태 변경 성공")
+		void changeStatusToExpiredSuccess() {
+			// Arrange
+			List<OrderItem> items = List.of(
+				OrderItem.create(1L, "나이키 에어맥스", new BigDecimal("100000"), 2L)
+			);
+			Order order = Order.create(1L, "req-123", new BigDecimal("200000"), BigDecimal.ZERO, items, null);
+
+			// Act
+			order.changeStatus(OrderStatus.EXPIRED);
+
+			// Assert
+			assertThat(order.getStatus()).isEqualTo(OrderStatus.EXPIRED);
+		}
+
+
+		@Test
+		@DisplayName("[Order.changeStatus()] PAID → EXPIRED -> ORDER_NOT_PAYABLE 예외. 최종 상태에서 전이 불가")
+		void changeStatusFromPaidFails() {
+			// Arrange
+			Order order = Order.reconstruct(1L, 100L, "req-123", new BigDecimal("200000"),
+				BigDecimal.ZERO, new BigDecimal("200000"), OrderStatus.PAID,
+				List.of(OrderItem.create(1L, "나이키 에어맥스", new BigDecimal("100000"), 2L)),
+				null, LocalDateTime.now());
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> order.changeStatus(OrderStatus.EXPIRED));
+
+			// Assert
+			assertAll(
+				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.ORDER_NOT_PAYABLE),
+				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.ORDER_NOT_PAYABLE.getMessage())
+			);
+		}
+
+
+		@Test
+		@DisplayName("[Order.changeStatus()] EXPIRED → PAID -> ORDER_NOT_PAYABLE 예외. 최종 상태에서 전이 불가")
+		void changeStatusFromExpiredFails() {
+			// Arrange
+			Order order = Order.reconstruct(1L, 100L, "req-123", new BigDecimal("200000"),
+				BigDecimal.ZERO, new BigDecimal("200000"), OrderStatus.EXPIRED,
+				List.of(OrderItem.create(1L, "나이키 에어맥스", new BigDecimal("100000"), 2L)),
+				null, LocalDateTime.now());
+
+			// Act
+			CoreException exception = assertThrows(CoreException.class,
+				() -> order.changeStatus(OrderStatus.PAID));
+
+			// Assert
+			assertThat(exception.getErrorType()).isEqualTo(ErrorType.ORDER_NOT_PAYABLE);
+		}
+
+
+		@Test
+		@DisplayName("[Order.changeStatus()] PENDING_PAYMENT → PAYMENT_FAILED -> 상태 변경 성공. 결제 실패 전이")
+		void changeStatusToPaymentFailedSuccess() {
+			// Arrange
+			List<OrderItem> items = List.of(
+				OrderItem.create(1L, "나이키 에어맥스", new BigDecimal("100000"), 2L)
+			);
+			Order order = Order.create(1L, "req-123", new BigDecimal("200000"), BigDecimal.ZERO, items, null);
+
+			// Act
+			order.changeStatus(OrderStatus.PAYMENT_FAILED);
+
+			// Assert
+			assertThat(order.getStatus()).isEqualTo(OrderStatus.PAYMENT_FAILED);
+		}
+
+
+		@Test
+		@DisplayName("[Order.changeStatus()] PAYMENT_FAILED → PENDING_PAYMENT -> 상태 변경 성공. 재결제 시도 전이")
+		void changeStatusFromPaymentFailedToPendingPayment() {
+			// Arrange
+			Order order = Order.reconstruct(1L, 100L, "req-123", new BigDecimal("200000"),
+				BigDecimal.ZERO, new BigDecimal("200000"), OrderStatus.PAYMENT_FAILED,
+				List.of(OrderItem.create(1L, "나이키 에어맥스", new BigDecimal("100000"), 2L)),
+				null, LocalDateTime.now());
+
+			// Act
+			order.changeStatus(OrderStatus.PENDING_PAYMENT);
+
+			// Assert
+			assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT);
+		}
+
+
+		@Test
+		@DisplayName("[Order.changeStatus()] null target -> NullPointerException. null 상태로 전이 불가")
+		void changeStatusWithNullTarget() {
+			// Arrange
+			List<OrderItem> items = List.of(
+				OrderItem.create(1L, "나이키 에어맥스", new BigDecimal("100000"), 2L)
+			);
+			Order order = Order.create(1L, "req-123", new BigDecimal("200000"), BigDecimal.ZERO, items, null);
+
+			// Act & Assert
+			assertThrows(NullPointerException.class,
+				() -> order.changeStatus(null));
 		}
 
 	}

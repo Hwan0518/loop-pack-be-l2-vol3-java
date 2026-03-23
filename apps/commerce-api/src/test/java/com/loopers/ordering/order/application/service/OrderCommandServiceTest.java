@@ -9,7 +9,9 @@ import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItem
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponApplier;
+import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponRestorer;
 import com.loopers.ordering.order.domain.model.Order;
+import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import com.loopers.ordering.order.domain.repository.OrderCommandRepository;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
@@ -49,12 +51,15 @@ class OrderCommandServiceTest {
 	@Mock
 	private OrderCartItemCleaner orderCartItemCleaner;
 
+	@Mock
+	private OrderCouponRestorer orderCouponRestorer;
+
 	private OrderCommandService orderCommandService;
 
 	@BeforeEach
 	void setUp() {
 		orderCommandService = new OrderCommandService(
-			orderCommandRepository, orderStockManager, orderCouponApplier, orderCartItemCleaner
+			orderCommandRepository, orderStockManager, orderCouponApplier, orderCartItemCleaner, orderCouponRestorer
 		);
 	}
 
@@ -84,7 +89,7 @@ class OrderCommandServiceTest {
 					Order order = invocation.getArgument(0);
 					return Order.reconstruct(
 						10L, order.getUserId(), order.getRequestId(), order.getOriginalTotalPrice(),
-						order.getDiscountAmount(), order.getTotalPrice(),
+						order.getDiscountAmount(), order.getTotalPrice(), order.getStatus(),
 						order.getItems(), order.getCouponSnapshot(), null
 					);
 				});
@@ -127,7 +132,7 @@ class OrderCommandServiceTest {
 					Order order = invocation.getArgument(0);
 					return Order.reconstruct(
 						10L, order.getUserId(), order.getRequestId(), order.getOriginalTotalPrice(),
-						order.getDiscountAmount(), order.getTotalPrice(),
+						order.getDiscountAmount(), order.getTotalPrice(), order.getStatus(),
 						order.getItems(), order.getCouponSnapshot(), null
 					);
 				});
@@ -197,7 +202,7 @@ class OrderCommandServiceTest {
 					Order order = invocation.getArgument(0);
 					return Order.reconstruct(
 						10L, order.getUserId(), order.getRequestId(), order.getOriginalTotalPrice(),
-						order.getDiscountAmount(), order.getTotalPrice(),
+						order.getDiscountAmount(), order.getTotalPrice(), order.getStatus(),
 						order.getItems(), order.getCouponSnapshot(), null
 					);
 				});

@@ -156,16 +156,40 @@ class ErrorTypeTest {
 			Arguments.of(ErrorType.COUPON_MIN_ORDER_AMOUNT_NOT_MET, HttpStatus.BAD_REQUEST,
 				"COUPON_MIN_ORDER_AMOUNT_NOT_MET", "최소 주문 금액 조건을 충족하지 못했습니다."),
 			Arguments.of(ErrorType.COUPON_ISSUE_DUPLICATED, HttpStatus.CONFLICT,
-				"COUPON_ISSUE_DUPLICATED", "이미 발급된 쿠폰입니다.")
+				"COUPON_ISSUE_DUPLICATED", "이미 발급된 쿠폰입니다."),
+
+			// Order - Payment 연동
+			Arguments.of(ErrorType.ORDER_NOT_PAYABLE, HttpStatus.BAD_REQUEST,
+				"ORDER_NOT_PAYABLE", "주문이 결제 가능한 상태가 아닙니다."),
+
+			// Payment
+			Arguments.of(ErrorType.PAYMENT_NOT_FOUND, HttpStatus.NOT_FOUND,
+				"PAYMENT_NOT_FOUND", "결제 정보를 찾을 수 없습니다."),
+			Arguments.of(ErrorType.PAYMENT_ALREADY_IN_PROGRESS, HttpStatus.CONFLICT,
+				"PAYMENT_ALREADY_IN_PROGRESS", "이미 결제가 진행 중입니다."),
+			Arguments.of(ErrorType.INVALID_CARD_TYPE, HttpStatus.BAD_REQUEST,
+				"INVALID_CARD_TYPE", "지원하지 않는 카드 타입입니다."),
+			Arguments.of(ErrorType.INVALID_CARD_NO, HttpStatus.BAD_REQUEST,
+				"INVALID_CARD_NO", "잘못된 카드번호 형식입니다."),
+
+			// PG 연동
+			Arguments.of(ErrorType.PG_BAD_REQUEST, HttpStatus.BAD_REQUEST,
+				"PG_BAD_REQUEST", "PG 요청이 올바르지 않습니다."),
+			Arguments.of(ErrorType.PG_REQUEST_FAILED, HttpStatus.BAD_GATEWAY,
+				"PG_REQUEST_FAILED", "PG 결제 요청에 실패했습니다."),
+			Arguments.of(ErrorType.PG_SERVICE_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE,
+				"PG_SERVICE_UNAVAILABLE", "PG 서비스를 일시적으로 사용할 수 없습니다."),
+			Arguments.of(ErrorType.PG_TIMEOUT, HttpStatus.GATEWAY_TIMEOUT,
+				"PG_TIMEOUT", "PG 응답 시간이 초과되었습니다.")
 		);
 	}
 
 
 	@Test
-	@DisplayName("[ErrorType] enum 상수 개수가 53개임을 보장")
+	@DisplayName("[ErrorType] enum 상수 개수가 63개임을 보장")
 	void enumConstantCount() {
 		// Assert
-		assertThat(ErrorType.values()).hasSize(54);
+		assertThat(ErrorType.values()).hasSize(63);
 	}
 
 

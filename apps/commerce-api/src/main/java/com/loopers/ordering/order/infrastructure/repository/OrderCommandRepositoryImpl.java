@@ -2,6 +2,7 @@ package com.loopers.ordering.order.infrastructure.repository;
 
 
 import com.loopers.ordering.order.domain.model.Order;
+import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import com.loopers.ordering.order.domain.repository.OrderCommandRepository;
 import com.loopers.ordering.order.infrastructure.entity.OrderEntity;
 import com.loopers.ordering.order.infrastructure.entity.OrderItemEntity;
@@ -30,6 +31,7 @@ public class OrderCommandRepositoryImpl implements OrderCommandRepository {
 	/**
 	 * 주문 명령 리포지토리 구현체
 	 * 1. 주문 저장 (주문 + 주문 항목 함께 저장)
+	 * 2. 주문 상태 변경 (JPQL UPDATE)
 	 */
 
 	// 1. 주문 저장 (주문 + 주문 항목 함께 저장)
@@ -46,6 +48,13 @@ public class OrderCommandRepositoryImpl implements OrderCommandRepository {
 
 		// 도메인 변환 후 반환
 		return orderMapper.toDomain(savedOrderEntity, savedItemEntities);
+	}
+
+
+	// 2. 주문 상태 변경 (CAS — 현재 status 검증 포함)
+	@Override
+	public int updateStatus(Long orderId, OrderStatus currentStatus, OrderStatus newStatus) {
+		return orderJpaRepository.updateStatus(orderId, currentStatus, newStatus);
 	}
 
 }

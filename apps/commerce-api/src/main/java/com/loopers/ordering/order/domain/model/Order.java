@@ -1,6 +1,7 @@
 package com.loopers.ordering.order.domain.model;
 
 
+import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import com.loopers.ordering.order.domain.model.vo.CouponSnapshot;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
@@ -23,6 +24,7 @@ public class Order {
 	 * - originalTotalPrice: 쿠폰 적용 전 총액
 	 * - discountAmount: 할인 금액 (0 = 쿠폰 미사용)
 	 * - totalPrice: 최종 결제 금액 (= originalTotalPrice - discountAmount)
+	 * - status: 주문 상태 (PENDING_PAYMENT → PAID / PAYMENT_FAILED / EXPIRED)
 	 * - items: 주문 항목 목록
 	 * - couponSnapshot: 적용된 쿠폰 스냅샷 (nullable)
 	 * - createdAt: 주문 생성 일시
@@ -34,6 +36,7 @@ public class Order {
 	private final BigDecimal originalTotalPrice;
 	private final BigDecimal discountAmount;
 	private final BigDecimal totalPrice;
+	private OrderStatus status;
 	private final List<OrderItem> items;
 	private final CouponSnapshot couponSnapshot;
 	private final LocalDateTime createdAt;
@@ -41,13 +44,15 @@ public class Order {
 
 	// 생성자
 	private Order(Long id, Long userId, String requestId, BigDecimal originalTotalPrice, BigDecimal discountAmount,
-		BigDecimal totalPrice, List<OrderItem> items, CouponSnapshot couponSnapshot, LocalDateTime createdAt) {
+		BigDecimal totalPrice, OrderStatus status, List<OrderItem> items, CouponSnapshot couponSnapshot,
+		LocalDateTime createdAt) {
 		this.id = id;
 		this.userId = userId;
 		this.requestId = requestId;
 		this.originalTotalPrice = originalTotalPrice;
 		this.discountAmount = discountAmount;
 		this.totalPrice = totalPrice;
+		this.status = status;
 		this.items = items;
 		this.couponSnapshot = couponSnapshot;
 		this.createdAt = createdAt;
@@ -58,9 +63,10 @@ public class Order {
 	 * 도메인 로직
 	 * 1. 주문 생성
 	 * 2. 주문 재생성 (Entity -> Model 매핑용도)
+	 * 3. 주문 상태 변경
 	 */
 
-	// 1. 주문 생성 (쿠폰 적용 포함)
+	// 1. 주문 생성 (쿠폰 적용 포함, 초기 상태: PENDING_PAYMENT)
 	public static Order create(Long userId, String requestId, BigDecimal originalTotalPrice, BigDecimal discountAmount,
 		List<OrderItem> items, CouponSnapshot couponSnapshot) {
 
@@ -85,14 +91,30 @@ public class Order {
 		// items 검증
 		validateItems(items);
 
-		return new Order(null, userId, requestId, originalTotalPrice, resolvedDiscount, totalPrice, items, couponSnapshot, null);
+		return new Order(null, userId, requestId, originalTotalPrice, resolvedDiscount, totalPrice,
+			OrderStatus.PENDING_PAYMENT, items, couponSnapshot, null);
 	}
 
 
 	// 2. 주문 재생성 (Entity -> Model 매핑용도)
 	public static Order reconstruct(Long id, Long userId, String requestId, BigDecimal originalTotalPrice, BigDecimal discountAmount,
-		BigDecimal totalPrice, List<OrderItem> items, CouponSnapshot couponSnapshot, LocalDateTime createdAt) {
-		return new Order(id, userId, requestId, originalTotalPrice, discountAmount, totalPrice, items, couponSnapshot, createdAt);
+		BigDecimal totalPrice, OrderStatus status, List<OrderItem> items, CouponSnapshot couponSnapshot, LocalDateTime createdAt) {
+		return new Order(id, userId, requestId, originalTotalPrice, discountAmount, totalPrice, status, items, couponSnapshot, createdAt);
+	}
+
+
+	// 3. 주문 상태 변경 (허용된 전이만 가능)
+	public void changeStatus(OrderStatus target) {
+
+		// target null 검증
+		Objects.requireNonNull(target, "target status");
+
+		// 상태 전이 가능 여부 검증
+		if (!this.status.canTransitionTo(target)) {
+			throw new CoreException(ErrorType.ORDER_NOT_PAYABLE);
+		}
+
+		this.status = target;
 	}
 
 
@@ -119,7 +141,7 @@ public class Order {
 	}
 
 
-	// 2. 주문 항목 검증
+	// 주문 항목 검증
 	private static void validateItems(List<OrderItem> items) {
 		if (items == null || items.isEmpty()) {
 			throw new CoreException(ErrorType.ORDER_EMPTY_ITEMS);

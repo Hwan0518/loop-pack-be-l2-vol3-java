@@ -2,6 +2,7 @@ package com.loopers.ordering.order.infrastructure.repository;
 
 
 import com.loopers.ordering.order.domain.model.Order;
+import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import com.loopers.ordering.order.domain.repository.OrderQueryRepository;
 import com.loopers.ordering.order.domain.repository.vo.PageCriteria;
 import com.loopers.ordering.order.domain.repository.vo.PageResult;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -39,9 +41,11 @@ public class OrderQueryRepositoryImpl implements OrderQueryRepository {
 	/**
 	 * 주문 조회 리포지토리 구현체
 	 * 1. ID로 주문 조회
-	 * 2. 사용자별 주문 목록 조회 (페이지네이션)
+	 * 2. 사용자별 주문 목록 조회 (페이지네이션, 날짜 필터)
 	 * 3. 전체 주문 목록 조회 (관리자, 페이지네이션)
 	 * 4. userId + requestId로 주문 조회 (멱등성 확인)
+	 * 5. ID로 주문 조회 (비관적 쓰기 락)
+	 * 6. 만료 대상 주문 목록 조회
 	 */
 
 	// 1. ID로 주문 조회
@@ -116,12 +120,41 @@ public class OrderQueryRepositoryImpl implements OrderQueryRepository {
 	}
 
 
+	// 5. ID로 주문 조회 (비관적 쓰기 락)
+	@Override
+	public Optional<Order> findByIdForUpdate(Long id) {
+		return orderJpaRepository.findByIdForUpdate(id)
+			.map(orderEntity -> {
+				List<OrderItemEntity> itemEntities = orderItemJpaRepository.findByOrderId(orderEntity.getId());
+				return orderMapper.toDomain(orderEntity, itemEntities);
+			});
+	}
+
+
+	// 6. 만료 대상 주문 목록 조회
+	@Override
+	public List<Order> findExpirableOrders(LocalDateTime expirationThreshold) {
+
+		// LocalDateTime → ZonedDateTime 변환
+		ZonedDateTime threshold = expirationThreshold.atZone(ZoneId.systemDefault());
+
+		// 만료 대상 상태: PENDING_PAYMENT, PAYMENT_FAILED
+		List<OrderStatus> expirableStatuses = List.of(OrderStatus.PENDING_PAYMENT, OrderStatus.PAYMENT_FAILED);
+
+		// 만료 대상 주문 조회
+		List<OrderEntity> orderEntities = orderJpaRepository.findByStatusInAndCreatedAtBefore(expirableStatuses, threshold);
+
+		// 주문 항목 일괄 로딩
+		return loadOrdersWithItems(orderEntities);
+	}
+
+
 	/**
-	 * private 메서드
-	 * 1. 주문 목록에 주문 항목 일괄 로딩
+	 * private method
+	 * - 주문 목록에 주문 항목 일괄 로딩
 	 */
 
-	// 1. 주문 목록에 주문 항목 일괄 로딩
+	// 주문 목록에 주문 항목 일괄 로딩
 	private List<Order> loadOrdersWithItems(List<OrderEntity> orderEntities) {
 
 		// 주문 ID 목록 추출

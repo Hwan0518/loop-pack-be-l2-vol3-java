@@ -1,0 +1,29 @@
+### 결제 요청
+POST {{commerce-api}}/api/v1/payments
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Test1234!
+Content-Type: application/json
+
+{
+  "orderId": 1,
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9012-3456"
+}
+
+### 결제 콜백 (PG 시뮬레이터가 호출)
+POST {{commerce-api}}/api/v1/payments/callback
+Content-Type: application/json
+
+{
+  "transactionKey": "20260317:TR:abc123",
+  "orderId": "1",
+  "cardType": "SAMSUNG",
+  "cardNo": "1234-5678-9012-3456",
+  "amount": 20000,
+  "status": "SUCCESS",
+  "reason": "정상 승인되었습니다."
+}
+
+### 결제 수동 복구 (관리자 — LDAP 인증 필요)
+POST {{commerce-api}}/api-admin/v1/payments/1/recover
+X-Loopers-Ldap: admin-ldap-token
