@@ -2,6 +2,7 @@ package com.loopers.support.outbox.infrastructure.jpa;
 
 
 import com.loopers.support.outbox.infrastructure.entity.OutboxEventStreamerEntity;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,8 +17,7 @@ public interface OutboxEventStreamerJpaRepository extends JpaRepository<OutboxEv
 
 	@Query("SELECT e FROM OutboxEventStreamerEntity e " +
 		"WHERE e.status IN ('PENDING', 'FAILED') AND e.retryCount < :maxRetry " +
-		"ORDER BY e.createdAt ASC " +
-		"LIMIT :limit")
-	List<OutboxEventStreamerEntity> findRetryableEvents(@Param("maxRetry") int maxRetry, @Param("limit") int limit);
+		"ORDER BY e.createdAt ASC")
+	List<OutboxEventStreamerEntity> findRetryableEvents(@Param("maxRetry") int maxRetry, Pageable pageable);
 
 }

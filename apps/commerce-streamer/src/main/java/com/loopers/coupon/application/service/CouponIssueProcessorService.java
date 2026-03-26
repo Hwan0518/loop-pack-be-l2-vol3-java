@@ -55,6 +55,28 @@ public class CouponIssueProcessorService {
 		}
 		StreamerCouponIssueRequestEntity issueRequest = requestOpt.get();
 
+		// 템플릿 존재/삭제/만료 검증
+		Optional<StreamerCouponTemplateEntity> templateOpt = couponTemplateJpaRepository.findById(couponTemplateId);
+		if (templateOpt.isEmpty()) {
+			issueRequest.reject("COUPON_TEMPLATE_NOT_FOUND");
+			eventIdempotencyService.markHandled(eventId, CONSUMER_GROUP);
+			log.warn("[CouponIssue] 템플릿 없음 requestId={} templateId={}", requestId, couponTemplateId);
+			return;
+		}
+		StreamerCouponTemplateEntity template = templateOpt.get();
+		if (template.isDeleted()) {
+			issueRequest.reject("COUPON_TEMPLATE_DELETED");
+			eventIdempotencyService.markHandled(eventId, CONSUMER_GROUP);
+			log.info("[CouponIssue] 삭제된 템플릿 거부 requestId={}", requestId);
+			return;
+		}
+		if (template.isExpired()) {
+			issueRequest.reject("COUPON_EXPIRED");
+			eventIdempotencyService.markHandled(eventId, CONSUMER_GROUP);
+			log.info("[CouponIssue] 만료된 템플릿 거부 requestId={}", requestId);
+			return;
+		}
+
 		// 중복 발급 검사
 		if (issuedCouponJpaRepository.existsByUserIdAndCouponTemplateId(userId, couponTemplateId)) {
 			issueRequest.reject("COUPON_ISSUE_DUPLICATED");
@@ -64,14 +86,13 @@ public class CouponIssueProcessorService {
 		}
 
 		// 수량 확인
-		Optional<StreamerCouponTemplateEntity> templateOpt = couponTemplateJpaRepository.findById(couponTemplateId);
-		if (templateOpt.isPresent() && templateOpt.get().getMaxQuantity() != null) {
+		if (template.getMaxQuantity() != null) {
 			long issuedCount = issuedCouponJpaRepository.countByCouponTemplateId(couponTemplateId);
-			if (issuedCount >= templateOpt.get().getMaxQuantity()) {
+			if (issuedCount >= template.getMaxQuantity()) {
 				issueRequest.reject("COUPON_SOLD_OUT");
 				eventIdempotencyService.markHandled(eventId, CONSUMER_GROUP);
 				log.info("[CouponIssue] 수량 초과 거부 requestId={} issued={} max={}",
-					requestId, issuedCount, templateOpt.get().getMaxQuantity());
+					requestId, issuedCount, template.getMaxQuantity());
 				return;
 			}
 		}

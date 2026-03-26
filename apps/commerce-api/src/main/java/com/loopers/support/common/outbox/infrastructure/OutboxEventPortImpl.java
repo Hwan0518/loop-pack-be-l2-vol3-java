@@ -6,6 +6,7 @@ import com.loopers.support.common.outbox.application.port.OutboxEventPort;
 import com.loopers.support.common.outbox.infrastructure.entity.OutboxEventApiEntity;
 import com.loopers.support.common.outbox.infrastructure.jpa.OutboxEventApiJpaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,7 +45,7 @@ public class OutboxEventPortImpl implements OutboxEventPort {
 	// 2. 재시도 가능 이벤트 조회
 	@Override
 	public List<OutboxEventDto> findRetryableEvents(int limit) {
-		return outboxJpaRepository.findRetryableEvents(MAX_RETRY, limit).stream()
+		return outboxJpaRepository.findRetryableEvents(MAX_RETRY, PageRequest.of(0, limit)).stream()
 			.map(e -> new OutboxEventDto(
 				e.getId(), e.getAggregateType(), e.getAggregateId(),
 				e.getEventType(), e.getTopic(), e.getPartitionKey(),

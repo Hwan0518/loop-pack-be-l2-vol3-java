@@ -50,9 +50,9 @@ resilience4j:
         permitted-number-of-calls-in-half-open-state: 3  # HALF_OPEN에서 3건 시험 호출 허용
         automatic-transition-from-open-to-half-open-enabled: true  # waitDuration 후 자동 HALF_OPEN 전환
         record-exceptions:                         # 서킷 실패로 기록할 예외 (PG 장애 징후)
-          - com.loopers.payment.payment.infrastructure.pg.exception.PgRequestFailedException
-          - com.loopers.payment.payment.infrastructure.pg.exception.PgConnectionTimeoutException
-          - com.loopers.payment.payment.infrastructure.pg.exception.PgReadTimeoutException
+          - com.loopers.payment.payment.application.port.out.client.pg.exception.PgRequestFailedException
+          - com.loopers.payment.payment.application.port.out.client.pg.exception.PgConnectionTimeoutException
+          - com.loopers.payment.payment.application.port.out.client.pg.exception.PgReadTimeoutException
         ignore-exceptions:                         # 서킷 판단에서 제외할 예외 (PG 장애가 아닌 요청 오류)
           - org.springframework.web.client.HttpClientErrorException
       # === PG 조회 전용 서킷브레이커 ===
@@ -69,9 +69,9 @@ resilience4j:
         permitted-number-of-calls-in-half-open-state: 3  # HALF_OPEN에서 3건 시험 호출 허용
         automatic-transition-from-open-to-half-open-enabled: true  # waitDuration 후 자동 HALF_OPEN 전환
         record-exceptions:                         # 서킷 실패로 기록할 예외
-          - com.loopers.payment.payment.infrastructure.pg.exception.PgRequestFailedException
-          - com.loopers.payment.payment.infrastructure.pg.exception.PgConnectionTimeoutException
-          - com.loopers.payment.payment.infrastructure.pg.exception.PgReadTimeoutException
+          - com.loopers.payment.payment.application.port.out.client.pg.exception.PgRequestFailedException
+          - com.loopers.payment.payment.application.port.out.client.pg.exception.PgConnectionTimeoutException
+          - com.loopers.payment.payment.application.port.out.client.pg.exception.PgReadTimeoutException
         ignore-exceptions:                         # 서킷 판단에서 제외할 예외
           - org.springframework.web.client.HttpClientErrorException
   retry:
@@ -83,10 +83,10 @@ resilience4j:
         exponential-backoff-multiplier: 2
         enable-randomized-wait: true
         retry-exceptions:
-          - com.loopers.payment.payment.infrastructure.pg.exception.PgRequestFailedException
-          - com.loopers.payment.payment.infrastructure.pg.exception.PgConnectionTimeoutException
+          - com.loopers.payment.payment.application.port.out.client.pg.exception.PgRequestFailedException
+          - com.loopers.payment.payment.application.port.out.client.pg.exception.PgConnectionTimeoutException
         ignore-exceptions:
-          - com.loopers.payment.payment.infrastructure.pg.exception.PgReadTimeoutException
+          - com.loopers.payment.payment.application.port.out.client.pg.exception.PgReadTimeoutException
           - io.github.resilience4j.circuitbreaker.CallNotPermittedException
 
 springdoc:

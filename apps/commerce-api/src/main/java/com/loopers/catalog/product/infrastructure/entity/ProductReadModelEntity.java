@@ -73,7 +73,7 @@ public class ProductReadModelEntity {
 	@Column(name = "like_count", nullable = false)
 	private Long likeCount;
 
-	@Column(name = "metrics_version", nullable = false)
+	@Column(name = "metrics_version", nullable = false, columnDefinition = "bigint default 0")
 	private Long metricsVersion;
 
 	@Column(name = "created_at", nullable = false)

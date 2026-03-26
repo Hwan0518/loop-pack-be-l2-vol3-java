@@ -84,6 +84,11 @@ public class CouponTemplate {
 			validateFixedMinOrderAmount(value, minOrderAmount);
 		}
 
+		// maxQuantity 검증 (null 허용 = 무제한, 양수만 허용)
+		if (maxQuantity != null && maxQuantity <= 0) {
+			throw new CoreException(ErrorType.BAD_REQUEST, "maxQuantity는 1 이상이어야 합니다.");
+		}
+
 		return new CouponTemplate(null, name, type, value, minOrderAmount, maxQuantity, expiredAt, null);
 	}
 

@@ -6,6 +6,7 @@ import com.loopers.support.common.outbox.application.port.OutboxEventPort;
 import com.loopers.support.outbox.infrastructure.entity.OutboxEventStreamerEntity;
 import com.loopers.support.outbox.infrastructure.jpa.OutboxEventStreamerJpaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +35,7 @@ public class OutboxEventStreamerPortImpl implements OutboxEventPort {
 
 	@Override
 	public List<OutboxEventDto> findRetryableEvents(int limit) {
-		return outboxJpaRepository.findRetryableEvents(MAX_RETRY, limit).stream()
+		return outboxJpaRepository.findRetryableEvents(MAX_RETRY, PageRequest.of(0, limit)).stream()
 			.map(e -> new OutboxEventDto(
 				e.getId(), e.getAggregateType(), e.getAggregateId(),
 				e.getEventType(), e.getTopic(), e.getPartitionKey(),

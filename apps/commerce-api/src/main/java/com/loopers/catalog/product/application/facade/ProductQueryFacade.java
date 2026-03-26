@@ -3,13 +3,9 @@ package com.loopers.catalog.product.application.facade;
 
 import com.loopers.catalog.product.application.dto.out.*;
 import com.loopers.catalog.product.application.service.ProductQueryService;
-import com.loopers.catalog.product.domain.event.ProductViewedEvent;
 import com.loopers.catalog.product.domain.model.Product;
 import com.loopers.catalog.product.domain.model.enums.ProductSortType;
-import com.loopers.support.common.outbox.application.port.OutboxEventPort;
-import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,11 +18,6 @@ public class ProductQueryFacade {
 
 	// service
 	private final ProductQueryService productQueryService;
-	// outbox (D7: 조회 Facade에서 같은 TX로 outbox 저장 — Query Service에 쓰기를 넣지 않기 위한 설계 결정)
-	private final OutboxEventPort outboxEventPort;
-	private final JsonSerializer jsonSerializer;
-	// event
-	private final ApplicationEventPublisher eventPublisher;
 
 
 	/**
@@ -46,14 +37,8 @@ public class ProductQueryFacade {
 		// Read Model에서 ProductCacheDto → ProductDetailOutDto 변환 (캐시 적용)
 		ProductDetailOutDto result = productQueryService.getOrLoadProductDetail(id);
 
-		// Outbox 저장 (같은 TX — At Least Once 보장, D7)
-		outboxEventPort.save("PRODUCT", String.valueOf(id), "PRODUCT_VIEWED",
-			"catalog-events", String.valueOf(id),
-			jsonSerializer.toJson(ProductViewedPayload.of(userId, id)));
-
-		// 상품 조회 이벤트 발행 (userId nullable — 비로그인 조회 포함)
-		// → [UserActionEventListener] VIEW 로깅 (Step 1), Step 2 이후 제거
-		eventPublisher.publishEvent(ProductViewedEvent.of(userId, id));
+		// VIEW Outbox 저장 (같은 TX — At Least Once 보장, D7)
+		productQueryService.saveViewOutbox(userId, id);
 
 		return result;
 	}

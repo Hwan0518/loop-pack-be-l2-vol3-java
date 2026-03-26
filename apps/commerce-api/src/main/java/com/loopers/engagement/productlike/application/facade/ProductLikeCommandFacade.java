@@ -3,11 +3,8 @@ package com.loopers.engagement.productlike.application.facade;
 
 import com.loopers.engagement.productlike.application.dto.out.ProductLikeOutDto;
 import com.loopers.engagement.productlike.application.service.ProductLikeCommandService;
-import com.loopers.engagement.productlike.domain.event.ProductLikedEvent;
-import com.loopers.engagement.productlike.domain.event.ProductUnlikedEvent;
 import com.loopers.engagement.productlike.domain.model.ProductLike;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,8 +17,6 @@ public class ProductLikeCommandFacade {
 
 	// service
 	private final ProductLikeCommandService productLikeCommandService;
-	// event
-	private final ApplicationEventPublisher eventPublisher;
 
 
 	/**
@@ -41,12 +36,8 @@ public class ProductLikeCommandFacade {
 			return ProductLikeOutDto.from(existing.get());
 		}
 
-		// 좋아요 생성 (0.01% 레이스 시 DB 유니크 제약이 안전망 역할 — 500 → 클라이언트 재시도 → 사전 조회에서 멱등 반환)
+		// 좋아요 생성 + Outbox 저장 (Service 내부에서 처리)
 		ProductLike productLike = productLikeCommandService.createLike(userId, targetId);
-
-		// 좋아요 이벤트 발행 → [ProductLikeEventListener] likeCount 증가 (eventual consistency)
-		// → [UserActionEventListener] LIKE 로깅
-		eventPublisher.publishEvent(ProductLikedEvent.from(productLike));
 
 		return ProductLikeOutDto.from(productLike);
 	}
@@ -56,11 +47,8 @@ public class ProductLikeCommandFacade {
 	@Transactional
 	public void deleteLike(Long userId, Long targetId) {
 
-		// 좋아요 삭제
+		// 좋아요 삭제 + Outbox 저장 (Service 내부에서 처리)
 		productLikeCommandService.deleteLike(userId, targetId);
-
-		// 좋아요 삭제 이벤트 발행 → [ProductLikeEventListener] likeCount 감소 (eventual consistency)
-		eventPublisher.publishEvent(ProductUnlikedEvent.of(userId, targetId));
 	}
 
 

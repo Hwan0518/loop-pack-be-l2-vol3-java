@@ -2,7 +2,7 @@ package com.loopers.coupon.issuedcoupon.interfaces.web.controller;
 
 
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponIssueRequestOutDto;
-import com.loopers.coupon.issuedcoupon.application.service.CouponIssueRequestCommandService;
+import com.loopers.coupon.issuedcoupon.application.facade.CouponIssueRequestFacade;
 import com.loopers.coupon.issuedcoupon.interfaces.web.request.CouponIssueRequestCreateRequest;
 import com.loopers.coupon.issuedcoupon.interfaces.web.response.CouponIssueRequestResponse;
 import com.loopers.support.common.auth.AuthenticationResolver;
@@ -24,8 +24,8 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class CouponIssueRequestController {
 
-	// service
-	private final CouponIssueRequestCommandService couponIssueRequestCommandService;
+	// facade
+	private final CouponIssueRequestFacade couponIssueRequestFacade;
 	// auth
 	private final AuthenticationResolver authenticationResolver;
 
@@ -42,7 +42,7 @@ public class CouponIssueRequestController {
 		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// 발급 요청 생성
-		CouponIssueRequestOutDto outDto = couponIssueRequestCommandService.createIssueRequest(
+		CouponIssueRequestOutDto outDto = couponIssueRequestFacade.createIssueRequest(
 			userId, request.couponTemplateId(), request.requestId());
 
 		// 202 Accepted (requestId 포함)
@@ -62,7 +62,7 @@ public class CouponIssueRequestController {
 		Long userId = authenticationResolver.resolve(loginId, password);
 
 		// 결과 조회
-		CouponIssueRequestOutDto outDto = couponIssueRequestCommandService.getIssueRequest(requestId, userId);
+		CouponIssueRequestOutDto outDto = couponIssueRequestFacade.getIssueRequest(requestId, userId);
 
 		// 200 OK
 		return ResponseEntity.ok(CouponIssueRequestResponse.from(outDto));

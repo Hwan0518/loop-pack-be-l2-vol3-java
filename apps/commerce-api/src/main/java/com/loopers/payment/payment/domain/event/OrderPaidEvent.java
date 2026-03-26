@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * 주문 결제 완료 이벤트
- * @subscriber UserActionEventListener - 유저 행동 로깅 (PAYMENT)
+ * @kafka ORDER_PAID → MetricsCollectorConsumer (sales_count), UserActionLogConsumer
  */
 public record OrderPaidEvent(
 	Long orderId,

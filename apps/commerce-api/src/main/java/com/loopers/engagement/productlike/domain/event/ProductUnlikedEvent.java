@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 
 /**
  * 상품 좋아요 삭제 이벤트
- * @subscriber ProductLikeEventListener - likeCount 감소 (eventual consistency)
+ * @kafka PRODUCT_UNLIKED → MetricsCollectorConsumer (like_count)
  */
 public record ProductUnlikedEvent(
 	Long userId,

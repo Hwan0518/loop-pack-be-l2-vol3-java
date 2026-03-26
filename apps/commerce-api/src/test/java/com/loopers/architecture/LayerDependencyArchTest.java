@@ -22,8 +22,11 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
  * 5. Repository interface purity
  * 6. Domain service purity
  * 7. Cross-BC boundary
- * 8. Service -> Service prohibition
- * 9. ACL thin adapter (Facade-only, no Service/Repository/Entity direct access, no error mapping)
+ * 8. Facade -> EventPublisher prohibition
+ * 9. Service -> infrastructure prohibition
+ * 10. (reserved)
+ * 11. Service -> Service prohibition
+ * 12. ACL thin adapter (Facade-only, no Service/Repository/Entity direct access, no error mapping)
  */
 @DisplayName("아키텍처 의존성 규칙 검증")
 class LayerDependencyArchTest {
@@ -225,7 +228,48 @@ class LayerDependencyArchTest {
 	}
 
 
-	// 8. Service -> Service prohibition
+	// 8. Facade -> EventPublisher prohibition
+	@Nested
+	@DisplayName("Facade EventPublisher 규칙")
+	class FacadeEventPublisherDependency {
+
+		@Test
+		@DisplayName("[facade] facade는 ApplicationEventPublisher를 직접 사용하지 않는다 (Service에서 발행)")
+		void facadeShouldNotDependOnEventPublisher() {
+			noClasses()
+				.that().resideInAnyPackage("..application.facade..")
+				.should().dependOnClassesThat().haveFullyQualifiedName("org.springframework.context.ApplicationEventPublisher")
+				.check(importedClasses);
+		}
+	}
+
+
+	// 9. Service -> infrastructure prohibition
+	@Nested
+	@DisplayName("Service infrastructure 의존 규칙")
+	class ServiceInfrastructureDependency {
+
+		@Test
+		@DisplayName("[service] service는 infrastructure.jpa를 직접 참조하지 않는다 (Domain Repository를 통해 접근)")
+		void serviceShouldNotDependOnJpaRepository() {
+			noClasses()
+				.that().resideInAnyPackage("..application.service..")
+				.should().dependOnClassesThat().resideInAnyPackage("..infrastructure.jpa..")
+				.check(importedClasses);
+		}
+
+		@Test
+		@DisplayName("[service] service는 infrastructure.entity를 직접 참조하지 않는다 (Domain Model을 통해 접근)")
+		void serviceShouldNotDependOnEntity() {
+			noClasses()
+				.that().resideInAnyPackage("..application.service..")
+				.should().dependOnClassesThat().resideInAnyPackage("..infrastructure.entity..")
+				.check(importedClasses);
+		}
+	}
+
+
+	// 11. Service -> Service prohibition
 	@Nested
 	@DisplayName("Service 의존 규칙")
 	class ServiceDependency {
@@ -242,7 +286,7 @@ class LayerDependencyArchTest {
 	}
 
 
-	// 9. ACL thin adapter
+	// 12. ACL thin adapter
 	@Nested
 	@DisplayName("ACL 의존 규칙")
 	class AclDependency {

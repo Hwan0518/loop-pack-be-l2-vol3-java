@@ -21,14 +21,12 @@ import com.loopers.payment.payment.domain.repository.PaymentCommandRepository;
 import com.loopers.payment.payment.domain.repository.PaymentQueryRepository;
 import com.loopers.ordering.order.application.dto.out.OrderItemPayload;
 import com.loopers.ordering.order.application.dto.out.OrderPaidPayload;
-import com.loopers.payment.payment.domain.event.OrderPaidEvent;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.support.common.outbox.application.port.OutboxEventPort;
 import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,8 +48,6 @@ public class PaymentCommandService {
 	// outbox
 	private final OutboxEventPort outboxEventPort;
 	private final JsonSerializer jsonSerializer;
-	// event
-	private final ApplicationEventPublisher eventPublisher;
 	// config
 	private final String callbackUrl;
 
@@ -63,7 +59,6 @@ public class PaymentCommandService {
 		PgPaymentGateway pgPaymentGateway,
 		OutboxEventPort outboxEventPort,
 		JsonSerializer jsonSerializer,
-		ApplicationEventPublisher eventPublisher,
 		@Value("${payment.pg.callback-url}") String callbackUrl
 	) {
 		this.paymentCommandRepository = paymentCommandRepository;
@@ -73,7 +68,6 @@ public class PaymentCommandService {
 		this.pgPaymentGateway = pgPaymentGateway;
 		this.outboxEventPort = outboxEventPort;
 		this.jsonSerializer = jsonSerializer;
-		this.eventPublisher = eventPublisher;
 		this.callbackUrl = callbackUrl;
 	}
 
@@ -303,14 +297,6 @@ public class PaymentCommandService {
 					itemPayloads, payment.getAmount(), java.time.LocalDateTime.now()
 				)));
 
-			// 결제 완료 이벤트 발행 → [UserActionEventListener] PAYMENT 로깅
-			List<OrderPaidEvent.OrderPaidItemSnapshot> items = orderItems.stream()
-				.map(item -> new OrderPaidEvent.OrderPaidItemSnapshot(item.productId(), item.quantity()))
-				.toList();
-			eventPublisher.publishEvent(OrderPaidEvent.of(
-				payment.getOrderId(), payment.getUserId(), payment.getId(),
-				items, payment.getAmount()
-			));
 		} else if ("FAILED".equals(pgStatus)) {
 			// 결제 실패
 			payment.fail(reason);

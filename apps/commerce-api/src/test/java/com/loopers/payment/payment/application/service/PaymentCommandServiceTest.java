@@ -6,7 +6,6 @@ import com.loopers.payment.payment.application.port.out.client.order.PaymentOrde
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderReader;
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderStatusManager;
 import com.loopers.payment.payment.application.port.out.client.pg.PgPaymentGateway;
-import com.loopers.payment.payment.domain.event.OrderPaidEvent;
 import com.loopers.payment.payment.domain.model.Payment;
 import com.loopers.payment.payment.domain.model.enums.CardType;
 import com.loopers.payment.payment.domain.model.enums.PaymentStatus;
@@ -21,10 +20,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -56,9 +53,6 @@ class PaymentCommandServiceTest {
 	private OutboxEventPort outboxEventPort;
 	@Mock
 	private JsonSerializer jsonSerializer;
-	@Mock
-	private ApplicationEventPublisher eventPublisher;
-
 	private PaymentCommandService paymentCommandService;
 
 	@BeforeEach
@@ -67,7 +61,7 @@ class PaymentCommandServiceTest {
 			paymentCommandRepository, paymentQueryRepository,
 			paymentOrderReader, paymentOrderStatusManager,
 			pgPaymentGateway, outboxEventPort, jsonSerializer,
-			eventPublisher, "http://localhost:8080/callback"
+			"http://localhost:8080/callback"
 		);
 	}
 
@@ -214,7 +208,7 @@ class PaymentCommandServiceTest {
 	class UpdatePaymentResultTest {
 
 		@Test
-		@DisplayName("[updatePaymentResult()] PG SUCCESS -> Payment SUCCESS + Order PAID + OrderPaidEvent 발행")
+		@DisplayName("[updatePaymentResult()] PG SUCCESS -> Payment SUCCESS + Order PAID + Outbox 저장")
 		void updatePaymentResultSuccess() {
 			// Arrange
 			Payment payment = Payment.reconstruct(10L, 100L, 1L, "PGO-test", CardType.SAMSUNG, "1234-5678-9012-3456",
@@ -228,23 +222,11 @@ class PaymentCommandServiceTest {
 			paymentCommandService.updatePaymentResult("tx-123", "SUCCESS", null);
 
 			// Assert
-			ArgumentCaptor<OrderPaidEvent> eventCaptor = ArgumentCaptor.forClass(OrderPaidEvent.class);
 			assertAll(
 				() -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS),
 				() -> verify(paymentOrderStatusManager).markOrderPaid(1L),
 				() -> verify(paymentOrderReader).findOrderItems(1L),
-				() -> verify(eventPublisher).publishEvent(eventCaptor.capture())
-			);
-
-			OrderPaidEvent event = eventCaptor.getValue();
-			assertAll(
-				() -> assertThat(event.orderId()).isEqualTo(1L),
-				() -> assertThat(event.userId()).isEqualTo(100L),
-				() -> assertThat(event.paymentId()).isEqualTo(10L),
-				() -> assertThat(event.items()).hasSize(1),
-				() -> assertThat(event.items().get(0).productId()).isEqualTo(1L),
-				() -> assertThat(event.items().get(0).quantity()).isEqualTo(2L),
-				() -> assertThat(event.totalPrice()).isEqualByComparingTo(new BigDecimal("200000"))
+				() -> verify(outboxEventPort).save(any(), any(), any(), any(), any(), any())
 			);
 		}
 

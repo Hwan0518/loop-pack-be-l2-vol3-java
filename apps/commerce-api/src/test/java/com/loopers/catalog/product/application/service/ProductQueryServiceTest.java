@@ -42,6 +42,9 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.loopers.support.common.outbox.application.port.OutboxEventPort;
+import com.loopers.support.common.outbox.application.util.JsonSerializer;
+
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ProductQueryService 단위 테스트")
@@ -54,6 +57,10 @@ class ProductQueryServiceTest {
 	@Mock
 	private ProductQueryPort productQueryPort;
 	@Mock
+	private OutboxEventPort outboxEventPort;
+	@Mock
+	private JsonSerializer jsonSerializer;
+	@Mock
 	private ProductCacheManager productCacheManager;
 
 	private ProductQueryService productQueryService;
@@ -62,7 +69,8 @@ class ProductQueryServiceTest {
 	@BeforeEach
 	void setUp() {
 		productQueryService = new ProductQueryService(
-			productQueryRepository, productReadModelRepository, productQueryPort, productCacheManager
+			productQueryRepository, productReadModelRepository, productQueryPort,
+			outboxEventPort, jsonSerializer, productCacheManager
 		);
 	}
 

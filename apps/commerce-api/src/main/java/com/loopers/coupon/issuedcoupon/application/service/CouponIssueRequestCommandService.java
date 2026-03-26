@@ -3,8 +3,9 @@ package com.loopers.coupon.issuedcoupon.application.service;
 
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponIssueRequestOutDto;
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponIssueRequestedPayload;
-import com.loopers.coupon.issuedcoupon.infrastructure.entity.CouponIssueRequestEntity;
-import com.loopers.coupon.issuedcoupon.infrastructure.jpa.CouponIssueRequestJpaRepository;
+import com.loopers.coupon.issuedcoupon.domain.model.CouponIssueRequest;
+import com.loopers.coupon.issuedcoupon.domain.repository.CouponIssueRequestCommandRepository;
+import com.loopers.coupon.issuedcoupon.domain.repository.CouponIssueRequestQueryRepository;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.support.common.outbox.application.port.OutboxEventPort;
@@ -27,8 +28,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CouponIssueRequestCommandService {
 
-	// jpa
-	private final CouponIssueRequestJpaRepository couponIssueRequestJpaRepository;
+	// repository
+	private final CouponIssueRequestCommandRepository couponIssueRequestCommandRepository;
+	private final CouponIssueRequestQueryRepository couponIssueRequestQueryRepository;
 	// outbox
 	private final OutboxEventPort outboxEventPort;
 	private final JsonSerializer jsonSerializer;
@@ -41,17 +43,19 @@ public class CouponIssueRequestCommandService {
 		// requestId 미전달 시 서버 생성
 		String resolvedRequestId = (requestId != null && !requestId.isBlank()) ? requestId : UUID.randomUUID().toString();
 
-		// 멱등 검사: 기존 요청 존재 시 기존 반환
-		Optional<CouponIssueRequestEntity> existing = couponIssueRequestJpaRepository.findByRequestId(resolvedRequestId);
+		// 멱등 검사: 기존 요청 존재 시 기존 반환 (동일 userId만 허용 — 타인의 requestId 접근 방지)
+		Optional<CouponIssueRequest> existing = couponIssueRequestQueryRepository.findByRequestId(resolvedRequestId);
 		if (existing.isPresent()) {
-			CouponIssueRequestEntity entity = existing.get();
-			return new CouponIssueRequestOutDto(entity.getRequestId(), entity.getStatus());
+			CouponIssueRequest request = existing.get();
+			if (!request.getUserId().equals(userId)) {
+				throw new CoreException(ErrorType.COUPON_ISSUE_REQUEST_NOT_FOUND);
+			}
+			return new CouponIssueRequestOutDto(request.getRequestId(), request.getStatus().name());
 		}
 
 		// 발급 요청 저장 (PENDING)
-		CouponIssueRequestEntity entity = CouponIssueRequestEntity.of(
-			resolvedRequestId, userId, couponTemplateId, "PENDING");
-		couponIssueRequestJpaRepository.save(entity);
+		CouponIssueRequest request = CouponIssueRequest.create(resolvedRequestId, userId, couponTemplateId);
+		couponIssueRequestCommandRepository.save(request);
 
 		// Outbox 저장 (같은 TX — coupon-issue-requests 토픽)
 		outboxEventPort.save("COUPON", String.valueOf(couponTemplateId), "COUPON_ISSUE_REQUESTED",
@@ -66,10 +70,10 @@ public class CouponIssueRequestCommandService {
 	@Transactional(readOnly = true)
 	public CouponIssueRequestOutDto getIssueRequest(String requestId, Long userId) {
 
-		CouponIssueRequestEntity entity = couponIssueRequestJpaRepository.findByRequestIdAndUserId(requestId, userId)
+		CouponIssueRequest request = couponIssueRequestQueryRepository.findByRequestIdAndUserId(requestId, userId)
 			.orElseThrow(() -> new CoreException(ErrorType.COUPON_ISSUE_REQUEST_NOT_FOUND));
 
-		return new CouponIssueRequestOutDto(entity.getRequestId(), entity.getStatus());
+		return new CouponIssueRequestOutDto(request.getRequestId(), request.getStatus().name());
 	}
 
 }
