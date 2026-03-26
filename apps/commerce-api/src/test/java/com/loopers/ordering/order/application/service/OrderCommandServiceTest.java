@@ -4,14 +4,13 @@ package com.loopers.ordering.order.application.service;
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponApplyResult;
 import com.loopers.ordering.order.application.dto.in.OrderCreateInDto;
 import com.loopers.ordering.order.application.dto.out.OrderDetailOutDto;
-import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemCleaner;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponApplier;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponRestorer;
+import com.loopers.ordering.order.domain.event.OrderCreatedEvent;
 import com.loopers.ordering.order.domain.model.Order;
-import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import com.loopers.ordering.order.domain.repository.OrderCommandRepository;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
@@ -20,9 +19,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -49,17 +50,17 @@ class OrderCommandServiceTest {
 	private OrderCouponApplier orderCouponApplier;
 
 	@Mock
-	private OrderCartItemCleaner orderCartItemCleaner;
+	private OrderCouponRestorer orderCouponRestorer;
 
 	@Mock
-	private OrderCouponRestorer orderCouponRestorer;
+	private ApplicationEventPublisher eventPublisher;
 
 	private OrderCommandService orderCommandService;
 
 	@BeforeEach
 	void setUp() {
 		orderCommandService = new OrderCommandService(
-			orderCommandRepository, orderStockManager, orderCouponApplier, orderCartItemCleaner, orderCouponRestorer
+			orderCommandRepository, orderStockManager, orderCouponApplier, orderCouponRestorer, eventPublisher
 		);
 	}
 
@@ -69,7 +70,7 @@ class OrderCommandServiceTest {
 	class ExecuteTest {
 
 		@Test
-		@DisplayName("[createOrder()] 유효한 요청 -> 재고 차감 + 쿠폰 적용 + 주문 생성 + 장바구니 정리. 전체 쓰기 플로우 성공")
+		@DisplayName("[createOrder()] 유효한 요청 -> 재고 차감 + 주문 생성 + OrderCreatedEvent 발행. 전체 쓰기 플로우 성공")
 		void executeSuccess() {
 			// Arrange
 			Long userId = 1L;
@@ -98,6 +99,7 @@ class OrderCommandServiceTest {
 			OrderDetailOutDto result = orderCommandService.createOrder(userId, inDto, cartItems, products, resolvedCartItemIds);
 
 			// Assert
+			ArgumentCaptor<OrderCreatedEvent> eventCaptor = ArgumentCaptor.forClass(OrderCreatedEvent.class);
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(10L),
 				() -> assertThat(result.userId()).isEqualTo(1L),
@@ -105,7 +107,20 @@ class OrderCommandServiceTest {
 				() -> assertThat(result.items()).hasSize(2),
 				() -> verifyNoInteractions(orderCouponApplier),
 				() -> verify(orderCommandRepository).save(any(Order.class)),
-				() -> verify(orderCartItemCleaner).deleteCartItems(userId, resolvedCartItemIds)
+				() -> verify(eventPublisher).publishEvent(eventCaptor.capture())
+			);
+
+			OrderCreatedEvent event = eventCaptor.getValue();
+			assertAll(
+				() -> assertThat(event.orderId()).isEqualTo(10L),
+				() -> assertThat(event.userId()).isEqualTo(1L),
+				() -> assertThat(event.requestId()).isEqualTo("req-123"),
+				() -> assertThat(event.cartItemIds()).containsExactly(100L, 101L),
+				() -> assertThat(event.totalPrice()).isEqualByComparingTo(new BigDecimal("400000")),
+				() -> assertThat(event.items()).hasSize(2),
+				() -> assertThat(event.items().get(0).productId()).isEqualTo(1L),
+				() -> assertThat(event.items().get(0).quantity()).isEqualTo(2L),
+				() -> assertThat(event.occurredAt()).isNotNull()
 			);
 		}
 
@@ -172,7 +187,7 @@ class OrderCommandServiceTest {
 			assertAll(
 				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.PRODUCT_OUT_OF_STOCK),
 				() -> verifyNoInteractions(orderCommandRepository),
-				() -> verifyNoInteractions(orderCartItemCleaner)
+				() -> verifyNoInteractions(eventPublisher)
 			);
 		}
 

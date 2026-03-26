@@ -4,12 +4,12 @@ package com.loopers.ordering.order.application.service;
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponApplyResult;
 import com.loopers.ordering.order.application.dto.in.OrderCreateInDto;
 import com.loopers.ordering.order.application.dto.out.OrderDetailOutDto;
-import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemCleaner;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponApplier;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponRestorer;
+import com.loopers.ordering.order.domain.event.OrderCreatedEvent;
 import com.loopers.ordering.order.domain.model.Order;
 import com.loopers.ordering.order.domain.model.OrderItem;
 import com.loopers.ordering.order.domain.model.enums.OrderStatus;
@@ -18,6 +18,7 @@ import com.loopers.ordering.order.domain.repository.OrderCommandRepository;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,18 +39,19 @@ public class OrderCommandService {
 	// port
 	private final OrderStockManager orderStockManager;
 	private final OrderCouponApplier orderCouponApplier;
-	private final OrderCartItemCleaner orderCartItemCleaner;
 	private final OrderCouponRestorer orderCouponRestorer;
+	// event
+	private final ApplicationEventPublisher eventPublisher;
 
 
 	/**
 	 * 주문 명령 서비스 (Facade에서 분리된 짧은 TX — 쓰기 연산 전담)
-	 * 1. 주문 생성 (재고 차감 → 쿠폰 적용 → 주문 저장 → 장바구니 정리)
+	 * 1. 주문 생성 (재고 차감 → 쿠폰 적용 → 주문 저장 → 이벤트 발행)
 	 * 2. 주문 상태 변경 (CAS UPDATE — stale 객체로 인한 잘못된 덮어쓰기 방지)
 	 * 3. 주문 만료 보상 (단일 TX — 재고 복원 + 쿠폰 복원 + EXPIRED 변경)
 	 */
 
-	// 1. 주문 생성 (짧은 TX — 재고 차감 → 쿠폰 적용 → 주문 저장 → 장바구니 정리)
+	// 1. 주문 생성 (짧은 TX — 재고 차감 → 쿠폰 적용 → 주문 저장 → 이벤트 발행)
 	@Transactional
 	public OrderDetailOutDto createOrder(Long userId, OrderCreateInDto inDto,
 		List<OrderCartItemInfo> cartItems, List<OrderProductInfo> products,
@@ -67,8 +69,8 @@ public class OrderCommandService {
 		// 주문 생성 + 저장 (requestId를 Order에 포함 — 유니크 제약으로 멱등성 보장)
 		Order savedOrder = buildAndSaveOrder(userId, inDto.requestId(), cartItems, products, couponApplyResult);
 
-		// 장바구니 정리
-		orderCartItemCleaner.deleteCartItems(userId, resolvedCartItemIds);
+		// 주문 생성 이벤트 발행 → [OrderEventListener] 장바구니 정리 + [UserActionEventListener] ORDER 로깅
+		eventPublisher.publishEvent(OrderCreatedEvent.from(savedOrder, resolvedCartItemIds));
 
 		return OrderDetailOutDto.from(savedOrder);
 	}
