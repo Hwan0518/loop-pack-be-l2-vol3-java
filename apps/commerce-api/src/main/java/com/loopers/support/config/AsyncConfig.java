@@ -6,18 +6,21 @@ import org.springframework.aop.interceptor.SimpleAsyncUncaughtExceptionHandler;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
 
 
 /**
- * 비동기 이벤트 처리를 위한 스레드 풀 설정
+ * 비동기 이벤트 처리 + 스케줄링 설정
  * - @TransactionalEventListener + @Async 조합에서 사용
+ * - @Scheduled (OutboxRelayScheduler 등) 활성화
  */
 
 @Configuration
 @EnableAsync
+@EnableScheduling
 public class AsyncConfig implements AsyncConfigurer {
 
 	// 1. 이벤트 비동기 처리용 스레드 풀
