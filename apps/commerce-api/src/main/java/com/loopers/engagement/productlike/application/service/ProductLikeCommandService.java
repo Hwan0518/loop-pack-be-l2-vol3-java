@@ -3,7 +3,6 @@ package com.loopers.engagement.productlike.application.service;
 
 import com.loopers.engagement.productlike.application.dto.out.ProductLikedPayload;
 import com.loopers.engagement.productlike.application.dto.out.ProductUnlikedPayload;
-import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeCountSyncer;
 import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeTargetValidator;
 import com.loopers.engagement.productlike.domain.model.ProductLike;
 import com.loopers.engagement.productlike.domain.repository.ProductLikeCommandRepository;
@@ -28,7 +27,6 @@ public class ProductLikeCommandService {
 	private final ProductLikeQueryRepository productLikeQueryRepository;
 	// port
 	private final ProductLikeTargetValidator productLikeTargetValidator;
-	private final ProductLikeCountSyncer productLikeCountSyncer;
 	// outbox
 	private final OutboxEventPort outboxEventPort;
 	private final JsonSerializer jsonSerializer;
@@ -40,8 +38,6 @@ public class ProductLikeCommandService {
 	 * 2. 상품 좋아요 생성 (+ Outbox 저장)
 	 * 3. 상품 좋아요 삭제 (+ Outbox 저장)
 	 * 4. 상품 ID로 상품 좋아요 전체 삭제
-	 * 5. 좋아요 수 증가
-	 * 6. 좋아요 수 감소
 	 */
 
 	// 1. 좋아요 조회
@@ -98,20 +94,6 @@ public class ProductLikeCommandService {
 	@Transactional
 	public void deleteAllByTargetId(Long targetId) {
 		productLikeCommandRepository.deleteAllByTargetId(targetId);
-	}
-
-
-	// 5. 좋아요 수 증가
-	@Transactional
-	public void increaseLikeCount(Long productId) {
-		productLikeCountSyncer.increaseLikeCount(productId);
-	}
-
-
-	// 6. 좋아요 수 감소
-	@Transactional
-	public void decreaseLikeCount(Long productId) {
-		productLikeCountSyncer.decreaseLikeCount(productId);
 	}
 
 }

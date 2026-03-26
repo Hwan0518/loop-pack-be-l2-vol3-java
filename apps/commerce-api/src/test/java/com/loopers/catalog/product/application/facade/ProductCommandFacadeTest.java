@@ -203,43 +203,4 @@ class ProductCommandFacadeTest {
 	}
 
 
-	@Nested
-	@DisplayName("increaseLikeCount()")
-	class IncreaseLikeCountTest {
-
-		@Test
-		@DisplayName("[increaseLikeCount()] 유효한 상품 ID -> CommandService에 좋아요 수 증가 위임")
-		void increaseLikeCountSuccess() {
-			// Arrange
-			willDoNothing().given(productCommandService).increaseLikeCount(1L);
-
-			// Act
-			productCommandFacade.increaseLikeCount(1L);
-
-			// Assert
-			verify(productCommandService).increaseLikeCount(1L);
-		}
-
-	}
-
-
-	@Nested
-	@DisplayName("decreaseLikeCount()")
-	class DecreaseLikeCountTest {
-
-		@Test
-		@DisplayName("[decreaseLikeCount()] 유효한 상품 ID -> CommandService에 좋아요 수 감소 위임")
-		void decreaseLikeCountSuccess() {
-			// Arrange
-			willDoNothing().given(productCommandService).decreaseLikeCount(1L);
-
-			// Act
-			productCommandFacade.decreaseLikeCount(1L);
-
-			// Assert
-			verify(productCommandService).decreaseLikeCount(1L);
-		}
-
-	}
-
 }
