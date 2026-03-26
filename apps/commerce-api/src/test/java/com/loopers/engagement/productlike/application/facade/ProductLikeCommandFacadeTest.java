@@ -3,14 +3,18 @@ package com.loopers.engagement.productlike.application.facade;
 
 import com.loopers.engagement.productlike.application.dto.out.ProductLikeOutDto;
 import com.loopers.engagement.productlike.application.service.ProductLikeCommandService;
+import com.loopers.engagement.productlike.domain.event.ProductLikedEvent;
+import com.loopers.engagement.productlike.domain.event.ProductUnlikedEvent;
 import com.loopers.engagement.productlike.domain.model.ProductLike;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -19,7 +23,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -31,13 +34,16 @@ class ProductLikeCommandFacadeTest {
 	@Mock
 	private ProductLikeCommandService productLikeCommandService;
 
+	@Mock
+	private ApplicationEventPublisher eventPublisher;
+
 	private ProductLikeCommandFacade productLikeCommandFacade;
 
 
 	@BeforeEach
 	void setUp() {
 		productLikeCommandFacade = new ProductLikeCommandFacade(
-			productLikeCommandService
+			productLikeCommandService, eventPublisher
 		);
 	}
 
@@ -47,7 +53,7 @@ class ProductLikeCommandFacadeTest {
 	class CreateLikeTest {
 
 		@Test
-		@DisplayName("[createLike()] 신규 좋아요 -> OutDto 반환 + 좋아요 수 증가 호출")
+		@DisplayName("[createLike()] 신규 좋아요 -> OutDto 반환 + ProductLikedEvent 발행")
 		void createLike() {
 			// Arrange
 			Long userId = 1L;
@@ -56,23 +62,30 @@ class ProductLikeCommandFacadeTest {
 
 			given(productLikeCommandService.findLike(userId, targetId)).willReturn(Optional.empty());
 			given(productLikeCommandService.createLike(userId, targetId)).willReturn(like);
-			willDoNothing().given(productLikeCommandService).increaseLikeCount(targetId);
 
 			// Act
 			ProductLikeOutDto result = productLikeCommandFacade.createLike(userId, targetId);
 
 			// Assert
+			ArgumentCaptor<ProductLikedEvent> eventCaptor = ArgumentCaptor.forClass(ProductLikedEvent.class);
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(1L),
 				() -> assertThat(result.userId()).isEqualTo(1L),
 				() -> assertThat(result.targetId()).isEqualTo(100L),
 				() -> verify(productLikeCommandService).createLike(userId, targetId),
-				() -> verify(productLikeCommandService).increaseLikeCount(targetId)
+				() -> verify(eventPublisher).publishEvent(eventCaptor.capture())
+			);
+
+			ProductLikedEvent event = eventCaptor.getValue();
+			assertAll(
+				() -> assertThat(event.productLikeId()).isEqualTo(1L),
+				() -> assertThat(event.userId()).isEqualTo(1L),
+				() -> assertThat(event.productId()).isEqualTo(100L)
 			);
 		}
 
 		@Test
-		@DisplayName("[createLike()] 기존 좋아요 존재 -> 기존 반환 (멱등). 좋아요 수 증가 미호출")
+		@DisplayName("[createLike()] 기존 좋아요 존재 -> 기존 반환 (멱등). 이벤트 미발행")
 		void createLikeIdempotent() {
 			// Arrange
 			Long userId = 1L;
@@ -88,7 +101,7 @@ class ProductLikeCommandFacadeTest {
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(1L),
 				() -> verify(productLikeCommandService, never()).createLike(any(), any()),
-				() -> verify(productLikeCommandService, never()).increaseLikeCount(any())
+				() -> verify(eventPublisher, never()).publishEvent(any())
 			);
 		}
 
@@ -100,21 +113,25 @@ class ProductLikeCommandFacadeTest {
 	class DeleteLikeTest {
 
 		@Test
-		@DisplayName("[deleteLike()] 유효한 요청 -> 서비스 위임 + 좋아요 수 감소 호출")
+		@DisplayName("[deleteLike()] 유효한 요청 -> 서비스 위임 + ProductUnlikedEvent 발행")
 		void deleteLike() {
 			// Arrange
 			Long userId = 1L;
 			Long targetId = 100L;
 
-			willDoNothing().given(productLikeCommandService).deleteLike(userId, targetId);
-			willDoNothing().given(productLikeCommandService).decreaseLikeCount(targetId);
-
 			// Act
 			productLikeCommandFacade.deleteLike(userId, targetId);
 
 			// Assert
+			ArgumentCaptor<ProductUnlikedEvent> eventCaptor = ArgumentCaptor.forClass(ProductUnlikedEvent.class);
 			verify(productLikeCommandService).deleteLike(userId, targetId);
-			verify(productLikeCommandService).decreaseLikeCount(targetId);
+			verify(eventPublisher).publishEvent(eventCaptor.capture());
+
+			ProductUnlikedEvent event = eventCaptor.getValue();
+			assertAll(
+				() -> assertThat(event.userId()).isEqualTo(1L),
+				() -> assertThat(event.productId()).isEqualTo(100L)
+			);
 		}
 	}
 
@@ -127,8 +144,6 @@ class ProductLikeCommandFacadeTest {
 		@DisplayName("[deleteAllByProductId()] 유효한 상품 ID -> 서비스 deleteAllByTargetId 위임")
 		void deleteAllByProductId() {
 			// Arrange
-			willDoNothing().given(productLikeCommandService).deleteAllByTargetId(100L);
-
 			// Act
 			productLikeCommandFacade.deleteAllByProductId(100L);
 
