@@ -32,7 +32,7 @@ class CouponTemplateTest {
 			// Act
 			CouponTemplate template = CouponTemplate.create(
 				"신규가입 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-				new BigDecimal("10000"), futureExpiredAt
+				new BigDecimal("10000"), null, futureExpiredAt
 			);
 
 			// Assert
@@ -54,7 +54,7 @@ class CouponTemplateTest {
 			// Act
 			CouponTemplate template = CouponTemplate.create(
 				"10% 할인 쿠폰", CouponType.RATE, new BigDecimal("10"),
-				null, futureExpiredAt
+				null, null, futureExpiredAt
 			);
 
 			// Assert
@@ -72,7 +72,7 @@ class CouponTemplateTest {
 			// Act & Assert
 			assertThrows(NullPointerException.class,
 				() -> CouponTemplate.create("쿠폰", null, new BigDecimal("5000"),
-					null, futureExpiredAt));
+					null, null, futureExpiredAt));
 		}
 
 
@@ -82,7 +82,7 @@ class CouponTemplateTest {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
 				() -> CouponTemplate.create(null, CouponType.FIXED, new BigDecimal("5000"),
-					null, futureExpiredAt));
+					null, null, futureExpiredAt));
 
 			// Assert
 			assertAll(
@@ -98,7 +98,7 @@ class CouponTemplateTest {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
 				() -> CouponTemplate.create("  ", CouponType.FIXED, new BigDecimal("5000"),
-					null, futureExpiredAt));
+					null, null, futureExpiredAt));
 
 			// Assert
 			assertAll(
@@ -117,7 +117,7 @@ class CouponTemplateTest {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
 				() -> CouponTemplate.create(longName, CouponType.FIXED, new BigDecimal("5000"),
-					null, futureExpiredAt));
+					null, null, futureExpiredAt));
 
 			// Assert
 			assertAll(
@@ -135,7 +135,7 @@ class CouponTemplateTest {
 
 			// Act & Assert
 			assertDoesNotThrow(() -> CouponTemplate.create(maxName, CouponType.FIXED, new BigDecimal("5000"),
-				null, futureExpiredAt));
+				null, null, futureExpiredAt));
 		}
 
 
@@ -145,7 +145,7 @@ class CouponTemplateTest {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
 				() -> CouponTemplate.create("쿠폰", CouponType.FIXED, null,
-					null, futureExpiredAt));
+					null, null, futureExpiredAt));
 
 			// Assert
 			assertAll(
@@ -161,7 +161,7 @@ class CouponTemplateTest {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
 				() -> CouponTemplate.create("쿠폰", CouponType.FIXED, BigDecimal.ZERO,
-					null, futureExpiredAt));
+					null, null, futureExpiredAt));
 
 			// Assert
 			assertAll(
@@ -177,7 +177,7 @@ class CouponTemplateTest {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
 				() -> CouponTemplate.create("쿠폰", CouponType.RATE, new BigDecimal("101"),
-					null, futureExpiredAt));
+					null, null, futureExpiredAt));
 
 			// Assert
 			assertAll(
@@ -192,7 +192,7 @@ class CouponTemplateTest {
 		void createRateWithValue100() {
 			// Act & Assert
 			assertDoesNotThrow(() -> CouponTemplate.create("쿠폰", CouponType.RATE, new BigDecimal("100"),
-				null, futureExpiredAt));
+				null, null, futureExpiredAt));
 		}
 
 
@@ -202,7 +202,7 @@ class CouponTemplateTest {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
 				() -> CouponTemplate.create("쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-					null, null));
+					null, null, null));
 
 			// Assert
 			assertAll(
@@ -221,7 +221,7 @@ class CouponTemplateTest {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
 				() -> CouponTemplate.create("쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-					null, past));
+					null, null, past));
 
 			// Assert
 			assertAll(
@@ -237,7 +237,7 @@ class CouponTemplateTest {
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
 				() -> CouponTemplate.create("쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-					new BigDecimal("4999"), futureExpiredAt));
+					new BigDecimal("4999"), null, futureExpiredAt));
 
 			// Assert
 			assertAll(
@@ -252,7 +252,7 @@ class CouponTemplateTest {
 		void createFixedWithMinOrderAmountEqualsValue() {
 			// Act & Assert
 			assertDoesNotThrow(() -> CouponTemplate.create("쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-				new BigDecimal("5000"), futureExpiredAt));
+				new BigDecimal("5000"), null, futureExpiredAt));
 		}
 
 
@@ -261,7 +261,7 @@ class CouponTemplateTest {
 		void createFixedWithNullMinOrderAmount() {
 			// Act & Assert
 			assertDoesNotThrow(() -> CouponTemplate.create("쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-				null, futureExpiredAt));
+				null, null, futureExpiredAt));
 		}
 
 	}
@@ -276,7 +276,7 @@ class CouponTemplateTest {
 		void changeNameSuccess() {
 			// Arrange
 			CouponTemplate template = CouponTemplate.create(
-				"원래 이름", CouponType.FIXED, new BigDecimal("5000"), null, futureExpiredAt
+				"원래 이름", CouponType.FIXED, new BigDecimal("5000"), null, null, futureExpiredAt
 			);
 
 			// Act
@@ -292,7 +292,7 @@ class CouponTemplateTest {
 		void changeNameBlank() {
 			// Arrange
 			CouponTemplate template = CouponTemplate.create(
-				"원래 이름", CouponType.FIXED, new BigDecimal("5000"), null, futureExpiredAt
+				"원래 이름", CouponType.FIXED, new BigDecimal("5000"), null, null, futureExpiredAt
 			);
 
 			// Act
@@ -318,7 +318,7 @@ class CouponTemplateTest {
 		void changeExpiredAtSuccess() {
 			// Arrange
 			CouponTemplate template = CouponTemplate.create(
-				"쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, futureExpiredAt
+				"쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, null, futureExpiredAt
 			);
 			LocalDateTime newExpiredAt = LocalDateTime.now().plusDays(60);
 
@@ -335,7 +335,7 @@ class CouponTemplateTest {
 		void changeExpiredAtPast() {
 			// Arrange
 			CouponTemplate template = CouponTemplate.create(
-				"쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, futureExpiredAt
+				"쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, null, futureExpiredAt
 			);
 
 			// Act
@@ -361,7 +361,7 @@ class CouponTemplateTest {
 		void deleteSuccess() {
 			// Arrange
 			CouponTemplate template = CouponTemplate.create(
-				"쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, futureExpiredAt
+				"쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, null, futureExpiredAt
 			);
 
 			// Act
@@ -380,7 +380,7 @@ class CouponTemplateTest {
 		void isDeletedFalse() {
 			// Arrange
 			CouponTemplate template = CouponTemplate.create(
-				"쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, futureExpiredAt
+				"쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, null, futureExpiredAt
 			);
 
 			// Assert
@@ -399,7 +399,7 @@ class CouponTemplateTest {
 		void calculateDiscountFixed() {
 			// Arrange
 			CouponTemplate template = CouponTemplate.create(
-				"5000원 할인", CouponType.FIXED, new BigDecimal("5000"), null, futureExpiredAt
+				"5000원 할인", CouponType.FIXED, new BigDecimal("5000"), null, null, futureExpiredAt
 			);
 
 			// Act
@@ -415,7 +415,7 @@ class CouponTemplateTest {
 		void calculateDiscountRate() {
 			// Arrange
 			CouponTemplate template = CouponTemplate.create(
-				"10% 할인", CouponType.RATE, new BigDecimal("10"), null, futureExpiredAt
+				"10% 할인", CouponType.RATE, new BigDecimal("10"), null, null, futureExpiredAt
 			);
 
 			// Act

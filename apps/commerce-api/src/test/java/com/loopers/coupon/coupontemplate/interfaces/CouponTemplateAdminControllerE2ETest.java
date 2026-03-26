@@ -90,7 +90,7 @@ class CouponTemplateAdminControllerE2ETest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				"신규가입 5000원 할인", CouponType.FIXED, new BigDecimal("5000"),
-				new BigDecimal("10000"), expiredAt
+				new BigDecimal("10000"), null, expiredAt
 			);
 
 			// Act & Assert
@@ -116,7 +116,7 @@ class CouponTemplateAdminControllerE2ETest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				"10% 할인 쿠폰", CouponType.RATE, new BigDecimal("10"),
-				null, expiredAt
+				null, null, expiredAt
 			);
 
 			// Act & Assert
@@ -141,7 +141,7 @@ class CouponTemplateAdminControllerE2ETest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				"테스트 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-				new BigDecimal("10000"), expiredAt
+				new BigDecimal("10000"), null, expiredAt
 			);
 
 			// Act & Assert
@@ -253,7 +253,7 @@ class CouponTemplateAdminControllerE2ETest {
 			String longName = "가".repeat(101);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				longName, CouponType.FIXED, new BigDecimal("5000"),
-				new BigDecimal("10000"), expiredAt
+				new BigDecimal("10000"), null, expiredAt
 			);
 
 			// Act & Assert
@@ -273,7 +273,7 @@ class CouponTemplateAdminControllerE2ETest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				"할인 쿠폰", CouponType.FIXED, new BigDecimal("15000"),
-				new BigDecimal("10000"), expiredAt
+				new BigDecimal("10000"), null, expiredAt
 			);
 
 			// Act & Assert
@@ -293,7 +293,7 @@ class CouponTemplateAdminControllerE2ETest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				"할인 쿠폰", CouponType.RATE, new BigDecimal("101"),
-				null, expiredAt
+				null, null, expiredAt
 			);
 
 			// Act & Assert
@@ -313,7 +313,7 @@ class CouponTemplateAdminControllerE2ETest {
 			LocalDateTime pastExpiredAt = LocalDateTime.now().minusDays(1);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				"할인 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-				new BigDecimal("10000"), pastExpiredAt
+				new BigDecimal("10000"), null, pastExpiredAt
 			);
 
 			// Act & Assert
@@ -606,7 +606,7 @@ class CouponTemplateAdminControllerE2ETest {
 	private Long createCouponTemplateAndGetId(String name, CouponType type, BigDecimal value,
 		BigDecimal minOrderAmount, LocalDateTime expiredAt) throws Exception {
 		AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
-			name, type, value, minOrderAmount, expiredAt
+			name, type, value, minOrderAmount, null, expiredAt
 		);
 		MvcResult result = mockMvc.perform(post("/api-admin/v1/coupons")
 				.header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE)
@@ -622,7 +622,7 @@ class CouponTemplateAdminControllerE2ETest {
 	private void createCouponTemplate(String name, CouponType type, BigDecimal value,
 		BigDecimal minOrderAmount, LocalDateTime expiredAt) throws Exception {
 		AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
-			name, type, value, minOrderAmount, expiredAt
+			name, type, value, minOrderAmount, null, expiredAt
 		);
 		mockMvc.perform(post("/api-admin/v1/coupons")
 				.header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE)

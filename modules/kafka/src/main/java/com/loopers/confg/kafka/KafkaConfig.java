@@ -58,7 +58,8 @@ public class KafkaConfig {
     @Bean(name = BATCH_LISTENER)
     public ConcurrentKafkaListenerContainerFactory<Object, Object> defaultBatchListenerContainerFactory(
             KafkaProperties kafkaProperties,
-            ByteArrayJsonMessageConverter converter
+            ByteArrayJsonMessageConverter converter,
+            DefaultErrorHandler errorHandler
     ) {
         Map<String, Object> consumerConfig = new HashMap<>(kafkaProperties.buildConsumerProperties());
         consumerConfig.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, MAX_POLLING_SIZE);
@@ -72,6 +73,7 @@ public class KafkaConfig {
         factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(consumerConfig));
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL); // 수동 커밋
         factory.setBatchMessageConverter(new BatchMessagingMessageConverter(converter));
+        factory.setCommonErrorHandler(errorHandler);
         factory.setConcurrency(3);
         factory.setBatchListener(true);
         return factory;
@@ -80,7 +82,8 @@ public class KafkaConfig {
     @Bean(name = SINGLE_LISTENER_COUPON)
     public ConcurrentKafkaListenerContainerFactory<Object, Object> couponListenerContainerFactory(
             KafkaProperties kafkaProperties,
-            ByteArrayJsonMessageConverter converter
+            ByteArrayJsonMessageConverter converter,
+            DefaultErrorHandler errorHandler
     ) {
         Map<String, Object> consumerConfig = new HashMap<>(kafkaProperties.buildConsumerProperties());
         consumerConfig.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, MAX_POLLING_SIZE);
@@ -94,6 +97,7 @@ public class KafkaConfig {
         factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(consumerConfig));
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
         factory.setBatchMessageConverter(new BatchMessagingMessageConverter(converter));
+        factory.setCommonErrorHandler(errorHandler);
         factory.setConcurrency(1); // 단일 파티션 순차 처리 (D3)
         factory.setBatchListener(true);
         return factory;

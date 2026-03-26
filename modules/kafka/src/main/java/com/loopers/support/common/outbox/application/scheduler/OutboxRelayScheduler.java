@@ -11,7 +11,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -51,7 +50,7 @@ public class OutboxRelayScheduler {
 				KafkaEventEnvelope envelope = new KafkaEventEnvelope(
 					String.valueOf(event.id()), event.eventType(),
 					event.aggregateType(), event.aggregateId(),
-					event.payload(), LocalDateTime.now()
+					event.payload(), event.createdAt()
 				);
 
 				// Kafka 발행 (동기 대기 — 5초 타임아웃)

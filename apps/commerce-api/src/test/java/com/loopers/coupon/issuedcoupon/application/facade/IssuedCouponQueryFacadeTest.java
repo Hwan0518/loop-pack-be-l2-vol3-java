@@ -60,7 +60,7 @@ class IssuedCouponQueryFacadeTest {
 			Long userId = 100L;
 			CouponTemplate template = CouponTemplate.reconstruct(
 				1L, "테스트 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-				null, LocalDateTime.now().plusDays(30), null
+				null, null, LocalDateTime.now().plusDays(30), null
 			);
 			IssuedCoupon issuedCoupon = IssuedCoupon.reconstruct(
 				10L, 1L, userId, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now()
@@ -113,7 +113,7 @@ class IssuedCouponQueryFacadeTest {
 			// Arrange
 			CouponTemplate template = CouponTemplate.reconstruct(
 				1L, "테스트 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-				null, LocalDateTime.now().plusDays(30), null
+				null, null, LocalDateTime.now().plusDays(30), null
 			);
 			IssuedCoupon issuedCoupon1 = IssuedCoupon.reconstruct(
 				10L, 1L, 100L, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now()

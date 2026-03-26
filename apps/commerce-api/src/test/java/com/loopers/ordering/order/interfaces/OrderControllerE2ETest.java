@@ -713,7 +713,7 @@ class OrderControllerE2ETest {
 	// 8. 쿠폰 템플릿 생성 후 ID 반환
 	private Long createCouponTemplateAndGetId(String name, CouponType type, BigDecimal value, BigDecimal minOrderAmount) throws Exception {
 		AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
-			name, type, value, minOrderAmount, LocalDateTime.now().plusDays(30)
+			name, type, value, minOrderAmount, null, LocalDateTime.now().plusDays(30)
 		);
 		MvcResult result = mockMvc.perform(post("/api-admin/v1/coupons")
 				.header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE)

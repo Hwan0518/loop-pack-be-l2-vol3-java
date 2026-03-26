@@ -45,7 +45,7 @@ public class CouponTemplateAdminCommandController {
 		// InDto 생성
 		AdminCreateCouponTemplateInDto inDto = new AdminCreateCouponTemplateInDto(
 			request.name(), request.type(), request.value(),
-			request.minOrderAmount(), request.expiredAt()
+			request.minOrderAmount(), request.maxQuantity(), request.expiredAt()
 		);
 
 		// 쿠폰 템플릿 생성

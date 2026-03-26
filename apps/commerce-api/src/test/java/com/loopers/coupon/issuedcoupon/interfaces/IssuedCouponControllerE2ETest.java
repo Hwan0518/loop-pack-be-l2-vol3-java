@@ -241,7 +241,7 @@ class IssuedCouponControllerE2ETest {
 	private Long createCouponTemplateAndGetId(String name, CouponType type, BigDecimal value,
 		BigDecimal minOrderAmount, LocalDateTime expiredAt) throws Exception {
 		AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
-			name, type, value, minOrderAmount, expiredAt
+			name, type, value, minOrderAmount, null, expiredAt
 		);
 		MvcResult result = mockMvc.perform(post("/api-admin/v1/coupons")
 				.header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE)

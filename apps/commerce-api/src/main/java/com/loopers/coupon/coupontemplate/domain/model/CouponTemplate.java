@@ -23,6 +23,7 @@ public class CouponTemplate {
 	 * - type: 쿠폰 타입 (FIXED / RATE, 생성 후 불변)
 	 * - value: 할인 값 (FIXED: 원화, RATE: 퍼센트)
 	 * - minOrderAmount: 최소 주문 금액 (null이면 조건 없음)
+	 * - maxQuantity: 최대 발급 수량 (null이면 무제한)
 	 * - expiredAt: 만료 일시
 	 * - deletedAt: 삭제 일시 (Soft Delete)
 	 */
@@ -32,18 +33,20 @@ public class CouponTemplate {
 	private final CouponType type;
 	private final BigDecimal value;
 	private final BigDecimal minOrderAmount;
+	private final Integer maxQuantity;
 	private LocalDateTime expiredAt;
 	private ZonedDateTime deletedAt;
 
 
 	// 생성자
 	private CouponTemplate(Long id, String name, CouponType type, BigDecimal value,
-		BigDecimal minOrderAmount, LocalDateTime expiredAt, ZonedDateTime deletedAt) {
+		BigDecimal minOrderAmount, Integer maxQuantity, LocalDateTime expiredAt, ZonedDateTime deletedAt) {
 		this.id = id;
 		this.name = name;
 		this.type = type;
 		this.value = value;
 		this.minOrderAmount = minOrderAmount;
+		this.maxQuantity = maxQuantity;
 		this.expiredAt = expiredAt;
 		this.deletedAt = deletedAt;
 	}
@@ -62,7 +65,7 @@ public class CouponTemplate {
 
 	// 1. 쿠폰 템플릿 생성 (유효성 검증 포함)
 	public static CouponTemplate create(String name, CouponType type, BigDecimal value,
-		BigDecimal minOrderAmount, LocalDateTime expiredAt) {
+		BigDecimal minOrderAmount, Integer maxQuantity, LocalDateTime expiredAt) {
 
 		// type null 검증
 		Objects.requireNonNull(type, "type");
@@ -81,14 +84,14 @@ public class CouponTemplate {
 			validateFixedMinOrderAmount(value, minOrderAmount);
 		}
 
-		return new CouponTemplate(null, name, type, value, minOrderAmount, expiredAt, null);
+		return new CouponTemplate(null, name, type, value, minOrderAmount, maxQuantity, expiredAt, null);
 	}
 
 
 	// 2. 쿠폰 템플릿 재생성 (Entity -> Model 매핑용도)
 	public static CouponTemplate reconstruct(Long id, String name, CouponType type, BigDecimal value,
-		BigDecimal minOrderAmount, LocalDateTime expiredAt, ZonedDateTime deletedAt) {
-		return new CouponTemplate(id, name, type, value, minOrderAmount, expiredAt, deletedAt);
+		BigDecimal minOrderAmount, Integer maxQuantity, LocalDateTime expiredAt, ZonedDateTime deletedAt) {
+		return new CouponTemplate(id, name, type, value, minOrderAmount, maxQuantity, expiredAt, deletedAt);
 	}
 
 

@@ -7,6 +7,7 @@ import com.loopers.support.common.outbox.infrastructure.entity.OutboxEventApiEnt
 import com.loopers.support.common.outbox.infrastructure.jpa.OutboxEventApiJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -53,23 +54,35 @@ public class OutboxEventPortImpl implements OutboxEventPort {
 
 
 	// 3. 발행 완료 처리
+	@Transactional
 	@Override
 	public void markPublished(Long id) {
-		outboxJpaRepository.findById(id).ifPresent(OutboxEventApiEntity::markPublished);
+		outboxJpaRepository.findById(id).ifPresent(entity -> {
+			entity.markPublished();
+			outboxJpaRepository.save(entity);
+		});
 	}
 
 
 	// 4. 실패 처리
+	@Transactional
 	@Override
 	public void markFailed(Long id) {
-		outboxJpaRepository.findById(id).ifPresent(OutboxEventApiEntity::markFailed);
+		outboxJpaRepository.findById(id).ifPresent(entity -> {
+			entity.markFailed();
+			outboxJpaRepository.save(entity);
+		});
 	}
 
 
 	// 5. DEAD 처리
+	@Transactional
 	@Override
 	public void markDead(Long id) {
-		outboxJpaRepository.findById(id).ifPresent(OutboxEventApiEntity::markDead);
+		outboxJpaRepository.findById(id).ifPresent(entity -> {
+			entity.markDead();
+			outboxJpaRepository.save(entity);
+		});
 	}
 
 }

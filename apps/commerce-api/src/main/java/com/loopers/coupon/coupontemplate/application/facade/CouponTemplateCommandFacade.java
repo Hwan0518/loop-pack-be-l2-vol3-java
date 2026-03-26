@@ -36,6 +36,7 @@ public class CouponTemplateCommandFacade {
 			inDto.type(),
 			inDto.value(),
 			inDto.minOrderAmount(),
+			inDto.maxQuantity(),
 			inDto.expiredAt()
 		);
 

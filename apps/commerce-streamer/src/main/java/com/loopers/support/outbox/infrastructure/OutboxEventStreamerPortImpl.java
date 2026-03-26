@@ -7,6 +7,7 @@ import com.loopers.support.outbox.infrastructure.entity.OutboxEventStreamerEntit
 import com.loopers.support.outbox.infrastructure.jpa.OutboxEventStreamerJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -41,19 +42,31 @@ public class OutboxEventStreamerPortImpl implements OutboxEventPort {
 			.toList();
 	}
 
+	@Transactional
 	@Override
 	public void markPublished(Long id) {
-		outboxJpaRepository.findById(id).ifPresent(OutboxEventStreamerEntity::markPublished);
+		outboxJpaRepository.findById(id).ifPresent(entity -> {
+			entity.markPublished();
+			outboxJpaRepository.save(entity);
+		});
 	}
 
+	@Transactional
 	@Override
 	public void markFailed(Long id) {
-		outboxJpaRepository.findById(id).ifPresent(OutboxEventStreamerEntity::markFailed);
+		outboxJpaRepository.findById(id).ifPresent(entity -> {
+			entity.markFailed();
+			outboxJpaRepository.save(entity);
+		});
 	}
 
+	@Transactional
 	@Override
 	public void markDead(Long id) {
-		outboxJpaRepository.findById(id).ifPresent(OutboxEventStreamerEntity::markDead);
+		outboxJpaRepository.findById(id).ifPresent(entity -> {
+			entity.markDead();
+			outboxJpaRepository.save(entity);
+		});
 	}
 
 }

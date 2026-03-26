@@ -44,4 +44,25 @@ public class KafkaTopicConfig {
 		return TopicBuilder.name("product-metrics-snapshots").partitions(3).replicas(replicationFactor).build();
 	}
 
+	// DLT (Dead Letter Topic)
+	@Bean
+	public NewTopic catalogEventsDlt() {
+		return TopicBuilder.name("catalog-events.DLT").partitions(1).replicas(replicationFactor).build();
+	}
+
+	@Bean
+	public NewTopic orderEventsDlt() {
+		return TopicBuilder.name("order-events.DLT").partitions(1).replicas(replicationFactor).build();
+	}
+
+	@Bean
+	public NewTopic couponIssueRequestsDlt() {
+		return TopicBuilder.name("coupon-issue-requests.DLT").partitions(1).replicas(replicationFactor).build();
+	}
+
+	@Bean
+	public NewTopic productMetricsSnapshotsDlt() {
+		return TopicBuilder.name("product-metrics-snapshots.DLT").partitions(1).replicas(replicationFactor).build();
+	}
+
 }

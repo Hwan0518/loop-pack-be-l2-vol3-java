@@ -53,7 +53,7 @@ class CouponTemplateCommandServiceTest {
 	private CouponTemplate activeTemplate(Long id) {
 		return CouponTemplate.reconstruct(
 			id, "테스트 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-			null, futureExpiredAt, null
+			null, null, futureExpiredAt, null
 		);
 	}
 
@@ -61,7 +61,7 @@ class CouponTemplateCommandServiceTest {
 	private CouponTemplate deletedTemplate(Long id) {
 		return CouponTemplate.reconstruct(
 			id, "삭제된 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-			null, futureExpiredAt, ZonedDateTime.now()
+			null, null, futureExpiredAt, ZonedDateTime.now()
 		);
 	}
 
@@ -75,11 +75,11 @@ class CouponTemplateCommandServiceTest {
 		void saveSuccess() {
 			// Arrange
 			CouponTemplate template = CouponTemplate.create(
-				"신규 쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, futureExpiredAt
+				"신규 쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, null, futureExpiredAt
 			);
 			CouponTemplate saved = CouponTemplate.reconstruct(
 				1L, "신규 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-				null, futureExpiredAt, null
+				null, null, futureExpiredAt, null
 			);
 			given(couponTemplateCommandRepository.save(any(CouponTemplate.class))).willReturn(saved);
 

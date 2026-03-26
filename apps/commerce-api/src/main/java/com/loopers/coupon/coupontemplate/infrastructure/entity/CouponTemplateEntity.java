@@ -42,31 +42,35 @@ public class CouponTemplateEntity extends SoftDeleteBaseEntity {
 	@Column(name = "min_order_amount", precision = 15, scale = 2)
 	private BigDecimal minOrderAmount;
 
+	@Column(name = "max_quantity")
+	private Integer maxQuantity;
+
 	@Column(name = "expired_at", nullable = false)
 	private LocalDateTime expiredAt;
 
 
 	private CouponTemplateEntity(Long id, String name, CouponType type, BigDecimal value,
-		BigDecimal minOrderAmount, LocalDateTime expiredAt) {
+		BigDecimal minOrderAmount, Integer maxQuantity, LocalDateTime expiredAt) {
 		super(id);
 		this.name = name;
 		this.type = type;
 		this.value = value;
 		this.minOrderAmount = minOrderAmount;
+		this.maxQuantity = maxQuantity;
 		this.expiredAt = expiredAt;
 	}
 
 
 	// DB 복원용 (id 포함)
 	public static CouponTemplateEntity of(Long id, String name, CouponType type, BigDecimal value,
-		BigDecimal minOrderAmount, LocalDateTime expiredAt) {
-		return new CouponTemplateEntity(id, name, type, value, minOrderAmount, expiredAt);
+		BigDecimal minOrderAmount, Integer maxQuantity, LocalDateTime expiredAt) {
+		return new CouponTemplateEntity(id, name, type, value, minOrderAmount, maxQuantity, expiredAt);
 	}
 
 	// 신규 생성용 (id = null)
 	public static CouponTemplateEntity of(String name, CouponType type, BigDecimal value,
-		BigDecimal minOrderAmount, LocalDateTime expiredAt) {
-		return of(null, name, type, value, minOrderAmount, expiredAt);
+		BigDecimal minOrderAmount, Integer maxQuantity, LocalDateTime expiredAt) {
+		return of(null, name, type, value, minOrderAmount, maxQuantity, expiredAt);
 	}
 
 }
