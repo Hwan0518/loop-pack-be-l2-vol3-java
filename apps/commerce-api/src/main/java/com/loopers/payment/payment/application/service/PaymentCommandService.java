@@ -3,6 +3,7 @@ package com.loopers.payment.payment.application.service;
 
 import com.loopers.payment.payment.application.dto.out.PgRecoveryResult;
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderInfo;
+import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderItemInfo;
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderReader;
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderStatusManager;
 import com.loopers.payment.payment.application.port.out.client.pg.PgPaymentGateway;
@@ -18,14 +19,17 @@ import com.loopers.payment.payment.domain.model.enums.CardType;
 import com.loopers.payment.payment.domain.model.enums.PaymentStatus;
 import com.loopers.payment.payment.domain.repository.PaymentCommandRepository;
 import com.loopers.payment.payment.domain.repository.PaymentQueryRepository;
+import com.loopers.payment.payment.domain.event.OrderPaidEvent;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 
@@ -39,6 +43,8 @@ public class PaymentCommandService {
 	private final PaymentOrderReader paymentOrderReader;
 	private final PaymentOrderStatusManager paymentOrderStatusManager;
 	private final PgPaymentGateway pgPaymentGateway;
+	// event
+	private final ApplicationEventPublisher eventPublisher;
 	// config
 	private final String callbackUrl;
 
@@ -48,6 +54,7 @@ public class PaymentCommandService {
 		PaymentOrderReader paymentOrderReader,
 		PaymentOrderStatusManager paymentOrderStatusManager,
 		PgPaymentGateway pgPaymentGateway,
+		ApplicationEventPublisher eventPublisher,
 		@Value("${payment.pg.callback-url}") String callbackUrl
 	) {
 		this.paymentCommandRepository = paymentCommandRepository;
@@ -55,6 +62,7 @@ public class PaymentCommandService {
 		this.paymentOrderReader = paymentOrderReader;
 		this.paymentOrderStatusManager = paymentOrderStatusManager;
 		this.pgPaymentGateway = pgPaymentGateway;
+		this.eventPublisher = eventPublisher;
 		this.callbackUrl = callbackUrl;
 	}
 
@@ -269,6 +277,18 @@ public class PaymentCommandService {
 			payment.succeed();
 			paymentCommandRepository.save(payment);
 			paymentOrderStatusManager.markOrderPaid(payment.getOrderId());
+
+			// 주문 항목 조회 (결제 성공 시에만 — 불필요한 조회 방지)
+			List<PaymentOrderItemInfo> orderItems = paymentOrderReader.findOrderItems(payment.getOrderId());
+
+			// 결제 완료 이벤트 발행 → [UserActionEventListener] PAYMENT 로깅
+			List<OrderPaidEvent.OrderPaidItemSnapshot> items = orderItems.stream()
+				.map(item -> new OrderPaidEvent.OrderPaidItemSnapshot(item.productId(), item.quantity()))
+				.toList();
+			eventPublisher.publishEvent(OrderPaidEvent.of(
+				payment.getOrderId(), payment.getUserId(), payment.getId(),
+				items, payment.getAmount()
+			));
 		} else if ("FAILED".equals(pgStatus)) {
 			// 결제 실패
 			payment.fail(reason);

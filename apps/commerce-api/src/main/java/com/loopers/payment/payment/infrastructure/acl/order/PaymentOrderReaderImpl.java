@@ -2,29 +2,31 @@ package com.loopers.payment.payment.infrastructure.acl.order;
 
 
 import com.loopers.ordering.order.application.facade.OrderCommandFacade;
+import com.loopers.ordering.order.application.facade.OrderQueryFacade;
 import com.loopers.ordering.order.domain.model.Order;
+import com.loopers.ordering.order.domain.model.OrderItem;
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderInfo;
+import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderItemInfo;
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderReader;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 
 /**
  * ACL (Anti-Corruption Layer) - Payment BC → Order BC (주문 조회)
- * 결제 요청 시 주문 정보를 비관적 락으로 조회하는 역할 (Provider Facade에 위임)
+ * 1. 결제 요청 시 주문 정보를 비관적 락으로 조회 (Provider Facade에 위임)
+ * 2. 주문 항목 조회 (ORDER_PAID payload용)
  */
 @Component
 @RequiredArgsConstructor
 public class PaymentOrderReaderImpl implements PaymentOrderReader {
 
-	// facade: 주문 명령 파사드 (ordering BC)
+	// facade
 	private final OrderCommandFacade orderCommandFacade;
+	private final OrderQueryFacade orderQueryFacade;
 
-
-	/**
-	 * 주문 조회
-	 * 1. Provider Facade에 위임 (비관적 락 + 사용자 검증)
-	 */
 
 	// 1. 결제용 주문 조회 — Provider Facade에 위임
 	@Override
@@ -40,6 +42,20 @@ public class PaymentOrderReaderImpl implements PaymentOrderReader {
 			order.getTotalPrice(),
 			order.getStatus().name()
 		);
+	}
+
+
+	// 2. 주문 항목 조회 — Provider QueryFacade에 위임
+	@Override
+	public List<PaymentOrderItemInfo> findOrderItems(Long orderId) {
+
+		// Order BC QueryFacade 호출
+		List<OrderItem> items = orderQueryFacade.findOrderItems(orderId);
+
+		// Payment BC VO로 변환
+		return items.stream()
+			.map(item -> new PaymentOrderItemInfo(item.getProductId(), item.getQuantity()))
+			.toList();
 	}
 
 }

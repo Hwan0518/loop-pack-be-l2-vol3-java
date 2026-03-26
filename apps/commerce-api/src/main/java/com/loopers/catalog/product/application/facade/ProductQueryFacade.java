@@ -3,9 +3,11 @@ package com.loopers.catalog.product.application.facade;
 
 import com.loopers.catalog.product.application.dto.out.*;
 import com.loopers.catalog.product.application.service.ProductQueryService;
+import com.loopers.catalog.product.domain.event.ProductViewedEvent;
 import com.loopers.catalog.product.domain.model.Product;
 import com.loopers.catalog.product.domain.model.enums.ProductSortType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,8 @@ public class ProductQueryFacade {
 
 	// service
 	private final ProductQueryService productQueryService;
+	// event
+	private final ApplicationEventPublisher eventPublisher;
 
 
 	/**
@@ -31,11 +35,17 @@ public class ProductQueryFacade {
 	 */
 
 	// 1. 사용자 상품 상세 조회 (캐시 적용 — PER + 스탬피드 보호, Read Model projection 기반)
-	@Transactional(readOnly = true)
-	public ProductDetailOutDto getProduct(Long id) {
+	@Transactional
+	public ProductDetailOutDto getProduct(Long id, Long userId) {
 
 		// Read Model에서 ProductCacheDto → ProductDetailOutDto 변환 (캐시 적용)
-		return productQueryService.getOrLoadProductDetail(id);
+		ProductDetailOutDto result = productQueryService.getOrLoadProductDetail(id);
+
+		// 상품 조회 이벤트 발행 (userId nullable — 비로그인 조회 포함)
+		// → [UserActionEventListener] VIEW 로깅 (Step 1), Step 2 이후 제거
+		eventPublisher.publishEvent(ProductViewedEvent.of(userId, id));
+
+		return result;
 	}
 
 

@@ -3,6 +3,7 @@ package com.loopers.catalog.product.application.facade;
 
 import com.loopers.catalog.product.application.dto.out.*;
 import com.loopers.catalog.product.application.service.ProductQueryService;
+import com.loopers.catalog.product.domain.event.ProductViewedEvent;
 import com.loopers.catalog.product.domain.model.Product;
 import com.loopers.catalog.product.domain.model.enums.ProductSortType;
 import com.loopers.catalog.product.domain.model.vo.Money;
@@ -13,8 +14,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -32,12 +35,15 @@ class ProductQueryFacadeTest {
 	@Mock
 	private ProductQueryService productQueryService;
 
+	@Mock
+	private ApplicationEventPublisher eventPublisher;
+
 	private ProductQueryFacade productQueryFacade;
 
 
 	@BeforeEach
 	void setUp() {
-		productQueryFacade = new ProductQueryFacade(productQueryService);
+		productQueryFacade = new ProductQueryFacade(productQueryService, eventPublisher);
 	}
 
 
@@ -55,7 +61,7 @@ class ProductQueryFacadeTest {
 	class GetProductTest {
 
 		@Test
-		@DisplayName("[getProduct()] 활성 상품 조회 -> ProductQueryService.getOrLoadProductDetail()에 위임. ProductDetailOutDto 반환")
+		@DisplayName("[getProduct()] 활성 상품 조회 -> ProductQueryService 위임 + ProductViewedEvent 발행. ProductDetailOutDto 반환")
 		void getProductSuccess() {
 			// Arrange
 			ProductDetailOutDto detailOutDto = new ProductDetailOutDto(
@@ -63,9 +69,10 @@ class ProductQueryFacadeTest {
 			given(productQueryService.getOrLoadProductDetail(1L)).willReturn(detailOutDto);
 
 			// Act
-			ProductDetailOutDto result = productQueryFacade.getProduct(1L);
+			ProductDetailOutDto result = productQueryFacade.getProduct(1L, 10L);
 
 			// Assert
+			ArgumentCaptor<ProductViewedEvent> eventCaptor = ArgumentCaptor.forClass(ProductViewedEvent.class);
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(1L),
 				() -> assertThat(result.brandId()).isEqualTo(1L),
@@ -74,7 +81,37 @@ class ProductQueryFacadeTest {
 				() -> assertThat(result.price()).isEqualByComparingTo(new BigDecimal("10000")),
 				() -> assertThat(result.stock()).isEqualTo(100L),
 				() -> assertThat(result.likeCount()).isEqualTo(0L),
-				() -> verify(productQueryService).getOrLoadProductDetail(1L)
+				() -> verify(productQueryService).getOrLoadProductDetail(1L),
+				() -> verify(eventPublisher).publishEvent(eventCaptor.capture())
+			);
+
+			ProductViewedEvent event = eventCaptor.getValue();
+			assertAll(
+				() -> assertThat(event.userId()).isEqualTo(10L),
+				() -> assertThat(event.productId()).isEqualTo(1L)
+			);
+		}
+
+
+		@Test
+		@DisplayName("[getProduct()] 비로그인 조회 (userId=null) -> 200 OK + ProductViewedEvent.userId == null")
+		void getProductAnonymous() {
+			// Arrange
+			ProductDetailOutDto detailOutDto = new ProductDetailOutDto(
+				1L, 1L, "나이키", "테스트 상품", new BigDecimal("10000"), 100L, null, 0L);
+			given(productQueryService.getOrLoadProductDetail(1L)).willReturn(detailOutDto);
+
+			// Act
+			ProductDetailOutDto result = productQueryFacade.getProduct(1L, null);
+
+			// Assert
+			ArgumentCaptor<ProductViewedEvent> eventCaptor = ArgumentCaptor.forClass(ProductViewedEvent.class);
+			verify(eventPublisher).publishEvent(eventCaptor.capture());
+
+			assertAll(
+				() -> assertThat(result.id()).isEqualTo(1L),
+				() -> assertThat(eventCaptor.getValue().userId()).isNull(),
+				() -> assertThat(eventCaptor.getValue().productId()).isEqualTo(1L)
 			);
 		}
 

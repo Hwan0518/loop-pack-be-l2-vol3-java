@@ -2,9 +2,11 @@ package com.loopers.payment.payment.application.service;
 
 
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderInfo;
+import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderItemInfo;
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderReader;
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderStatusManager;
 import com.loopers.payment.payment.application.port.out.client.pg.PgPaymentGateway;
+import com.loopers.payment.payment.domain.event.OrderPaidEvent;
 import com.loopers.payment.payment.domain.model.Payment;
 import com.loopers.payment.payment.domain.model.enums.CardType;
 import com.loopers.payment.payment.domain.model.enums.PaymentStatus;
@@ -17,11 +19,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,6 +50,8 @@ class PaymentCommandServiceTest {
 	private PaymentOrderStatusManager paymentOrderStatusManager;
 	@Mock
 	private PgPaymentGateway pgPaymentGateway;
+	@Mock
+	private ApplicationEventPublisher eventPublisher;
 
 	private PaymentCommandService paymentCommandService;
 
@@ -53,7 +60,7 @@ class PaymentCommandServiceTest {
 		paymentCommandService = new PaymentCommandService(
 			paymentCommandRepository, paymentQueryRepository,
 			paymentOrderReader, paymentOrderStatusManager,
-			pgPaymentGateway, "http://localhost:8080/callback"
+			pgPaymentGateway, eventPublisher, "http://localhost:8080/callback"
 		);
 	}
 
@@ -200,21 +207,37 @@ class PaymentCommandServiceTest {
 	class UpdatePaymentResultTest {
 
 		@Test
-		@DisplayName("[updatePaymentResult()] PG SUCCESS -> Payment SUCCESS + Order PAID")
+		@DisplayName("[updatePaymentResult()] PG SUCCESS -> Payment SUCCESS + Order PAID + OrderPaidEvent 발행")
 		void updatePaymentResultSuccess() {
 			// Arrange
 			Payment payment = Payment.reconstruct(10L, 100L, 1L, "PGO-test", CardType.SAMSUNG, "1234-5678-9012-3456",
 				new BigDecimal("200000"), "tx-123", PaymentStatus.REQUESTED, null, LocalDateTime.now());
 			given(paymentQueryRepository.findByTransactionKey("tx-123")).willReturn(Optional.of(payment));
 			given(paymentCommandRepository.save(any(Payment.class))).willAnswer(invocation -> invocation.getArgument(0));
+			given(paymentOrderReader.findOrderItems(1L)).willReturn(
+				List.of(new PaymentOrderItemInfo(1L, 2L)));
 
 			// Act
 			paymentCommandService.updatePaymentResult("tx-123", "SUCCESS", null);
 
 			// Assert
+			ArgumentCaptor<OrderPaidEvent> eventCaptor = ArgumentCaptor.forClass(OrderPaidEvent.class);
 			assertAll(
 				() -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS),
-				() -> verify(paymentOrderStatusManager).markOrderPaid(1L)
+				() -> verify(paymentOrderStatusManager).markOrderPaid(1L),
+				() -> verify(paymentOrderReader).findOrderItems(1L),
+				() -> verify(eventPublisher).publishEvent(eventCaptor.capture())
+			);
+
+			OrderPaidEvent event = eventCaptor.getValue();
+			assertAll(
+				() -> assertThat(event.orderId()).isEqualTo(1L),
+				() -> assertThat(event.userId()).isEqualTo(100L),
+				() -> assertThat(event.paymentId()).isEqualTo(10L),
+				() -> assertThat(event.items()).hasSize(1),
+				() -> assertThat(event.items().get(0).productId()).isEqualTo(1L),
+				() -> assertThat(event.items().get(0).quantity()).isEqualTo(2L),
+				() -> assertThat(event.totalPrice()).isEqualByComparingTo(new BigDecimal("200000"))
 			);
 		}
 
