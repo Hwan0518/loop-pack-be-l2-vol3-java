@@ -9,6 +9,7 @@ import com.loopers.ordering.order.application.port.out.client.catalog.OrderProdu
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponApplier;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponRestorer;
+import com.loopers.ordering.order.application.dto.out.OrderCreatedPayload;
 import com.loopers.ordering.order.domain.event.OrderCreatedEvent;
 import com.loopers.ordering.order.domain.model.Order;
 import com.loopers.ordering.order.domain.model.OrderItem;
@@ -17,6 +18,8 @@ import com.loopers.ordering.order.domain.model.vo.CouponSnapshot;
 import com.loopers.ordering.order.domain.repository.OrderCommandRepository;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
+import com.loopers.support.common.outbox.application.port.OutboxEventPort;
+import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -40,6 +43,9 @@ public class OrderCommandService {
 	private final OrderStockManager orderStockManager;
 	private final OrderCouponApplier orderCouponApplier;
 	private final OrderCouponRestorer orderCouponRestorer;
+	// outbox
+	private final OutboxEventPort outboxEventPort;
+	private final JsonSerializer jsonSerializer;
 	// event
 	private final ApplicationEventPublisher eventPublisher;
 
@@ -68,6 +74,11 @@ public class OrderCommandService {
 
 		// 주문 생성 + 저장 (requestId를 Order에 포함 — 유니크 제약으로 멱등성 보장)
 		Order savedOrder = buildAndSaveOrder(userId, inDto.requestId(), cartItems, products, couponApplyResult);
+
+		// Outbox 저장 (같은 TX — At Least Once 보장)
+		outboxEventPort.save("ORDER", String.valueOf(savedOrder.getId()), "ORDER_CREATED",
+			"order-events", String.valueOf(savedOrder.getId()),
+			jsonSerializer.toJson(OrderCreatedPayload.from(savedOrder)));
 
 		// 주문 생성 이벤트 발행 → [OrderEventListener] 장바구니 정리 + [UserActionEventListener] ORDER 로깅
 		eventPublisher.publishEvent(OrderCreatedEvent.from(savedOrder, resolvedCartItemIds));

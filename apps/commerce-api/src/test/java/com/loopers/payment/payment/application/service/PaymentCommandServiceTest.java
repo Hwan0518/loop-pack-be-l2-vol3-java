@@ -14,6 +14,8 @@ import com.loopers.payment.payment.domain.repository.PaymentCommandRepository;
 import com.loopers.payment.payment.domain.repository.PaymentQueryRepository;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
+import com.loopers.support.common.outbox.application.port.OutboxEventPort;
+import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -51,6 +53,10 @@ class PaymentCommandServiceTest {
 	@Mock
 	private PgPaymentGateway pgPaymentGateway;
 	@Mock
+	private OutboxEventPort outboxEventPort;
+	@Mock
+	private JsonSerializer jsonSerializer;
+	@Mock
 	private ApplicationEventPublisher eventPublisher;
 
 	private PaymentCommandService paymentCommandService;
@@ -60,7 +66,8 @@ class PaymentCommandServiceTest {
 		paymentCommandService = new PaymentCommandService(
 			paymentCommandRepository, paymentQueryRepository,
 			paymentOrderReader, paymentOrderStatusManager,
-			pgPaymentGateway, eventPublisher, "http://localhost:8080/callback"
+			pgPaymentGateway, outboxEventPort, jsonSerializer,
+			eventPublisher, "http://localhost:8080/callback"
 		);
 	}
 

@@ -8,6 +8,8 @@ import com.loopers.engagement.productlike.domain.repository.ProductLikeCommandRe
 import com.loopers.engagement.productlike.domain.repository.ProductLikeQueryRepository;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
+import com.loopers.support.common.outbox.application.port.OutboxEventPort;
+import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -39,6 +41,10 @@ class ProductLikeCommandServiceTest {
 	private ProductLikeTargetValidator productLikeTargetValidator;
 	@Mock
 	private ProductLikeCountSyncer productLikeCountSyncer;
+	@Mock
+	private OutboxEventPort outboxEventPort;
+	@Mock
+	private JsonSerializer jsonSerializer;
 
 	private ProductLikeCommandService productLikeCommandService;
 
@@ -49,7 +55,9 @@ class ProductLikeCommandServiceTest {
 			productLikeCommandRepository,
 			productLikeQueryRepository,
 			productLikeTargetValidator,
-			productLikeCountSyncer
+			productLikeCountSyncer,
+			outboxEventPort,
+			jsonSerializer
 		);
 	}
 

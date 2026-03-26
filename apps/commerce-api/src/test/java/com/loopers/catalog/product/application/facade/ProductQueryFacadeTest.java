@@ -14,6 +14,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import com.loopers.support.common.outbox.application.port.OutboxEventPort;
+import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -36,6 +38,12 @@ class ProductQueryFacadeTest {
 	private ProductQueryService productQueryService;
 
 	@Mock
+	private OutboxEventPort outboxEventPort;
+
+	@Mock
+	private JsonSerializer jsonSerializer;
+
+	@Mock
 	private ApplicationEventPublisher eventPublisher;
 
 	private ProductQueryFacade productQueryFacade;
@@ -43,7 +51,7 @@ class ProductQueryFacadeTest {
 
 	@BeforeEach
 	void setUp() {
-		productQueryFacade = new ProductQueryFacade(productQueryService, eventPublisher);
+		productQueryFacade = new ProductQueryFacade(productQueryService, outboxEventPort, jsonSerializer, eventPublisher);
 	}
 
 

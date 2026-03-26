@@ -1,5 +1,8 @@
 package com.loopers.engagement.productlike.application.service;
 
+
+import com.loopers.engagement.productlike.application.dto.out.ProductLikedPayload;
+import com.loopers.engagement.productlike.application.dto.out.ProductUnlikedPayload;
 import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeCountSyncer;
 import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeTargetValidator;
 import com.loopers.engagement.productlike.domain.model.ProductLike;
@@ -7,6 +10,8 @@ import com.loopers.engagement.productlike.domain.repository.ProductLikeCommandRe
 import com.loopers.engagement.productlike.domain.repository.ProductLikeQueryRepository;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
+import com.loopers.support.common.outbox.application.port.OutboxEventPort;
+import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,13 +29,16 @@ public class ProductLikeCommandService {
 	// port
 	private final ProductLikeTargetValidator productLikeTargetValidator;
 	private final ProductLikeCountSyncer productLikeCountSyncer;
+	// outbox
+	private final OutboxEventPort outboxEventPort;
+	private final JsonSerializer jsonSerializer;
 
 
 	/**
 	 * 상품 좋아요 명령 서비스
 	 * 1. 좋아요 조회
-	 * 2. 상품 좋아요 생성
-	 * 3. 상품 좋아요 삭제
+	 * 2. 상품 좋아요 생성 (+ Outbox 저장)
+	 * 3. 상품 좋아요 삭제 (+ Outbox 저장)
 	 * 4. 상품 ID로 상품 좋아요 전체 삭제
 	 * 5. 좋아요 수 증가
 	 * 6. 좋아요 수 감소
@@ -43,7 +51,7 @@ public class ProductLikeCommandService {
 	}
 
 
-	// 2. 상품 좋아요 생성
+	// 2. 상품 좋아요 생성 (+ Outbox 저장)
 	@Transactional
 	public ProductLike createLike(Long userId, Long targetId) {
 
@@ -56,11 +64,18 @@ public class ProductLikeCommandService {
 
 		// 좋아요 생성 및 저장
 		ProductLike productLike = ProductLike.create(userId, targetId);
-		return productLikeCommandRepository.save(productLike);
+		ProductLike saved = productLikeCommandRepository.save(productLike);
+
+		// Outbox 저장 (같은 TX — At Least Once 보장)
+		outboxEventPort.save("PRODUCT", String.valueOf(targetId), "PRODUCT_LIKED",
+			"catalog-events", String.valueOf(targetId),
+			jsonSerializer.toJson(ProductLikedPayload.from(saved)));
+
+		return saved;
 	}
 
 
-	// 3. 상품 좋아요 삭제
+	// 3. 상품 좋아요 삭제 (+ Outbox 저장)
 	@Transactional
 	public void deleteLike(Long userId, Long targetId) {
 
@@ -71,6 +86,11 @@ public class ProductLikeCommandService {
 
 		// 삭제
 		productLikeCommandRepository.delete(productLike);
+
+		// Outbox 저장 (같은 TX — At Least Once 보장)
+		outboxEventPort.save("PRODUCT", String.valueOf(targetId), "PRODUCT_UNLIKED",
+			"catalog-events", String.valueOf(targetId),
+			jsonSerializer.toJson(ProductUnlikedPayload.of(userId, targetId)));
 	}
 
 

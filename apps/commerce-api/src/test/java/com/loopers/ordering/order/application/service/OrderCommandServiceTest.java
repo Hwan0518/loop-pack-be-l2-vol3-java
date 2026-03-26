@@ -19,6 +19,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import com.loopers.support.common.outbox.application.port.OutboxEventPort;
+import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
@@ -53,6 +55,12 @@ class OrderCommandServiceTest {
 	private OrderCouponRestorer orderCouponRestorer;
 
 	@Mock
+	private OutboxEventPort outboxEventPort;
+
+	@Mock
+	private JsonSerializer jsonSerializer;
+
+	@Mock
 	private ApplicationEventPublisher eventPublisher;
 
 	private OrderCommandService orderCommandService;
@@ -60,7 +68,8 @@ class OrderCommandServiceTest {
 	@BeforeEach
 	void setUp() {
 		orderCommandService = new OrderCommandService(
-			orderCommandRepository, orderStockManager, orderCouponApplier, orderCouponRestorer, eventPublisher
+			orderCommandRepository, orderStockManager, orderCouponApplier, orderCouponRestorer,
+			outboxEventPort, jsonSerializer, eventPublisher
 		);
 	}
 
