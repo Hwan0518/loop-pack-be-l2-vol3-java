@@ -8,8 +8,8 @@ import com.loopers.catalog.product.application.port.out.query.criteria.ProductSe
 import com.loopers.catalog.product.domain.model.enums.ProductSortType;
 import com.loopers.catalog.product.domain.repository.vo.PageCriteria;
 import com.loopers.catalog.product.domain.repository.vo.PageResult;
-import com.loopers.catalog.product.infrastructure.cache.dto.IdListCacheEntry;
-import com.loopers.catalog.product.infrastructure.cache.dto.ProductCacheDto;
+import com.loopers.catalog.product.application.port.out.cache.dto.IdListCacheEntry;
+import com.loopers.catalog.product.application.port.out.cache.dto.ProductCacheDto;
 import com.loopers.catalog.product.infrastructure.entity.QProductReadModelEntity;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Projections;

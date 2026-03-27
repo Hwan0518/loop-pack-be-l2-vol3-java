@@ -4,8 +4,8 @@ package com.loopers.logging.interfaces.consumer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.confg.kafka.KafkaConfig;
+import com.loopers.logging.application.dto.EventLogData;
 import com.loopers.logging.application.service.UserActionLogService;
-import com.loopers.logging.infrastructure.entity.EventLogEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -52,15 +52,15 @@ public class UserActionLogConsumer {
 
 			Set<String> alreadyHandled = userActionLogService.findAlreadyHandledIds(allEventIds);
 
-			// 2. 신규 이벤트 로그 생성
-			List<EventLogEntity> logs = new ArrayList<>();
+			// 2. 신규 이벤트 로그 DTO 생성
+			List<EventLogData> logs = new ArrayList<>();
 			Set<String> newEventIds = new LinkedHashSet<>();
 
 			for (JsonNode envelope : envelopes) {
 				String eventId = envelope.get("eventId").asText();
 				if (alreadyHandled.contains(eventId)) continue;
 
-				logs.add(EventLogEntity.success(
+				logs.add(new EventLogData(
 					eventId,
 					"user-action-logger",
 					envelope.get("eventType").asText(),

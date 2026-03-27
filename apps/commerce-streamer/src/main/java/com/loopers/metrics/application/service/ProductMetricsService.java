@@ -1,8 +1,8 @@
 package com.loopers.metrics.application.service;
 
 
-import com.loopers.metrics.infrastructure.entity.ProductMetricsEntity;
-import com.loopers.metrics.infrastructure.jpa.ProductMetricsJpaRepository;
+import com.loopers.metrics.application.port.out.ProductMetricsPort;
+import com.loopers.metrics.application.port.out.ProductMetricsPort.MetricsSnapshot;
 import com.loopers.support.common.outbox.application.port.OutboxEventPort;
 import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import com.loopers.support.idempotency.EventIdempotencyService;
@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Set;
 
@@ -26,8 +25,8 @@ public class ProductMetricsService {
 
 	private static final String CONSUMER_GROUP = "metrics-collector";
 
-	// jpa
-	private final ProductMetricsJpaRepository productMetricsJpaRepository;
+	// port
+	private final ProductMetricsPort productMetricsPort;
 	// idempotency
 	private final EventIdempotencyService eventIdempotencyService;
 	// outbox (snapshot 발행용)
@@ -48,21 +47,17 @@ public class ProductMetricsService {
 			Long productId = entry.getKey();
 			long[] delta = entry.getValue(); // [likeDelta, salesDelta, viewDelta]
 
-			// upsert: 존재하면 delta 적용, 없으면 신규 생성
-			ProductMetricsEntity metrics = productMetricsJpaRepository.findById(productId)
-				.orElseGet(() -> ProductMetricsEntity.createDefault(productId));
-
-			metrics.applyDelta(delta[0], delta[1], delta[2]);
-			productMetricsJpaRepository.save(metrics);
+			// delta 적용 + snapshot 반환
+			MetricsSnapshot snapshot = productMetricsPort.applyDeltaAndGet(productId, delta[0], delta[1], delta[2]);
 
 			// snapshot outbox 저장 (같은 TX — At Least Once 보장)
 			String snapshotPayload = jsonSerializer.toJson(Map.of(
-				"productId", metrics.getProductId(),
-				"likeCount", metrics.getLikeCount(),
-				"salesCount", metrics.getSalesCount(),
-				"viewCount", metrics.getViewCount(),
-				"version", metrics.getVersion(),
-				"updatedAt", metrics.getUpdatedAt().toString()
+				"productId", snapshot.productId(),
+				"likeCount", snapshot.likeCount(),
+				"salesCount", snapshot.salesCount(),
+				"viewCount", snapshot.viewCount(),
+				"version", snapshot.version(),
+				"updatedAt", snapshot.updatedAt()
 			));
 			outboxEventPort.save("PRODUCT", String.valueOf(productId), "PRODUCT_METRICS_UPDATED",
 				"product-metrics-snapshots", String.valueOf(productId), snapshotPayload);

@@ -7,8 +7,8 @@ import com.loopers.catalog.product.application.dto.out.ProductOutDto;
 import com.loopers.catalog.product.application.port.out.query.criteria.ProductSearchCriteria;
 import com.loopers.catalog.product.domain.repository.vo.PageCriteria;
 import com.loopers.catalog.product.domain.repository.vo.PageResult;
-import com.loopers.catalog.product.infrastructure.cache.dto.IdListCacheEntry;
-import com.loopers.catalog.product.infrastructure.cache.dto.ProductCacheDto;
+import com.loopers.catalog.product.application.port.out.cache.dto.IdListCacheEntry;
+import com.loopers.catalog.product.application.port.out.cache.dto.ProductCacheDto;
 
 import java.util.List;
 

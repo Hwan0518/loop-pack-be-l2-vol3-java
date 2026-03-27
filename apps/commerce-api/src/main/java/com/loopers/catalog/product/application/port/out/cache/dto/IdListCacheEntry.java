@@ -1,4 +1,4 @@
-package com.loopers.catalog.product.infrastructure.cache.dto;
+package com.loopers.catalog.product.application.port.out.cache.dto;
 
 
 import java.util.List;

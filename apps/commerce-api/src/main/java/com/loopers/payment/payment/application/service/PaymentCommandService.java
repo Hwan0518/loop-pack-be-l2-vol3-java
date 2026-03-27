@@ -19,8 +19,8 @@ import com.loopers.payment.payment.domain.model.enums.CardType;
 import com.loopers.payment.payment.domain.model.enums.PaymentStatus;
 import com.loopers.payment.payment.domain.repository.PaymentCommandRepository;
 import com.loopers.payment.payment.domain.repository.PaymentQueryRepository;
-import com.loopers.ordering.order.application.dto.out.OrderItemPayload;
-import com.loopers.ordering.order.application.dto.out.OrderPaidPayload;
+import com.loopers.payment.payment.application.dto.out.PaymentOrderItemPayload;
+import com.loopers.payment.payment.application.dto.out.PaymentOrderPaidPayload;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.support.common.outbox.application.port.OutboxEventPort;
@@ -287,12 +287,12 @@ public class PaymentCommandService {
 			List<PaymentOrderItemInfo> orderItems = paymentOrderReader.findOrderItems(payment.getOrderId());
 
 			// Outbox 저장 (같은 TX — At Least Once 보장)
-			List<OrderItemPayload> itemPayloads = orderItems.stream()
-				.map(item -> new OrderItemPayload(item.productId(), item.quantity()))
+			List<PaymentOrderItemPayload> itemPayloads = orderItems.stream()
+				.map(item -> new PaymentOrderItemPayload(item.productId(), item.quantity()))
 				.toList();
 			outboxEventPort.save("ORDER", String.valueOf(payment.getOrderId()), "ORDER_PAID",
 				"order-events", String.valueOf(payment.getOrderId()),
-				jsonSerializer.toJson(new OrderPaidPayload(
+				jsonSerializer.toJson(new PaymentOrderPaidPayload(
 					payment.getOrderId(), payment.getUserId(), payment.getId(),
 					itemPayloads, payment.getAmount(), java.time.LocalDateTime.now()
 				)));

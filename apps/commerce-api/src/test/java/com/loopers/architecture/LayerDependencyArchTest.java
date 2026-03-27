@@ -266,6 +266,15 @@ class LayerDependencyArchTest {
 				.should().dependOnClassesThat().resideInAnyPackage("..infrastructure.entity..")
 				.check(importedClasses);
 		}
+
+		@Test
+		@DisplayName("[service] service는 infrastructure.cache를 직접 참조하지 않는다 (ProductCachePort를 통해 접근)")
+		void serviceShouldNotDependOnCache() {
+			noClasses()
+				.that().resideInAnyPackage("..application.service..")
+				.should().dependOnClassesThat().resideInAnyPackage("..infrastructure.cache..")
+				.check(importedClasses);
+		}
 	}
 
 

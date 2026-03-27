@@ -1,12 +1,10 @@
 package com.loopers.coupon.application.service;
 
 
-import com.loopers.coupon.infrastructure.entity.StreamerCouponIssueRequestEntity;
-import com.loopers.coupon.infrastructure.entity.StreamerCouponTemplateEntity;
-import com.loopers.coupon.infrastructure.entity.StreamerIssuedCouponEntity;
-import com.loopers.coupon.infrastructure.jpa.StreamerCouponIssueRequestJpaRepository;
-import com.loopers.coupon.infrastructure.jpa.StreamerCouponTemplateJpaRepository;
-import com.loopers.coupon.infrastructure.jpa.StreamerIssuedCouponJpaRepository;
+import com.loopers.coupon.application.dto.CouponTemplateInfo;
+import com.loopers.coupon.application.port.out.CouponIssueRequestPort;
+import com.loopers.coupon.application.port.out.CouponTemplateReaderPort;
+import com.loopers.coupon.application.port.out.IssuedCouponPort;
 import com.loopers.support.idempotency.EventIdempotencyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,10 +26,10 @@ public class CouponIssueProcessorService {
 
 	private static final String CONSUMER_GROUP = "coupon-issuer";
 
-	// jpa
-	private final StreamerIssuedCouponJpaRepository issuedCouponJpaRepository;
-	private final StreamerCouponTemplateJpaRepository couponTemplateJpaRepository;
-	private final StreamerCouponIssueRequestJpaRepository couponIssueRequestJpaRepository;
+	// port
+	private final IssuedCouponPort issuedCouponPort;
+	private final CouponTemplateReaderPort couponTemplateReaderPort;
+	private final CouponIssueRequestPort couponIssueRequestPort;
 	// idempotency
 	private final EventIdempotencyService eventIdempotencyService;
 
@@ -46,60 +44,59 @@ public class CouponIssueProcessorService {
 		}
 
 		// 발급 요청 조회
-		Optional<StreamerCouponIssueRequestEntity> requestOpt =
-			couponIssueRequestJpaRepository.findByRequestId(requestId);
-		if (requestOpt.isEmpty()) {
+		Optional<Long> issueRequestIdOpt = couponIssueRequestPort.findIdByRequestId(requestId);
+		if (issueRequestIdOpt.isEmpty()) {
 			log.warn("[CouponIssue] 발급 요청 없음 requestId={}", requestId);
 			eventIdempotencyService.markHandled(eventId, CONSUMER_GROUP);
 			return;
 		}
-		StreamerCouponIssueRequestEntity issueRequest = requestOpt.get();
+		Long issueRequestId = issueRequestIdOpt.get();
 
 		// 템플릿 존재/삭제/만료 검증
-		Optional<StreamerCouponTemplateEntity> templateOpt = couponTemplateJpaRepository.findById(couponTemplateId);
+		Optional<CouponTemplateInfo> templateOpt = couponTemplateReaderPort.findById(couponTemplateId);
 		if (templateOpt.isEmpty()) {
-			issueRequest.reject("COUPON_TEMPLATE_NOT_FOUND");
+			couponIssueRequestPort.reject(issueRequestId, "COUPON_TEMPLATE_NOT_FOUND");
 			eventIdempotencyService.markHandled(eventId, CONSUMER_GROUP);
 			log.warn("[CouponIssue] 템플릿 없음 requestId={} templateId={}", requestId, couponTemplateId);
 			return;
 		}
-		StreamerCouponTemplateEntity template = templateOpt.get();
-		if (template.isDeleted()) {
-			issueRequest.reject("COUPON_TEMPLATE_DELETED");
+		CouponTemplateInfo template = templateOpt.get();
+		if (template.deleted()) {
+			couponIssueRequestPort.reject(issueRequestId, "COUPON_TEMPLATE_DELETED");
 			eventIdempotencyService.markHandled(eventId, CONSUMER_GROUP);
 			log.info("[CouponIssue] 삭제된 템플릿 거부 requestId={}", requestId);
 			return;
 		}
-		if (template.isExpired()) {
-			issueRequest.reject("COUPON_EXPIRED");
+		if (template.expired()) {
+			couponIssueRequestPort.reject(issueRequestId, "COUPON_EXPIRED");
 			eventIdempotencyService.markHandled(eventId, CONSUMER_GROUP);
 			log.info("[CouponIssue] 만료된 템플릿 거부 requestId={}", requestId);
 			return;
 		}
 
 		// 중복 발급 검사
-		if (issuedCouponJpaRepository.existsByUserIdAndCouponTemplateId(userId, couponTemplateId)) {
-			issueRequest.reject("COUPON_ISSUE_DUPLICATED");
+		if (issuedCouponPort.existsByUserIdAndTemplateId(userId, couponTemplateId)) {
+			couponIssueRequestPort.reject(issueRequestId, "COUPON_ISSUE_DUPLICATED");
 			eventIdempotencyService.markHandled(eventId, CONSUMER_GROUP);
 			log.info("[CouponIssue] 중복 발급 거부 requestId={} userId={}", requestId, userId);
 			return;
 		}
 
 		// 수량 확인
-		if (template.getMaxQuantity() != null) {
-			long issuedCount = issuedCouponJpaRepository.countByCouponTemplateId(couponTemplateId);
-			if (issuedCount >= template.getMaxQuantity()) {
-				issueRequest.reject("COUPON_SOLD_OUT");
+		if (template.maxQuantity() != null) {
+			long issuedCount = issuedCouponPort.countByTemplateId(couponTemplateId);
+			if (issuedCount >= template.maxQuantity()) {
+				couponIssueRequestPort.reject(issueRequestId, "COUPON_SOLD_OUT");
 				eventIdempotencyService.markHandled(eventId, CONSUMER_GROUP);
 				log.info("[CouponIssue] 수량 초과 거부 requestId={} issued={} max={}",
-					requestId, issuedCount, template.getMaxQuantity());
+					requestId, issuedCount, template.maxQuantity());
 				return;
 			}
 		}
 
 		// 발급
-		issuedCouponJpaRepository.save(StreamerIssuedCouponEntity.of(userId, couponTemplateId));
-		issueRequest.markIssued();
+		issuedCouponPort.issue(userId, couponTemplateId);
+		couponIssueRequestPort.markIssued(issueRequestId);
 
 		// event_handled 기록
 		eventIdempotencyService.markHandled(eventId, CONSUMER_GROUP);

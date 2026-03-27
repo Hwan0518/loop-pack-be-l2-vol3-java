@@ -1,4 +1,4 @@
-package com.loopers.catalog.product.infrastructure.cache;
+package com.loopers.catalog.product.application.port.out.cache;
 
 
 import com.loopers.catalog.product.domain.model.enums.ProductSortType;

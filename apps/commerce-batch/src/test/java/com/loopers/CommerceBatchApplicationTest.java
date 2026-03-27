@@ -4,7 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
+@SpringBootTest(properties = "spring.batch.job.enabled=false")
 @DisplayName("CommerceBatch 컨텍스트 테스트")
 class CommerceBatchApplicationTest {
 

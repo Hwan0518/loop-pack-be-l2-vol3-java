@@ -13,9 +13,9 @@ import com.loopers.catalog.product.domain.repository.ProductQueryRepository;
 import com.loopers.catalog.product.domain.repository.ProductReadModelRepository;
 import com.loopers.catalog.product.domain.repository.vo.PageCriteria;
 import com.loopers.catalog.product.domain.repository.vo.PageResult;
-import com.loopers.catalog.product.infrastructure.cache.dto.IdListCacheEntry;
-import com.loopers.catalog.product.infrastructure.cache.dto.ProductCacheDto;
-import com.loopers.catalog.product.infrastructure.cache.ProductCacheManager;
+import com.loopers.catalog.product.application.port.out.cache.ProductCachePort;
+import com.loopers.catalog.product.application.port.out.cache.dto.IdListCacheEntry;
+import com.loopers.catalog.product.application.port.out.cache.dto.ProductCacheDto;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +61,7 @@ class ProductQueryServiceTest {
 	@Mock
 	private JsonSerializer jsonSerializer;
 	@Mock
-	private ProductCacheManager productCacheManager;
+	private ProductCachePort productCacheManager;
 
 	private ProductQueryService productQueryService;
 

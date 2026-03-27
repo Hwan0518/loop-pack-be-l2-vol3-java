@@ -1,8 +1,8 @@
 package com.loopers.logging.application.service;
 
 
-import com.loopers.logging.infrastructure.entity.EventLogEntity;
-import com.loopers.logging.infrastructure.jpa.EventLogJpaRepository;
+import com.loopers.logging.application.dto.EventLogData;
+import com.loopers.logging.application.port.out.EventLogPort;
 import com.loopers.support.idempotency.EventIdempotencyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,8 +23,8 @@ public class UserActionLogService {
 
 	private static final String CONSUMER_GROUP = "user-action-logger";
 
-	// jpa
-	private final EventLogJpaRepository eventLogJpaRepository;
+	// port
+	private final EventLogPort eventLogPort;
 	// idempotency
 	private final EventIdempotencyService eventIdempotencyService;
 
@@ -37,8 +37,8 @@ public class UserActionLogService {
 
 	// 배치 로그 저장 + event_handled (동일 TX)
 	@Transactional
-	public void saveLogsAndMarkHandled(List<EventLogEntity> logs, Set<String> handledEventIds) {
-		eventLogJpaRepository.saveAll(logs);
+	public void saveLogsAndMarkHandled(List<EventLogData> logs, Set<String> handledEventIds) {
+		eventLogPort.saveAll(logs);
 		eventIdempotencyService.markHandledBatch(handledEventIds, CONSUMER_GROUP);
 	}
 

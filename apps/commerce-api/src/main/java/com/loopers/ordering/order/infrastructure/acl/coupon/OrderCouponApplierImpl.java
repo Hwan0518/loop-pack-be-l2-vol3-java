@@ -4,6 +4,7 @@ package com.loopers.ordering.order.infrastructure.acl.coupon;
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponApplyResult;
 import com.loopers.coupon.issuedcoupon.application.facade.IssuedCouponCommandFacade;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponApplier;
+import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponApplyResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -23,14 +24,24 @@ public class OrderCouponApplierImpl implements OrderCouponApplier {
 
 
 	/**
-	 * 쿠폰 적용 (thin adapter — Provider Facade에 위임만 수행)
+	 * 쿠폰 적용 (thin adapter — Provider Facade 위임 + Provider DTO → Consumer record 변환)
 	 * 1. Provider Facade에 위임
+	 * 2. Provider CouponApplyResult → Consumer OrderCouponApplyResult 변환
 	 */
 
-	// 1. 쿠폰 적용 위임
+	// 1. 쿠폰 적용 위임 + Provider → Consumer 변환
 	@Override
-	public CouponApplyResult apply(Long issuedCouponId, Long userId, BigDecimal totalPrice) {
-		return issuedCouponCommandFacade.applyToCoupon(issuedCouponId, userId, totalPrice);
+	public OrderCouponApplyResult apply(Long issuedCouponId, Long userId, BigDecimal totalPrice) {
+		CouponApplyResult providerResult = issuedCouponCommandFacade.applyToCoupon(issuedCouponId, userId, totalPrice);
+
+		// 2. Provider DTO → Consumer contract record 변환
+		return new OrderCouponApplyResult(
+			providerResult.issuedCouponId(),
+			providerResult.discountAmount(),
+			providerResult.couponSnapshotName(),
+			providerResult.couponSnapshotType(),
+			providerResult.couponSnapshotValue()
+		);
 	}
 
 }

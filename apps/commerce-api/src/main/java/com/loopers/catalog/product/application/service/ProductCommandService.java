@@ -13,16 +13,16 @@ import com.loopers.catalog.product.domain.repository.ProductCommandRepository;
 import com.loopers.catalog.product.domain.repository.ProductQueryRepository;
 import com.loopers.catalog.product.domain.repository.ProductReadModelRepository;
 import com.loopers.catalog.product.domain.repository.vo.PageCriteria;
-import com.loopers.catalog.product.infrastructure.cache.ProductCacheManager;
+import com.loopers.catalog.product.application.port.out.cache.ProductCachePort;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.DEFAULT_PAGE_SIZE;
-import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.MAX_CACHEABLE_PAGE;
-import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.buildIdListCacheKey;
+import static com.loopers.catalog.product.application.port.out.cache.ProductCacheConstants.DEFAULT_PAGE_SIZE;
+import static com.loopers.catalog.product.application.port.out.cache.ProductCacheConstants.MAX_CACHEABLE_PAGE;
+import static com.loopers.catalog.product.application.port.out.cache.ProductCacheConstants.buildIdListCacheKey;
 
 
 @Service
@@ -33,7 +33,7 @@ public class ProductCommandService {
 	private final ProductQueryRepository productQueryRepository;
 	private final ProductReadModelRepository readModelRepository;
 	// cache
-	private final ProductCacheManager productCacheManager;
+	private final ProductCachePort productCacheManager;
 	// port
 	private final ProductQueryPort productQueryPort;
 	// port (@Lazy: Cross-BC 순환 의존 방지 — ProductCommandService ↔ ProductLikeCommandService 간 ACL 경유 순환)
@@ -44,7 +44,7 @@ public class ProductCommandService {
 		ProductCommandRepository productCommandRepository,
 		ProductQueryRepository productQueryRepository,
 		ProductReadModelRepository readModelRepository,
-		ProductCacheManager productCacheManager,
+		ProductCachePort productCacheManager,
 		ProductQueryPort productQueryPort,
 		@Lazy ProductLikeCleanupManager productLikeCleanupManager,
 		@Lazy CartItemCleanupManager cartItemCleanupManager

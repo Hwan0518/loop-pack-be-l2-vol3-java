@@ -1,13 +1,13 @@
 package com.loopers.ordering.order.application.service;
 
 
-import com.loopers.coupon.issuedcoupon.application.dto.out.CouponApplyResult;
 import com.loopers.ordering.order.application.dto.in.OrderCreateInDto;
 import com.loopers.ordering.order.application.dto.out.OrderDetailOutDto;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponApplier;
+import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponApplyResult;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponRestorer;
 import com.loopers.ordering.order.domain.event.OrderCreatedEvent;
 import com.loopers.ordering.order.domain.model.Order;
@@ -216,7 +216,7 @@ class OrderCommandServiceTest {
 			);
 			List<Long> resolvedCartItemIds = List.of(100L);
 
-			CouponApplyResult couponResult = new CouponApplyResult(
+			OrderCouponApplyResult couponResult = new OrderCouponApplyResult(
 				5L, new BigDecimal("10000"), "10% 할인 쿠폰", "PERCENTAGE", new BigDecimal("10"));
 			given(orderCouponApplier.apply(couponId, userId, new BigDecimal("200000")))
 				.willReturn(couponResult);

@@ -1,13 +1,13 @@
 package com.loopers.ordering.order.application.service;
 
 
-import com.loopers.coupon.issuedcoupon.application.dto.out.CouponApplyResult;
 import com.loopers.ordering.order.application.dto.in.OrderCreateInDto;
 import com.loopers.ordering.order.application.dto.out.OrderDetailOutDto;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponApplier;
+import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponApplyResult;
 import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponRestorer;
 import com.loopers.ordering.order.application.dto.out.OrderCreatedPayload;
 import com.loopers.ordering.order.domain.event.OrderCreatedEvent;
@@ -68,9 +68,9 @@ public class OrderCommandService {
 
 		// 쿠폰 적용 (쿠폰 미사용 시 할인 없음)
 		BigDecimal originalTotalPrice = calculateTotalPrice(cartItems, products);
-		CouponApplyResult couponApplyResult = inDto.couponId() != null
+		OrderCouponApplyResult couponApplyResult = inDto.couponId() != null
 			? orderCouponApplier.apply(inDto.couponId(), userId, originalTotalPrice)
-			: CouponApplyResult.noDiscount();
+			: OrderCouponApplyResult.noDiscount();
 
 		// 주문 생성 + 저장 (requestId를 Order에 포함 — 유니크 제약으로 멱등성 보장)
 		Order savedOrder = buildAndSaveOrder(userId, inDto.requestId(), cartItems, products, couponApplyResult);
@@ -164,7 +164,7 @@ public class OrderCommandService {
 
 	// 주문 생성 + 저장
 	private Order buildAndSaveOrder(Long userId, String requestId, List<OrderCartItemInfo> cartItems,
-		List<OrderProductInfo> products, CouponApplyResult couponApplyResult) {
+		List<OrderProductInfo> products, OrderCouponApplyResult couponApplyResult) {
 
 		// 상품 정보를 productId 기준으로 맵핑
 		Map<Long, OrderProductInfo> productMap = products.stream()
