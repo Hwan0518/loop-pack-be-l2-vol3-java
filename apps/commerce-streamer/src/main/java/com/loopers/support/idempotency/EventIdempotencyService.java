@@ -1,15 +1,12 @@
 package com.loopers.support.idempotency;
 
 
-import com.loopers.support.idempotency.infrastructure.entity.EventHandledEntity;
-import com.loopers.support.idempotency.infrastructure.jpa.EventHandledJpaRepository;
+import com.loopers.support.idempotency.port.out.EventHandledPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 
 /**
@@ -24,36 +21,31 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EventIdempotencyService {
 
-	// jpa
-	private final EventHandledJpaRepository eventHandledJpaRepository;
+	// port
+	private final EventHandledPort eventHandledPort;
 
 
 	// 1. 이미 처리된 이벤트인지 확인
 	public boolean isAlreadyHandled(String eventId, String consumerGroup) {
-		return eventHandledJpaRepository.existsByEventIdAndConsumerGroup(eventId, consumerGroup);
+		return eventHandledPort.existsByEventIdAndConsumerGroup(eventId, consumerGroup);
 	}
 
 
 	// 2. 이미 처리된 eventId 집합 조회 (배치용)
 	public Set<String> findAlreadyHandledIds(Collection<String> eventIds, String consumerGroup) {
-		return eventHandledJpaRepository.findByEventIdInAndConsumerGroup(eventIds, consumerGroup).stream()
-			.map(EventHandledEntity::getEventId)
-			.collect(Collectors.toSet());
+		return eventHandledPort.findHandledEventIds(eventIds, consumerGroup);
 	}
 
 
 	// 3. 처리 완료 기록
 	public void markHandled(String eventId, String consumerGroup) {
-		eventHandledJpaRepository.save(EventHandledEntity.of(eventId, consumerGroup));
+		eventHandledPort.markHandled(eventId, consumerGroup);
 	}
 
 
 	// 4. 일괄 처리 완료 기록
 	public void markHandledBatch(Collection<String> eventIds, String consumerGroup) {
-		List<EventHandledEntity> entities = eventIds.stream()
-			.map(id -> EventHandledEntity.of(id, consumerGroup))
-			.toList();
-		eventHandledJpaRepository.saveAll(entities);
+		eventHandledPort.markHandledBatch(eventIds, consumerGroup);
 	}
 
 }
