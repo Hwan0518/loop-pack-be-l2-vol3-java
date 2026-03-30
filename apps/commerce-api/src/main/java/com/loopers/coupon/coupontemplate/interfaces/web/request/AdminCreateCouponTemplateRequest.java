@@ -24,6 +24,8 @@ public record AdminCreateCouponTemplateRequest(
 
 	BigDecimal minOrderAmount,
 
+	Integer maxQuantity,
+
 	@NotNull(message = "만료일은 필수입니다.")
 	LocalDateTime expiredAt
 ) {

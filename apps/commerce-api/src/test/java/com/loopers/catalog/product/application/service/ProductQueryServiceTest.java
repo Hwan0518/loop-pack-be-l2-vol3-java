@@ -13,9 +13,9 @@ import com.loopers.catalog.product.domain.repository.ProductQueryRepository;
 import com.loopers.catalog.product.domain.repository.ProductReadModelRepository;
 import com.loopers.catalog.product.domain.repository.vo.PageCriteria;
 import com.loopers.catalog.product.domain.repository.vo.PageResult;
-import com.loopers.catalog.product.infrastructure.cache.dto.IdListCacheEntry;
-import com.loopers.catalog.product.infrastructure.cache.dto.ProductCacheDto;
-import com.loopers.catalog.product.infrastructure.cache.ProductCacheManager;
+import com.loopers.catalog.product.application.port.out.cache.ProductCachePort;
+import com.loopers.catalog.product.application.port.out.cache.dto.IdListCacheEntry;
+import com.loopers.catalog.product.application.port.out.cache.dto.ProductCacheDto;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,6 +42,9 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.loopers.support.common.outbox.application.port.OutboxEventPort;
+import com.loopers.support.common.outbox.application.util.JsonSerializer;
+
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ProductQueryService 단위 테스트")
@@ -54,7 +57,11 @@ class ProductQueryServiceTest {
 	@Mock
 	private ProductQueryPort productQueryPort;
 	@Mock
-	private ProductCacheManager productCacheManager;
+	private OutboxEventPort outboxEventPort;
+	@Mock
+	private JsonSerializer jsonSerializer;
+	@Mock
+	private ProductCachePort productCacheManager;
 
 	private ProductQueryService productQueryService;
 
@@ -62,7 +69,8 @@ class ProductQueryServiceTest {
 	@BeforeEach
 	void setUp() {
 		productQueryService = new ProductQueryService(
-			productQueryRepository, productReadModelRepository, productQueryPort, productCacheManager
+			productQueryRepository, productReadModelRepository, productQueryPort,
+			outboxEventPort, jsonSerializer, productCacheManager
 		);
 	}
 

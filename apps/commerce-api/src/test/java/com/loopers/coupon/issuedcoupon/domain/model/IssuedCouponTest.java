@@ -26,7 +26,7 @@ class IssuedCouponTest {
 	private CouponTemplate activeTemplate() {
 		return CouponTemplate.reconstruct(
 			1L, "테스트 쿠폰", CouponType.FIXED, new BigDecimal("1000"),
-			null, LocalDateTime.now().plusDays(30), null
+			null, null, LocalDateTime.now().plusDays(30), null
 		);
 	}
 
@@ -34,7 +34,7 @@ class IssuedCouponTest {
 	private CouponTemplate expiredTemplate() {
 		return CouponTemplate.reconstruct(
 			1L, "만료 쿠폰", CouponType.FIXED, new BigDecimal("1000"),
-			null, LocalDateTime.now().minusDays(1), null
+			null, null, LocalDateTime.now().minusDays(1), null
 		);
 	}
 
@@ -42,7 +42,7 @@ class IssuedCouponTest {
 	private CouponTemplate deletedTemplate() {
 		return CouponTemplate.reconstruct(
 			1L, "삭제 쿠폰", CouponType.FIXED, new BigDecimal("1000"),
-			null, LocalDateTime.now().plusDays(30), ZonedDateTime.now()
+			null, null, LocalDateTime.now().plusDays(30), ZonedDateTime.now()
 		);
 	}
 

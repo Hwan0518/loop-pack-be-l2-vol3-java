@@ -7,6 +7,7 @@ import com.loopers.catalog.product.application.facade.ProductQueryFacade;
 import com.loopers.catalog.product.domain.model.enums.ProductSortType;
 import com.loopers.catalog.product.interfaces.web.response.ProductDetailResponse;
 import com.loopers.catalog.product.interfaces.web.response.ProductPageResponse;
+import com.loopers.support.common.auth.AuthenticationResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,12 +20,14 @@ public class ProductQueryController {
 
 	// facade
 	private final ProductQueryFacade productQueryFacade;
+	// auth
+	private final AuthenticationResolver authenticationResolver;
 
 
 	/**
-	 * 상품 조회 컨트롤러 (인증 불필요)
-	 * 1. 상품 목록 검색
-	 * 2. 상품 상세 조회
+	 * 상품 조회 컨트롤러
+	 * 1. 상품 목록 검색 (인증 불필요)
+	 * 2. 상품 상세 조회 (선택적 인증 — 비로그인 시 userId=null)
 	 */
 
 	// 1. 상품 목록 검색
@@ -47,12 +50,19 @@ public class ProductQueryController {
 	}
 
 
-	// 2. 상품 상세 조회
+	// 2. 상품 상세 조회 (선택적 인증 — 비로그인 시 userId=null, VIEW 이벤트 발행)
 	@GetMapping("/{productId}")
-	public ResponseEntity<ProductDetailResponse> getProduct(@PathVariable Long productId) {
+	public ResponseEntity<ProductDetailResponse> getProduct(
+		@PathVariable Long productId,
+		@RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
+		@RequestHeader(value = "X-Loopers-LoginPw", required = false) String password
+	) {
 
-		// 상품 상세 조회
-		ProductDetailOutDto outDto = productQueryFacade.getProduct(productId);
+		// 선택적 인증 (비로그인 시 null)
+		Long userId = authenticationResolver.resolveOptional(loginId, password);
+
+		// 상품 상세 조회 (VIEW 이벤트 발행 포함)
+		ProductDetailOutDto outDto = productQueryFacade.getProduct(productId, userId);
 
 		// 응답 변환
 		ProductDetailResponse response = ProductDetailResponse.from(outDto);

@@ -31,11 +31,16 @@ public class ProductQueryFacade {
 	 */
 
 	// 1. 사용자 상품 상세 조회 (캐시 적용 — PER + 스탬피드 보호, Read Model projection 기반)
-	@Transactional(readOnly = true)
-	public ProductDetailOutDto getProduct(Long id) {
+	@Transactional
+	public ProductDetailOutDto getProduct(Long id, Long userId) {
 
 		// Read Model에서 ProductCacheDto → ProductDetailOutDto 변환 (캐시 적용)
-		return productQueryService.getOrLoadProductDetail(id);
+		ProductDetailOutDto result = productQueryService.getOrLoadProductDetail(id);
+
+		// VIEW Outbox 저장 (같은 TX — At Least Once 보장, D7)
+		productQueryService.saveViewOutbox(userId, id);
+
+		return result;
 	}
 
 

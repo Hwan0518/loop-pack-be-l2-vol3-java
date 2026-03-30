@@ -57,7 +57,7 @@ class IssuedCouponCommandServiceTest {
 	private CouponTemplate activeTemplate() {
 		return CouponTemplate.reconstruct(
 			1L, "10% 할인", CouponType.RATE, new BigDecimal("10"),
-			null, LocalDateTime.now().plusDays(30), null
+			null, null, LocalDateTime.now().plusDays(30), null
 		);
 	}
 
@@ -65,7 +65,7 @@ class IssuedCouponCommandServiceTest {
 	private CouponTemplate expiredTemplate() {
 		return CouponTemplate.reconstruct(
 			1L, "만료 쿠폰", CouponType.RATE, new BigDecimal("10"),
-			null, LocalDateTime.now().minusDays(1), null
+			null, null, LocalDateTime.now().minusDays(1), null
 		);
 	}
 
@@ -73,7 +73,7 @@ class IssuedCouponCommandServiceTest {
 	private CouponTemplate templateWithMinOrder(BigDecimal minOrderAmount) {
 		return CouponTemplate.reconstruct(
 			1L, "최소금액 쿠폰", CouponType.FIXED, new BigDecimal("3000"),
-			minOrderAmount, LocalDateTime.now().plusDays(30), null
+			minOrderAmount, null, LocalDateTime.now().plusDays(30), null
 		);
 	}
 

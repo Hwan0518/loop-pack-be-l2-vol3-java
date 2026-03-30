@@ -88,6 +88,10 @@ public enum ErrorType {
 	COUPON_MIN_ORDER_AMOUNT_NOT_MET(HttpStatus.BAD_REQUEST, "COUPON_MIN_ORDER_AMOUNT_NOT_MET", "최소 주문 금액 조건을 충족하지 못했습니다."),
 	COUPON_ISSUE_DUPLICATED(HttpStatus.CONFLICT, "COUPON_ISSUE_DUPLICATED", "이미 발급된 쿠폰입니다."),
 
+	/** Coupon - CouponIssueRequest 에러 */
+	COUPON_ISSUE_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_ISSUE_REQUEST_NOT_FOUND", "쿠폰 발급 요청을 찾을 수 없습니다."),
+	COUPON_SOLD_OUT(HttpStatus.CONFLICT, "COUPON_SOLD_OUT", "쿠폰이 모두 소진되었습니다."),
+
 	/** Order - Payment 연동 에러 */
 	ORDER_NOT_PAYABLE(HttpStatus.BAD_REQUEST, "ORDER_NOT_PAYABLE", "주문이 결제 가능한 상태가 아닙니다."),
 

@@ -55,7 +55,7 @@ class ProductQueryFacadeTest {
 	class GetProductTest {
 
 		@Test
-		@DisplayName("[getProduct()] 활성 상품 조회 -> ProductQueryService.getOrLoadProductDetail()에 위임. ProductDetailOutDto 반환")
+		@DisplayName("[getProduct()] 활성 상품 조회 -> ProductQueryService 위임 + saveViewOutbox 호출. ProductDetailOutDto 반환")
 		void getProductSuccess() {
 			// Arrange
 			ProductDetailOutDto detailOutDto = new ProductDetailOutDto(
@@ -63,7 +63,7 @@ class ProductQueryFacadeTest {
 			given(productQueryService.getOrLoadProductDetail(1L)).willReturn(detailOutDto);
 
 			// Act
-			ProductDetailOutDto result = productQueryFacade.getProduct(1L);
+			ProductDetailOutDto result = productQueryFacade.getProduct(1L, 10L);
 
 			// Assert
 			assertAll(
@@ -74,7 +74,27 @@ class ProductQueryFacadeTest {
 				() -> assertThat(result.price()).isEqualByComparingTo(new BigDecimal("10000")),
 				() -> assertThat(result.stock()).isEqualTo(100L),
 				() -> assertThat(result.likeCount()).isEqualTo(0L),
-				() -> verify(productQueryService).getOrLoadProductDetail(1L)
+				() -> verify(productQueryService).getOrLoadProductDetail(1L),
+				() -> verify(productQueryService).saveViewOutbox(10L, 1L)
+			);
+		}
+
+
+		@Test
+		@DisplayName("[getProduct()] 비로그인 조회 (userId=null) -> saveViewOutbox(null, productId) 호출")
+		void getProductAnonymous() {
+			// Arrange
+			ProductDetailOutDto detailOutDto = new ProductDetailOutDto(
+				1L, 1L, "나이키", "테스트 상품", new BigDecimal("10000"), 100L, null, 0L);
+			given(productQueryService.getOrLoadProductDetail(1L)).willReturn(detailOutDto);
+
+			// Act
+			ProductDetailOutDto result = productQueryFacade.getProduct(1L, null);
+
+			// Assert
+			assertAll(
+				() -> assertThat(result.id()).isEqualTo(1L),
+				() -> verify(productQueryService).saveViewOutbox(null, 1L)
 			);
 		}
 

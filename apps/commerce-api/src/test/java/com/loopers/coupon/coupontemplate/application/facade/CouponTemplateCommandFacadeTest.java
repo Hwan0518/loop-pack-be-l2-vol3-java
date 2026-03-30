@@ -55,11 +55,11 @@ class CouponTemplateCommandFacadeTest {
 			// Arrange
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			AdminCreateCouponTemplateInDto inDto = new AdminCreateCouponTemplateInDto(
-				"신규 가입 쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, expiredAt
+				"신규 가입 쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, null, expiredAt
 			);
 
 			CouponTemplate savedTemplate = CouponTemplate.reconstruct(
-				1L, "신규 가입 쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, expiredAt, null
+				1L, "신규 가입 쿠폰", CouponType.FIXED, new BigDecimal("5000"), null, null, expiredAt, null
 			);
 			given(couponTemplateCommandService.save(any(CouponTemplate.class))).willReturn(savedTemplate);
 
@@ -96,7 +96,7 @@ class CouponTemplateCommandFacadeTest {
 			);
 
 			CouponTemplate updatedTemplate = CouponTemplate.reconstruct(
-				1L, "변경된 쿠폰명", CouponType.FIXED, new BigDecimal("5000"), null, newExpiredAt, null
+				1L, "변경된 쿠폰명", CouponType.FIXED, new BigDecimal("5000"), null, null, newExpiredAt, null
 			);
 			given(couponTemplateCommandService.update(1L, "변경된 쿠폰명", newExpiredAt)).willReturn(updatedTemplate);
 

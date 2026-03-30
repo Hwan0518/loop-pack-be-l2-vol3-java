@@ -39,7 +39,7 @@ class CouponTemplateEntityMapperTest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			CouponTemplate template = CouponTemplate.reconstruct(
 				1L, "10% 할인", CouponType.RATE, new BigDecimal("10"),
-				new BigDecimal("5000"), expiredAt, null
+				new BigDecimal("5000"), null, expiredAt, null
 			);
 
 			// Act
@@ -65,7 +65,7 @@ class CouponTemplateEntityMapperTest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			CouponTemplate template = CouponTemplate.reconstruct(
 				2L, "5000원 할인", CouponType.FIXED, new BigDecimal("5000"),
-				new BigDecimal("10000"), expiredAt, null
+				new BigDecimal("10000"), null, expiredAt, null
 			);
 			template.delete();
 
@@ -94,7 +94,7 @@ class CouponTemplateEntityMapperTest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			CouponTemplateEntity entity = CouponTemplateEntity.of(
 				1L, "10% 할인", CouponType.RATE, new BigDecimal("10"),
-				null, expiredAt
+				null, null, expiredAt
 			);
 
 			// Act
@@ -127,7 +127,7 @@ class CouponTemplateEntityMapperTest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			CouponTemplate original = CouponTemplate.reconstruct(
 				1L, "10% 할인", CouponType.RATE, new BigDecimal("10"),
-				new BigDecimal("5000"), expiredAt, null
+				new BigDecimal("5000"), null, expiredAt, null
 			);
 
 			// Act

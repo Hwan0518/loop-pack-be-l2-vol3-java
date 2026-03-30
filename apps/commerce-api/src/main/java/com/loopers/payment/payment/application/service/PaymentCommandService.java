@@ -3,6 +3,7 @@ package com.loopers.payment.payment.application.service;
 
 import com.loopers.payment.payment.application.dto.out.PgRecoveryResult;
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderInfo;
+import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderItemInfo;
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderReader;
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderStatusManager;
 import com.loopers.payment.payment.application.port.out.client.pg.PgPaymentGateway;
@@ -18,14 +19,20 @@ import com.loopers.payment.payment.domain.model.enums.CardType;
 import com.loopers.payment.payment.domain.model.enums.PaymentStatus;
 import com.loopers.payment.payment.domain.repository.PaymentCommandRepository;
 import com.loopers.payment.payment.domain.repository.PaymentQueryRepository;
+import com.loopers.support.common.event.ordering.OrderItemPayload;
+import com.loopers.support.common.event.ordering.OrderPaidPayload;
+import com.loopers.support.common.event.EventType;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
+import com.loopers.support.common.outbox.application.port.OutboxEventPort;
+import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 
@@ -39,6 +46,9 @@ public class PaymentCommandService {
 	private final PaymentOrderReader paymentOrderReader;
 	private final PaymentOrderStatusManager paymentOrderStatusManager;
 	private final PgPaymentGateway pgPaymentGateway;
+	// outbox
+	private final OutboxEventPort outboxEventPort;
+	private final JsonSerializer jsonSerializer;
 	// config
 	private final String callbackUrl;
 
@@ -48,6 +58,8 @@ public class PaymentCommandService {
 		PaymentOrderReader paymentOrderReader,
 		PaymentOrderStatusManager paymentOrderStatusManager,
 		PgPaymentGateway pgPaymentGateway,
+		OutboxEventPort outboxEventPort,
+		JsonSerializer jsonSerializer,
 		@Value("${payment.pg.callback-url}") String callbackUrl
 	) {
 		this.paymentCommandRepository = paymentCommandRepository;
@@ -55,6 +67,8 @@ public class PaymentCommandService {
 		this.paymentOrderReader = paymentOrderReader;
 		this.paymentOrderStatusManager = paymentOrderStatusManager;
 		this.pgPaymentGateway = pgPaymentGateway;
+		this.outboxEventPort = outboxEventPort;
+		this.jsonSerializer = jsonSerializer;
 		this.callbackUrl = callbackUrl;
 	}
 
@@ -269,6 +283,21 @@ public class PaymentCommandService {
 			payment.succeed();
 			paymentCommandRepository.save(payment);
 			paymentOrderStatusManager.markOrderPaid(payment.getOrderId());
+
+			// 주문 항목 조회 (결제 성공 시에만 — 불필요한 조회 방지)
+			List<PaymentOrderItemInfo> orderItems = paymentOrderReader.findOrderItems(payment.getOrderId());
+
+			// Outbox 저장 (같은 TX — At Least Once 보장)
+			List<OrderItemPayload> itemPayloads = orderItems.stream()
+				.map(item -> OrderItemPayload.of(item.productId(), item.quantity()))
+				.toList();
+			outboxEventPort.save(EventType.ORDER_PAID, String.valueOf(payment.getOrderId()),
+				String.valueOf(payment.getOrderId()),
+				jsonSerializer.toJson(OrderPaidPayload.of(
+					payment.getOrderId(), payment.getUserId(), payment.getId(),
+					itemPayloads, payment.getAmount()
+				)));
+
 		} else if ("FAILED".equals(pgStatus)) {
 			// 결제 실패
 			payment.fail(reason);

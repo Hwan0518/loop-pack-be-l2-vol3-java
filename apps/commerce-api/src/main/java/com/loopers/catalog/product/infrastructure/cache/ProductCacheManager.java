@@ -3,8 +3,9 @@ package com.loopers.catalog.product.infrastructure.cache;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.catalog.product.infrastructure.cache.dto.IdListCacheEntry;
-import com.loopers.catalog.product.infrastructure.cache.dto.ProductCacheDto;
+import com.loopers.catalog.product.application.port.out.cache.ProductCachePort;
+import com.loopers.catalog.product.application.port.out.cache.dto.IdListCacheEntry;
+import com.loopers.catalog.product.application.port.out.cache.dto.ProductCacheDto;
 import com.loopers.catalog.product.infrastructure.cache.lock.CacheLock;
 import com.loopers.config.redis.RedisConfig;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +24,9 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
-import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.DETAIL_KEY_PREFIX;
-import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.DETAIL_TTL;
-import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.ID_LIST_TTL;
+import static com.loopers.catalog.product.application.port.out.cache.ProductCacheConstants.DETAIL_KEY_PREFIX;
+import static com.loopers.catalog.product.application.port.out.cache.ProductCacheConstants.DETAIL_TTL;
+import static com.loopers.catalog.product.application.port.out.cache.ProductCacheConstants.ID_LIST_TTL;
 
 
 /**
@@ -48,7 +49,7 @@ import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConst
  */
 @Slf4j
 @Component
-public class ProductCacheManager {
+public class ProductCacheManager implements ProductCachePort {
 
 	// redis
 	private final RedisTemplate<String, String> readTemplate;
@@ -75,6 +76,7 @@ public class ProductCacheManager {
 
 
 	// 1. 단순 타입 캐시 조회
+	@Override
 	public <T> Optional<T> get(String key, Class<T> type) {
 
 		try {
@@ -94,6 +96,7 @@ public class ProductCacheManager {
 
 
 	// 2. 제네릭 타입 캐시 조회
+	@Override
 	public <T> Optional<T> get(String key, TypeReference<T> typeRef) {
 
 		try {
@@ -113,6 +116,7 @@ public class ProductCacheManager {
 
 
 	// 3. 캐시 저장 (TTL jitter 포함)
+	@Override
 	public void put(String key, Object value, Duration ttl) {
 
 		try {
@@ -129,6 +133,7 @@ public class ProductCacheManager {
 
 
 	// 4. 단일 키 삭제
+	@Override
 	public void evict(String key) {
 
 		try {
@@ -140,6 +145,7 @@ public class ProductCacheManager {
 
 
 	// 5. Cache-Aside + 스탬피드 보호 (CacheLock + double-check)
+	@Override
 	public <T> T getOrLoad(String key, Class<T> type, Duration ttl, Supplier<T> loader) {
 
 		// 캐시 조회
@@ -168,6 +174,7 @@ public class ProductCacheManager {
 
 
 	// 6. Cache-Aside + PER (Probabilistic Early Refresh) + 스탬피드 보호
+	@Override
 	public <T> T getOrLoadWithPer(String key, Class<T> type, Duration ttl, Supplier<T> loader) {
 
 		// 캐시 조회
@@ -209,6 +216,7 @@ public class ProductCacheManager {
 
 
 	// 7. 상품 상세 캐시 write-through (Supplier 기반)
+	@Override
 	public void refreshProductDetail(Long productId, Supplier<ProductCacheDto> loader) {
 
 		try {
@@ -227,6 +235,7 @@ public class ProductCacheManager {
 
 
 	// 8. ID 리스트 캐시 write-through (단건, Supplier 기반)
+	@Override
 	public void refreshIdList(String cacheKey, Supplier<IdListCacheEntry> loader) {
 
 		try {
@@ -245,12 +254,14 @@ public class ProductCacheManager {
 
 
 	// 9. 상품 상세 캐시 삭제 (상품 삭제 시 예외적 사용)
+	@Override
 	public void deleteProductDetail(Long productId) {
 		evict(DETAIL_KEY_PREFIX + productId);
 	}
 
 
 	// 10. 여러 상품 상세 일괄 조회 (MGET)
+	@Override
 	public List<ProductCacheDto> mgetProductDetails(List<Long> productIds) {
 
 		try {

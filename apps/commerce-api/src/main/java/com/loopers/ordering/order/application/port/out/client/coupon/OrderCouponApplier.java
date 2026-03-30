@@ -1,8 +1,6 @@
 package com.loopers.ordering.order.application.port.out.client.coupon;
 
 
-import com.loopers.coupon.issuedcoupon.application.dto.out.CouponApplyResult;
-
 import java.math.BigDecimal;
 
 
@@ -14,6 +12,6 @@ import java.math.BigDecimal;
 public interface OrderCouponApplier {
 
 	// 쿠폰 적용 (issuedCouponId가 null이면 할인 없음)
-	CouponApplyResult apply(Long issuedCouponId, Long userId, BigDecimal totalPrice);
+	OrderCouponApplyResult apply(Long issuedCouponId, Long userId, BigDecimal totalPrice);
 
 }

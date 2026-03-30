@@ -13,16 +13,16 @@ import com.loopers.catalog.product.domain.repository.ProductCommandRepository;
 import com.loopers.catalog.product.domain.repository.ProductQueryRepository;
 import com.loopers.catalog.product.domain.repository.ProductReadModelRepository;
 import com.loopers.catalog.product.domain.repository.vo.PageCriteria;
-import com.loopers.catalog.product.infrastructure.cache.ProductCacheManager;
+import com.loopers.catalog.product.application.port.out.cache.ProductCachePort;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.DEFAULT_PAGE_SIZE;
-import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.MAX_CACHEABLE_PAGE;
-import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.buildIdListCacheKey;
+import static com.loopers.catalog.product.application.port.out.cache.ProductCacheConstants.DEFAULT_PAGE_SIZE;
+import static com.loopers.catalog.product.application.port.out.cache.ProductCacheConstants.MAX_CACHEABLE_PAGE;
+import static com.loopers.catalog.product.application.port.out.cache.ProductCacheConstants.buildIdListCacheKey;
 
 
 @Service
@@ -33,7 +33,7 @@ public class ProductCommandService {
 	private final ProductQueryRepository productQueryRepository;
 	private final ProductReadModelRepository readModelRepository;
 	// cache
-	private final ProductCacheManager productCacheManager;
+	private final ProductCachePort productCacheManager;
 	// port
 	private final ProductQueryPort productQueryPort;
 	// port (@Lazy: Cross-BC 순환 의존 방지 — ProductCommandService ↔ ProductLikeCommandService 간 ACL 경유 순환)
@@ -44,7 +44,7 @@ public class ProductCommandService {
 		ProductCommandRepository productCommandRepository,
 		ProductQueryRepository productQueryRepository,
 		ProductReadModelRepository readModelRepository,
-		ProductCacheManager productCacheManager,
+		ProductCachePort productCacheManager,
 		ProductQueryPort productQueryPort,
 		@Lazy ProductLikeCleanupManager productLikeCleanupManager,
 		@Lazy CartItemCleanupManager cartItemCleanupManager
@@ -64,16 +64,14 @@ public class ProductCommandService {
 	 * 1. 상품 생성
 	 * 2. 상품 수정
 	 * 3. 상품 삭제
-	 * 4. 좋아요 수 증가 (Read Model 원자적 카운터 + 상세 캐시 write-through)
-	 * 5. 좋아요 수 감소 (Read Model 원자적 카운터 + 상세 캐시 write-through)
-	 * 6. 상품 재고 차감 (비관적 쓰기 락 + 상세 캐시 write-through)
-	 * 7. 상품 재고 증가 (비관적 쓰기 락 + 상세 캐시 write-through — 보상 트랜잭션)
-	 * 8. 상품 좋아요 전체 삭제
-	 * 9. 장바구니 항목 전체 삭제
-	 * 10. Read Model 동기화 (상품 생성/수정 시 Facade에서 호출)
-	 * 11. Read Model 브랜드명 일괄 동기화 (브랜드 수정 시 호출)
-	 * 12. 상품 상세 캐시 write-through (Facade에서 호출)
-	 * 13. 상품 상세 캐시 삭제 (상품 삭제 시 Facade에서 호출)
+	 * 4. 상품 재고 차감 (비관적 쓰기 락 + 상세 캐시 write-through)
+	 * 5. 상품 재고 증가 (비관적 쓰기 락 + 상세 캐시 write-through — 보상 트랜잭션)
+	 * 6. 상품 좋아요 전체 삭제
+	 * 7. 장바구니 항목 전체 삭제
+	 * 8. Read Model 동기화 (상품 생성/수정 시 Facade에서 호출)
+	 * 9. Read Model 브랜드명 일괄 동기화 (브랜드 수정 시 호출)
+	 * 10. 상품 상세 캐시 write-through (Facade에서 호출)
+	 * 11. 상품 상세 캐시 삭제 (상품 삭제 시 Facade에서 호출)
 	 * 14. ID 리스트 캐시 write-through — 모든 정렬 (Facade에서 호출)
 	 * 15. ID 리스트 캐시 write-through — 특정 정렬 (Facade에서 호출)
 	 */
@@ -126,31 +124,7 @@ public class ProductCommandService {
 	}
 
 
-	// 4. 좋아요 수 증가 (Read Model 원자적 카운터 + 상세 캐시 write-through)
-	@Transactional
-	public void increaseLikeCount(Long productId) {
-
-		// Read Model 좋아요 수 증가 (likes 테이블이 SoT, Read Model이 유일한 projection)
-		readModelRepository.increaseLikeCount(productId);
-
-		// 상세 캐시 write-through (ID 리스트는 TTL 자연 만료 — 고빈도 트리거 최적화)
-		productCacheManager.refreshProductDetail(productId, () -> productQueryPort.findProductCacheDtoById(productId));
-	}
-
-
-	// 5. 좋아요 수 감소 (Read Model 원자적 카운터 + 상세 캐시 write-through)
-	@Transactional
-	public void decreaseLikeCount(Long productId) {
-
-		// Read Model 좋아요 수 감소 (likes 테이블이 SoT, Read Model이 유일한 projection)
-		readModelRepository.decreaseLikeCount(productId);
-
-		// 상세 캐시 write-through (ID 리스트는 TTL 자연 만료 — 고빈도 트리거 최적화)
-		productCacheManager.refreshProductDetail(productId, () -> productQueryPort.findProductCacheDtoById(productId));
-	}
-
-
-	// 6. 상품 재고 차감 (비관적 쓰기 락 + 상세 캐시 write-through)
+	// 4. 상품 재고 차감 (비관적 쓰기 락 + 상세 캐시 write-through) (비관적 쓰기 락 + 상세 캐시 write-through)
 	@Transactional
 	public void decreaseStock(Long productId, Long quantity) {
 
@@ -172,7 +146,7 @@ public class ProductCommandService {
 	}
 
 
-	// 7. 상품 재고 증가 (비관적 쓰기 락 + 상세 캐시 write-through — 보상 트랜잭션)
+	// 5. 상품 재고 증가 (비관적 쓰기 락 + 상세 캐시 write-through — 보상 트랜잭션)
 	@Transactional
 	public void increaseStock(Long productId, Long quantity) {
 
@@ -194,41 +168,41 @@ public class ProductCommandService {
 	}
 
 
-	// 8. 상품 좋아요 전체 삭제
+	// 6. 상품 좋아요 전체 삭제
 	@Transactional
 	public void deleteAllProductLikes(Long productId) {
 		productLikeCleanupManager.deleteAllByProductId(productId);
 	}
 
 
-	// 9. 장바구니 항목 전체 삭제
+	// 7. 장바구니 항목 전체 삭제
 	@Transactional
 	public void deleteAllCartItems(Long productId) {
 		cartItemCleanupManager.deleteAllByProductId(productId);
 	}
 
 
-	// 10. Read Model 동기화 (상품 생성/수정 시 Facade에서 호출)
+	// 8. Read Model 동기화 (상품 생성/수정 시 Facade에서 호출)
 	@Transactional
 	public void syncReadModel(Product product, String brandName) {
 		readModelRepository.save(product, brandName);
 	}
 
 
-	// 11. Read Model 브랜드명 일괄 동기화 (브랜드 수정 시 BrandCommandFacade에서 호출)
+	// 9. Read Model 브랜드명 일괄 동기화 (브랜드 수정 시 BrandCommandFacade에서 호출)
 	@Transactional
 	public void syncBrandNameInReadModel(Long brandId, String brandName) {
 		readModelRepository.updateBrandName(brandId, brandName);
 	}
 
 
-	// 12. 상품 상세 캐시 write-through (Facade에서 호출 — Read Model projection 기반)
+	// 10. 상품 상세 캐시 write-through (Facade에서 호출 — Read Model projection 기반)
 	public void refreshProductDetailCache(Long productId) {
 		productCacheManager.refreshProductDetail(productId, () -> productQueryPort.findProductCacheDtoById(productId));
 	}
 
 
-	// 13. 상품 상세 캐시 삭제 (상품 삭제 시 Facade에서 호출)
+	// 11. 상품 상세 캐시 삭제 (상품 삭제 시 Facade에서 호출)
 	public void deleteProductDetailCache(Long productId) {
 		productCacheManager.deleteProductDetail(productId);
 	}

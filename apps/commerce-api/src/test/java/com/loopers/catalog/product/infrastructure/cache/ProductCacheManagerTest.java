@@ -4,8 +4,8 @@ package com.loopers.catalog.product.infrastructure.cache;
 import com.loopers.catalog.product.application.dto.out.ProductDetailOutDto;
 import com.loopers.catalog.product.application.dto.out.ProductOutDto;
 import com.loopers.catalog.product.application.dto.out.ProductPageOutDto;
-import com.loopers.catalog.product.infrastructure.cache.dto.IdListCacheEntry;
-import com.loopers.catalog.product.infrastructure.cache.dto.ProductCacheDto;
+import com.loopers.catalog.product.application.port.out.cache.dto.IdListCacheEntry;
+import com.loopers.catalog.product.application.port.out.cache.dto.ProductCacheDto;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.RedisCleanUp;
@@ -26,7 +26,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.DETAIL_KEY_PREFIX;
+import static com.loopers.catalog.product.application.port.out.cache.ProductCacheConstants.DETAIL_KEY_PREFIX;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 

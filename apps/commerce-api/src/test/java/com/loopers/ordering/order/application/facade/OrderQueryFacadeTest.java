@@ -208,4 +208,29 @@ class OrderQueryFacadeTest {
 
 	}
 
+
+	@Nested
+	@DisplayName("findOrderItems() 테스트")
+	class FindOrderItemsTest {
+
+		@Test
+		@DisplayName("[findOrderItems()] 유효한 orderId -> 주문 항목 목록 반환. OrderQueryService.findById()에 위임")
+		void findOrderItemsSuccess() {
+			// Arrange
+			Order order = createTestOrder(1L, 100L);
+			given(orderQueryService.findById(1L)).willReturn(order);
+
+			// Act
+			List<OrderItem> result = orderQueryFacade.findOrderItems(1L);
+
+			// Assert
+			assertAll(
+				() -> assertThat(result).hasSize(1),
+				() -> assertThat(result.get(0).getProductId()).isEqualTo(1L),
+				() -> assertThat(result.get(0).getQuantity()).isEqualTo(2L)
+			);
+		}
+
+	}
+
 }

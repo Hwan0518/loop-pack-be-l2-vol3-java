@@ -121,17 +121,4 @@ public class ProductCommandFacade {
 	}
 
 
-	// 6. 좋아요 수 증가 (Cross-BC 전용 — ACL에서 호출)
-	@Transactional
-	public void increaseLikeCount(Long productId) {
-		productCommandService.increaseLikeCount(productId);
-	}
-
-
-	// 7. 좋아요 수 감소 (Cross-BC 전용 — ACL에서 호출)
-	@Transactional
-	public void decreaseLikeCount(Long productId) {
-		productCommandService.decreaseLikeCount(productId);
-	}
-
 }

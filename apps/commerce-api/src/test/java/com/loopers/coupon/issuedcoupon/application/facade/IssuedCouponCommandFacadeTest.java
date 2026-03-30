@@ -5,7 +5,7 @@ import com.loopers.coupon.coupontemplate.application.service.CouponTemplateQuery
 import com.loopers.coupon.coupontemplate.domain.model.CouponTemplate;
 import com.loopers.coupon.coupontemplate.domain.model.enums.CouponType;
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponApplyResult;
-import com.loopers.coupon.issuedcoupon.application.dto.out.CouponIssueOutDto;
+
 import com.loopers.coupon.issuedcoupon.application.service.IssuedCouponCommandService;
 import com.loopers.coupon.issuedcoupon.domain.model.IssuedCoupon;
 import com.loopers.coupon.issuedcoupon.domain.model.enums.IssuedCouponStatus;
@@ -57,112 +57,8 @@ class IssuedCouponCommandFacadeTest {
 	private CouponTemplate activeTemplate() {
 		return CouponTemplate.reconstruct(
 			1L, "테스트 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-			null, LocalDateTime.now().plusDays(30), null
+			null, null, LocalDateTime.now().plusDays(30), null
 		);
-	}
-
-
-	@Nested
-	@DisplayName("issueCoupon() 테스트")
-	class IssueCouponTest {
-
-		@Test
-		@DisplayName("[issueCoupon()] 유효한 userId + couponTemplateId -> CouponIssueOutDto 반환. 캐시 -> 템플릿 조회 -> 저장, 가드 해제 미호출")
-		void issueCouponSuccess() {
-			// Arrange
-			Long userId = 100L;
-			CouponTemplate template = activeTemplate();
-			IssuedCoupon savedCoupon = IssuedCoupon.reconstruct(
-				1L, 1L, userId, IssuedCouponStatus.AVAILABLE, ZonedDateTime.now()
-			);
-
-			willDoNothing().given(issuedCouponCommandService).validateNotDuplicateIssue(userId, 1L);
-			given(couponTemplateQueryService.getById(1L)).willReturn(template);
-			given(issuedCouponCommandService.save(any(IssuedCoupon.class))).willReturn(savedCoupon);
-
-			// Act
-			CouponIssueOutDto result = issuedCouponCommandFacade.issueCoupon(userId, 1L);
-
-			// Assert
-			assertThat(result.issuedCouponId()).isEqualTo(1L);
-			verify(issuedCouponCommandService).validateNotDuplicateIssue(userId, 1L);
-			verify(couponTemplateQueryService).getById(1L);
-			verify(issuedCouponCommandService).save(any(IssuedCoupon.class));
-			verify(issuedCouponCommandService, never()).releaseIssueLock(any(), any());
-		}
-
-
-		@Test
-		@DisplayName("[issueCoupon()] 로컬 캐시 중복 (1차 방어) -> COUPON_ISSUE_DUPLICATED 예외. 템플릿 조회/저장/가드 해제 미호출")
-		void issueCouponDuplicatedByCache() {
-			// Arrange
-			Long userId = 100L;
-			willThrow(new CoreException(ErrorType.COUPON_ISSUE_DUPLICATED))
-				.given(issuedCouponCommandService).validateNotDuplicateIssue(userId, 1L);
-
-			// Act
-			CoreException exception = assertThrows(CoreException.class,
-				() -> issuedCouponCommandFacade.issueCoupon(userId, 1L));
-
-			// Assert
-			assertAll(
-				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.COUPON_ISSUE_DUPLICATED),
-				() -> assertThat(exception.getMessage()).isEqualTo(ErrorType.COUPON_ISSUE_DUPLICATED.getMessage())
-			);
-			verify(couponTemplateQueryService, never()).getById(any());
-			verify(issuedCouponCommandService, never()).save(any(IssuedCoupon.class));
-			verify(issuedCouponCommandService, never()).releaseIssueLock(any(), any());
-		}
-
-
-		@Test
-		@DisplayName("[issueCoupon()] 템플릿 검증 실패 -> 예외 전파 + 가드 해제. 실제 발급되지 않은 요청의 캐시 점유 해제")
-		void issueCouponTemplateValidationFailReleasesGuard() {
-			// Arrange
-			Long userId = 100L;
-			Long couponTemplateId = 1L;
-
-			willDoNothing().given(issuedCouponCommandService).validateNotDuplicateIssue(userId, couponTemplateId);
-			given(couponTemplateQueryService.getById(couponTemplateId))
-				.willThrow(new CoreException(ErrorType.COUPON_TEMPLATE_NOT_FOUND));
-
-			// Act
-			CoreException exception = assertThrows(CoreException.class,
-				() -> issuedCouponCommandFacade.issueCoupon(userId, couponTemplateId));
-
-			// Assert
-			assertAll(
-				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.COUPON_TEMPLATE_NOT_FOUND),
-				() -> verify(issuedCouponCommandService).releaseIssueLock(userId, couponTemplateId),
-				() -> verify(issuedCouponCommandService, never()).save(any(IssuedCoupon.class))
-			);
-		}
-
-
-		@Test
-		@DisplayName("[issueCoupon()] DB 저장 실패 -> 예외 전파 + 가드 해제. 저장 실패 시에도 캐시 점유 해제")
-		void issueCouponSaveFailReleasesGuard() {
-			// Arrange
-			Long userId = 100L;
-			Long couponTemplateId = 1L;
-			CouponTemplate template = activeTemplate();
-
-			willDoNothing().given(issuedCouponCommandService).validateNotDuplicateIssue(userId, couponTemplateId);
-			given(couponTemplateQueryService.getById(couponTemplateId)).willReturn(template);
-			given(issuedCouponCommandService.save(any(IssuedCoupon.class)))
-				.willThrow(new RuntimeException("DB connection error"));
-
-			// Act
-			RuntimeException exception = assertThrows(RuntimeException.class,
-				() -> issuedCouponCommandFacade.issueCoupon(userId, couponTemplateId));
-
-			// Assert
-			assertAll(
-				() -> assertThat(exception.getMessage()).isEqualTo("DB connection error"),
-				() -> verify(issuedCouponCommandService).releaseIssueLock(userId, couponTemplateId)
-			);
-		}
-
 	}
 
 

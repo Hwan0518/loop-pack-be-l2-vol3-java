@@ -1,0 +1,258 @@
+<blockquote data-ke-style="style2">
+<p data-ke-size="size16">TL;DR<br /><br /></p>
+<p data-ke-size="size16">이벤트는 silver bullet이 아니다.</p>
+<p data-ke-size="size16">결합도를 낮추는 데는 분명 유용하지만, 경계를 자동으로 지켜주지도 않고, 정합성을 저절로 보장해주지도 않는다. 결국 중요한 것은 이벤트를 얼마나 많이 썼는지가 아니라, 어떤 기준으로 남기고 버릴지를 정하는 일이다.</p>
+</blockquote>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">나는 이벤트를 접하기 전, 아키텍처에 대해 많은 고민을 해왔었다.</p>
+<p data-ke-size="size16">BC 간 강결합을 줄이고 싶었고, 주요 비즈니스 로직과 부가 로직을 분리하고 싶었다. 장애가 한 곳에서 나더라도 다른 곳으로 쉽게 번지지 않는 구조를 만들고 싶기도 했다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">그리고 Event를 알고 난 뒤에는 이벤트가 모든 문제를 해결해줄 수 있는 것 처럼 보였고, 적극적으로 사용하려했다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">그런데 정말로 이벤트가 이 모든 문제들을 해결해주었을까?</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">물론 언급했던 문제들을 말끔하게 해결해주었다. 그보다 더 어려운 문제를 던져주고 말이지..</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">실제로 이벤트를 사용함으로써 마주친 문제들은, 특정 상황을 해결하기 위해 이벤트를 적용하는 것 자체보다는, <b>이벤트를 어디에 남기고 어디에서는 버릴지 기준을 세우는데 더 많은 비용이 소모</b>된다는 것이었다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">이번 글에서는 실제 사례들을 바탕으로, 이벤트 사용시 어떤점을 주의해야하고 어떤 판단을 내려야하는지 알아보자.</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6" />
+<h2 data-ke-size="size26"><b>이벤트에 대한 이해</b></h2>
+<p data-ke-size="size16">먼저 이번 글에서 질리도록 언급할, 그리고 내가 계속해서 많은 고민을 해온 '이벤트' 라는건 무엇인지 말해보자.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">'이벤트'란 글자 그대로 어떠한 사건을 의미한다.</p>
+<p data-ke-size="size16">우리가 일상생활에서 "이벤트가 발생했다" 라는 말을 들으면 어떤 생각이 드는가? 무언가 특별한 사건이 발생했고, 그로 인해 누군가가 기쁘겠다(?) 라는 생각이 들 것이다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">프로그래밍에서도 '누군가가 기쁘겠다' 라는 부분을 제외하면 같은 같은 개념으로 사용된다.</p>
+<p data-ke-size="size16">이벤트는 거창한것이 아니고, 다음 예시들처럼 그냥 '무언가가 발생했다' 라는 의미다.</p>
+<ul style="list-style-type: disc;" data-ke-list-type="disc">
+<li>키보드 입력 발생</li>
+<li>파일 저장됨</li>
+<li>네트워크 요청 도착</li>
+<li>주문 생성됨</li>
+</ul>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">그렇다면 이제 자연스럽게 "이벤트의 개념은 알겠는데, 이걸 도대체 어떻게 써먹는다는거지?" 라는 생각이 들 것이다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">앞서 언급한 것 처럼, 이벤트는 직접 호출을 줄여줌으로써 BC 간 의존성을 완화하고, 관심사가 다른 작업을 분리하고, 비동기 처리로 확장 여지를 만들어준다.&nbsp;</p>
+<p data-ke-size="size16">이런 효과를 낳을 수 있는 이유는, 이벤트는 말 그대로 <b>'어떤 사건이 발생했다'</b>로 끝나기 때문이다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">내가 해결하고싶었던 BC간 의존성 문제라던가, 거대한 하나의 트랜잭션, 모든 작업의 일괄 처리 등은, 서로 <b>관심사가 다른 작업들이 서로를 알고있기 때문에 발생</b>한다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">하지만 내가 '상품 주문'을 하면 자연스럽게 '결제'가 이루어지고, '결제'가 성공하면 '장바구니'가 비워진다. 똑같이 '장바구니'가 자동으로 비워지려면 '결제 성공'이 트리거가 되고, '결제'를 하려면 '상품 주문'이 생성되어야한다. 이 모든것들은 하나의 비즈니스 플로우에 따라 자연스럽게 서로를 알아야만 하는데 어떻게 분리를 한다는걸까?</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">정답은 이미 나와있다. '어떤 사건이 발생했다'가 정답이다.</p>
+<p data-ke-size="size16">'상품 주문', '결제', '장바구니'의 모든 과정들을 '어떤 사건이 발생했다' 에 대입해서 플로우를 시각적으로 확인하고, 어떻게 이런 문제들을 해결했는지 확인해보자.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>기존 Flow</b></p>
+<p><figure class="imageblock alignCenter" data-origin-width="1172" data-origin-height="838"><span><img src="https://blog.kakaocdn.net/dna/wFBDY/dJMcacP3VpX/AAAAAAAAAAAAAAAAAAAAAJRKlainf6foe3KJuaZ6Pf_K5HtE9zua0pdfWZKfHgsp/img.png?credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1774969199&allow_ip=&allow_referer=&signature=AELUnCVwTUk3UGYf5B5qpWc8ATo%3D" width="600" height="429" data-origin-width="1172" data-origin-height="838"/></span></figure>
+</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">기존 Flow를 보면, 거대한 단일 트랜잭션 안에서 관련된 서비스들을 직접 호출하여 강결합, 예외 전파 등의 문제가 발생한다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>Event Flow</b></p>
+<p><figure class="imageblock alignCenter" data-origin-width="1184" data-origin-height="1012"><span><img src="https://blog.kakaocdn.net/dna/JWAcY/dJMcadaiVj0/AAAAAAAAAAAAAAAAAAAAAGLmLdvZNFev9YleCvDxxIzUMKshCr0hfgAOBf-czypn/img.png?credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1774969199&allow_ip=&allow_referer=&signature=cNUWJyB%2B47fkZHMsM8mDknn3mSk%3D" width="600" height="513" data-origin-width="1184" data-origin-height="1012"/></span></figure>
+</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">사건 정의</p>
+<ul style="list-style-type: disc;" data-ke-list-type="disc">
+<li>'상품 주문'이 발생했다.</li>
+<li>'결제 성공'이 발생했다.</li>
+<li>'장바구니 비움'이 발생했다.</li>
+</ul>
+<p data-ke-size="size16">Event Flow를 보면 각 서비스들이 후속작업에 관심이 없고, 단순히 사건을 발생(Publish) 시킨 것으로 끝이난다. 더이상 후속작업을 알 필요가 없어진 것이다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">이런식으로 '특정 사건이 발생' 하면, 정말로 그냥 '그 사건이 발생했다는 Event'를 발행(Publish)하고 끝이나며, 후속 작업들이 발행된 'Event'를 subscribe하여 나머지 flow를 이어간다.</p>
+<p data-ke-size="size16">덕분에 이벤트를 발행하는 쪽에서는, '발행 여부' 까지만 트랜잭션에 포함된 관심사이기에 후속작업들과 분리되어 기존 flow의 문제들이 발생하지 않는다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>한계</b></p>
+<p data-ke-size="size14">&nbsp;</p>
+<p data-ke-size="size16">하지만.. 이렇게 만능처럼 보이는 이벤트도, 적용하면 할수록 더욱 어려운 질문들이 선명해졌다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">경계를 넘길 때는 무엇을 그대로 노출하면 안 되는지, 어떤 로직은 현재 트랜잭션에 남겨야 하는지, 비동기로 넘긴 뒤 정합성은 어떻게 지켜야 하는지, 모든 값을 정말 실시간으로 맞춰야 하는지 같은 질문이었다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">해당 질문들을 해결하지 못하면, 결국 이벤트를 사용하더라도 복잡도와 관리포인트 증가, 완벽하지 못한 경계 격리, 이벤트 유실로 인한 데이터 정합 문제 등, 더욱 해결하기 어려운 문제들이 발생하게 되는것이다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">결국 내가 깨달은 핵심은 이벤트를 쓸지 말지가 아니라, <b>어떤 로직을 어떤 경계 안에 남기고, 어떤 로직만 이벤트로 분리할지 판단</b>하는 일이었다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">&nbsp;</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6" />
+<h2 data-ke-size="size26"><b>Event 사용의 판단 기준</b></h2>
+<p data-ke-size="size16">우리가 알아야할 대전제는<b> 이벤트는 silver bullet이 아니라는 점</b>이다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">이벤트는 결합도를 낮출 수는 있지만 경계를 자동으로 지켜주지 않는다. 또 분리를 쉽게 만들지만, 정합성과 시간성에 대한 판단은 오히려 더 엄격하게 요구한다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">그래서 이벤트를 잘 쓴다는 말은, 모든걸 이벤트로 대체해야 한다는게 절대 아니다. 어디에만 쓰고 어디에는 쓰지 않을지 설명할 수 있어야 한다에 가깝다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">따라서 이벤트 사용시 다음 네 가지를 고려해야만 올바른 선택을 할 수 있다.</p>
+<ul style="list-style-type: disc;" data-ke-list-type="disc">
+<li>이벤트는 경계를 자동으로 지켜주지 않는다.</li>
+<li>현재 요청의 성공을 좌우하는 로직은 이벤트로 분리하지 않는다.</li>
+<li>비동기 분리는 정합성 보장이 전제되어야 한다.</li>
+<li>모든 값을 실시간으로 맞출 필요는 없다.</li>
+</ul>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">&nbsp;</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6" />
+<h2 data-ke-size="size26"><b>판단</b></h2>
+<p data-ke-size="size16">지금부터 이벤트를 어디에 쓸지보다, 어떤 기준으로 남기고 버릴지를 판단해보자.</p>
+<p data-ke-size="size18">&nbsp;</p>
+<p data-ke-size="size18">&nbsp;</p>
+<p data-ke-size="size18"><b>1. 이벤트는 경계를 자동으로 지켜주지 않는다</b></p>
+<p data-ke-size="size16">이벤트를 발행했다고 해서 BC 경계가 저절로 지켜지는 것은 아니다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>마주친 문제</b></p>
+<p data-ke-size="size16">처음에는 ApplicationEvent를 쓰면 BC 간 직접 호출이 줄어드니, 경계도 자연스럽게 정리될 거라고 생각했다. 그런데 막상 적용해보면 그렇지 않았다. 이벤트를 발행하는 쪽이 Domain Event를 쓰더라도, 누가 그 이벤트를 어디서 받느냐에 따라 Cross Domain 결합은 그대로 남기 때문이다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>접근</b></p>
+<p data-ke-size="size16">Domain Event가 발행되었을 때, 같은 BC 안에서 처리하는 후속 작업이라면, 발행한 쪽과 받는 쪽이 같은 경계 안에 있으니 Domain Event를 그대로 받아도 문제가 없다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">반면 다른 BC가 받아야 하는 이벤트라면 얘기가 달라진다. 이 경우까지 각 BC가 다른 BC의 Domain Event를 직접 받아버리면, 이벤트를 써도 결국 서로의 domain을 아는 구조가 된다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>해결</b></p>
+<p data-ke-size="size16">그래서 다른 BC가 이벤트를 받아야 하는 경우 두 가지 방법을 사용했다.</p>
+<ol style="list-style-type: decimal;" data-ke-list-type="decimal">
+<li>ApplicationEvent를 사용하는 경우, Cross Domain을 허용하는 'support' 패키지의 Listener에서만 받는다.</li>
+<li>MessageQueue를 사용하는 경우는, Producer와 Consumer에서 동일한 이벤트 DTO를 정의하고, 각각 직렬화/역직렬화를 진행한다.</li>
+</ol>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>하나의 Application Server에서 이벤트를 처리하는 경우 (Application Event 사용)</b></p>
+<p><figure class="imageblock alignCenter" data-origin-width="1174" data-origin-height="658"><span><img src="https://blog.kakaocdn.net/dna/be8yX9/dJMcadBl93f/AAAAAAAAAAAAAAAAAAAAAJ6N2oqkBIbSW_zyMQ1xl1jmdSVfANdRZIfzRlztvDb9/img.png?credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1774969199&allow_ip=&allow_referer=&signature=Tk%2BQ57VnextK1m7%2FWgHNc06F8gg%3D" width="750" height="420" data-origin-width="1174" data-origin-height="658"/></span></figure>
+</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p><figure class="imageblock alignCenter" data-origin-width="1170" data-origin-height="830"><span><img src="https://blog.kakaocdn.net/dna/bzZbrU/dJMcacJjIiW/AAAAAAAAAAAAAAAAAAAAAByDfTsS8UGyfjJh2FozrHviD1K2saxLIkWYCivHYBAO/img.png?credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1774969199&allow_ip=&allow_referer=&signature=vm6u%2FFt%2FEjycfRYoWujL4qskSP0%3D" width="750" height="532" data-origin-width="1170" data-origin-height="830"/></span></figure>
+</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18">&nbsp;</p>
+<p data-ke-size="size18">&nbsp;</p>
+<p data-ke-size="size18"><b>MQ를 사용하여 이벤트를 처리하는 경우</b></p>
+<p><figure class="imageblock alignCenter" data-origin-width="1164" data-origin-height="678"><span><img src="https://blog.kakaocdn.net/dna/dsBR29/dJMcajuRbd3/AAAAAAAAAAAAAAAAAAAAACA1sQFuWLJDM15GtiTN6x7_KUIs0HDp8Mw_y24zL6Ri/img.png?credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1774969199&allow_ip=&allow_referer=&signature=NWRpAJXK9xQHGpxx0chHy6IjOnA%3D" width="750" height="437" data-origin-width="1164" data-origin-height="678"/></span></figure>
+</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">즉, 핵심은 &ldquo;이벤트를 쓴다&rdquo;는 사실 자체가 아니다. 어떤 이벤트를 어디까지 그대로 노출할지, Cross Domain 의존을 어느 패키지에서만 허용할지 정하는 일이 더 중요하다.</p>
+<p data-ke-size="size18">&nbsp;</p>
+<p data-ke-size="size18">&nbsp;</p>
+<p data-ke-size="size18">&nbsp;</p>
+<p data-ke-size="size18"><b>2. 현재 요청의 성공을 좌우하는 로직은 이벤트로 분리하지 않는다</b></p>
+<p data-ke-size="size16">실패하면 현재 요청 자체가 무효가 되는 로직은 동기 흐름에 남긴다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>마주친 문제</b></p>
+<p data-ke-size="size16">이벤트를 적용하면서 가장 먼저 부딪힌 질문은, 어떤 로직까지 후속 처리로 밀어낼 수 있느냐였다.&nbsp; 분리할 수 있다는 이유만으로 다 이벤트로 빼버린다면, 어떤 사이드 이펙트를 마주치게될지 모르기에.. 모든걸 쉽게 분리할수는 없었다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>접근</b></p>
+<p data-ke-size="size16">주문 생성 흐름에 있던 재고 차감, 쿠폰 적용, 주문 저장, 장바구니 삭제를 모두 후속 처리로 분리하는 방법과, 일부는 남기고 일부만 분리하는 방법을 생각했다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">여기서 판단의 핵심은 기술이 아니라 실패 영향도다. 이 작업이 실패하면 현재 요청 자체가 무효가 되는지, 아니면 나중에 재시도하거나 복구해도 되는지를 생각하여 판단했다. (실시간성/최종적 일관성과는 별개의 문제다)</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>해결</b></p>
+<p data-ke-size="size16">기준은 단순했다. 실패하면 현재 요청 자체가 무효가 되는 로직은 동기 흐름에 남긴다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">예를들어 재고 차감은 실패하면 주문이 성립할 수 없고, 쿠폰 적용도 마찬가지다. 우리 프로젝트에서 쿠폰은 단순 부가 기능이 아니라 주문 금액 계산 그 자체에 들어가 있기 때문이다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">반면 장바구니 삭제는 실패해도 주문 자체가 유효하고, 사용자가 새로고침하거나 다음 요청에서 복구할 수 있는 종류의 작업이다. 그래서 핵심 비즈니스와 부가 로직을 기술 기준이 아니라 실패 영향도로 판단하여 분리를 진행했다.</p>
+<p data-ke-size="size18">&nbsp;</p>
+<p data-ke-size="size18">&nbsp;</p>
+<p data-ke-size="size18">&nbsp;</p>
+<p data-ke-size="size18"><b>3. 비동기 분리는 정합성 보장이 전제되어야 한다</b></p>
+<p data-ke-size="size16">분리 자체보다 언제든 복구할 수 있는 환경을 만드는게 우선시 되어야 한다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>마주친 문제</b></p>
+<p data-ke-size="size16">로직을 분리한다음 마주친 문제는 정합성이었다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">도메인 변경은 성공했는데 후속 이벤트가 유실되면, 구조는 분리됐을지 몰라도 시스템 상태는 더 쉽게 어긋난다. 심지어 이 경우는 이벤트 자체가 사라졌기에, 복구도 어렵고 탐지도 어렵다. 개인적으로 이벤트 적용시 가장 어려운 관리포인트가 이 부분이라 생각한다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">어쨌든.. 그래서 비동기 분리에서는 단순한 분리보다 전달 보장이 더 중요해 보였고, 이벤트 사용시에는 이 부분을 핵심적으로 인지하고 가야한다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>접근</b></p>
+<p data-ke-size="size16">후속 이벤트가 유실되었을때 발생하는 문제에 대응하는 가장 좋은 방법은, 그 이벤트 내용을 저장하는 것이다. 발행된 이벤트 자체를 DB에 저장해둔다면 이벤트가 유실되더라도 언제든 꺼내서 다시 볼 수 있기 때문이다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">여기서 중요한 포인트는, '이벤트 저장 시점'을 어떻게 잡을거냐는 것이다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">'이벤트 저장' 자체를 주요 로직과 다른 관심사로 보고, 핵심 로직이 '이벤트 저장'의 영향을 받지 않게 AfterCommit으로 빼버리는 방법이 있을것이고, 반대로 핵심로직과 '이벤트 저장'을 하나의 트랜잭션으로 묶어서 처리하는 방법이 있다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">반대로 도메인 변경과 이벤트 기록을 같은 정합성 경계 안에 묶어 라이프 사이클을 통일시키는 방법도 있다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>해결</b></p>
+<p data-ke-size="size16">나는 후자를 택했다. 애초에 내가 고민하던 문제는 단순한 분리보다 전달 보장이 더 중요하다는 것이었다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">AfterCommit으로 빼면 핵심 로직과 관심사는 깔끔하게 분리되지만, 커밋 이후에 이벤트 저장이 실패하면 결국 유실이 생긴다. 유실을 막겠다고 이벤트를 저장하는 건데, 그 저장 자체가 유실될 수 있는 구조라면 전달 보장이라고 부를 수 없다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">그래서 관심사 분리보다 전달 보장을 핵심으로 생각하고, Outbox를 붙여 상태 변경과 이벤트 기록이 같은 트랜잭션 안에 있도록 맞추는 방식을 택했다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>주의 사항</b></p>
+<p data-ke-size="size16">다만&nbsp;Outbox를&nbsp;택했다고&nbsp;해서&nbsp;모든&nbsp;이벤트에&nbsp;Outbox를&nbsp;붙인&nbsp;것은&nbsp;아니다.&nbsp;</p>
+<p data-ke-size="size16">Outbox&nbsp;패턴은&nbsp;도메인&nbsp;변경과&nbsp;이벤트&nbsp;기록을&nbsp;같은&nbsp;트랜잭션에&nbsp;묶어&nbsp;유실&nbsp;리스크를&nbsp;줄이는&nbsp;선택지다.&nbsp;하지만&nbsp;그&nbsp;원자성을&nbsp;확보하는&nbsp;데는&nbsp;비용이&nbsp;따른다.&nbsp;</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">비즈니스 쓰기와 Outbox 쓰기가 같은 트랜잭션에서 일어나니 쓰기 부하가 늘어나고, 대량 이벤트가 발생하는 경우에는 이 쓰기 자체가 부담이 된다. Outbox 테이블을 폴링해서 브로커로 릴레이하는 프로세스도 별도로 관리해야 하여 관리포인트가 증가하는 부담도 발생한다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">그래서 우리는 이런 모든 비용을, 모든 이벤트에 치르는 것이 합리적인가를 고민해봐야한다.<br /><br />이 부분에 대해서는 '루퍼스' 멘토님의 의견을 참고하였고, 다음 두 가지 기준으로 Outbox 적용 여부를 이벤트마다 판단했다.</p>
+<ul style="list-style-type: disc;" data-ke-list-type="disc">
+<li>이 이벤트가 유실됐을 때 시스템적으로 복구 가능한가?</li>
+<li>그리고 복구 비용이 얼마나 되는가?</li>
+</ul>
+<p data-ke-size="size16">주문 완료 이벤트처럼 유실되면 후속 흐름 전체가 멈추거나, 외부 시스템이 이 이벤트를 기반으로 동작을 트리거하는 경우에는 원자성 비용을 감수하고서라도 Outbox로 유실 리스크를 줄여야 한다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">반면 좋아요 집계 같은 이벤트는 누락되더라도 인지되면 배치로 정합성을 맞추면 그만이다. 복구 가능하고 비용도 낮으니, 굳이 Outbox까지 태울 이유가 없었다.<br /><br /></p>
+<p data-ke-size="size16">따라서 우리가 기억해야할건, 일단 분리하기 전 Outbox 적용 여부를 검토하는것과, 적용한다면 어떤 트랜잭션에 포함시킬지를 결정해야한다는 것이다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18">&nbsp;</p>
+<p data-ke-size="size18">&nbsp;</p>
+<p data-ke-size="size18"><b>4. 모든 값을 실시간으로 맞출 필요는 없다</b></p>
+<p data-ke-size="size16">당장에 정합성이 틀리면 안 되는 값과, 조금 늦어도 되는 값은 구분해서 본다. (정합성이 안맞아도 된다는 뜻이 절대 아니다)</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>고민</b></p>
+<p data-ke-size="size16">이벤트를 적용한다고 해서 모든 값을 즉시 반영해야 하는 건 아니었다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">우리가 위에서 알아봤던 판단 기준들에 따르면, 이벤트로 분리하는 로직들은 '관심사'가 다르거나, '요청 자체'에 영향을 미치지 않는 로직을 이벤트로 분리했고, 또한 그 과정에서 정합성을 보장하기 위해 OutBox 패턴을 적용할 수 있다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">그런데 이런 부가적인 기능들의 정합성을 매번 실시간으로 맞추기 위한 비용이 얼마가 될지 생각해본적이 있는가?</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">예를들어 '좋아요 수'를 한번 생각해보자. 이벤트를 분리했다 하더라도, 유저가 좋아요를 누를때마다 화면의 카운트를 실시간으로 맞추려 한다면 어떤일이 벌어질까?</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">좋아요는 특성상 인기 있는 상품일수록 동시에 많은 사용자가 누른다. 이때 좋아요를 누를 때마다 상품 테이블의 likeCount를 즉시 UPDATE한다면, 같은 row에 대한 쓰기가 동시에 몰리게 된다. 이로 인해 row-level lock 경합이 발생하고, 인기 상품일수록 이 경합은 심해진다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">게다가 상품 row는 좋아요 외에도 재고 차감, 가격변경 등 다른 쓰기 작업과도 공유되기 때문에, 좋아요 하나 때문에 전혀 다른 관심사의 쓰기까지 서로 대기하게 되는 상황이 생긴다.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">따라서 이렇게 DB의 상태 변경이 잦은 요구사항에서는, 실시간 정합성을 맞추려다보니 더 큰 문제점이 발생하게 됨을 인지해야한다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>선택지</b></p>
+<p data-ke-size="size16">이 문제를 알면서도 즉시 반영을 밀어붙이는 방법이 있다. 정합성은 항상 맞지만, 고민에서 본 것처럼 쓰기 경합을 감수해야 한다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">반대로 좋아요 기록만 먼저 저장하고, 카운트 집계는 별도 경로에서 비동기로 처리하는 방법이 있다. 정합성이 일시적으로 어긋날 수 있지만, 쓰기 경합 자체가 사라진다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">다만 이 경우에도 같은 값을 여러 곳에서 동시에 갱신하게 두면, 어느 쪽이 정답인지 알 수 없는 또 다른 정합성 문제가 생긴다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size18"><b>해결</b></p>
+<p data-ke-size="size16">좋아요 수의 특성을 생각해보면, 가격이나 재고처럼 지금 당장 틀리면 비즈니스가 깨지는 값이 아니라 대략적인 인기도 지표에 가깝다. 그래서 실시간 반영 대신 최종적 일관성으로 다루는 쪽을 택했다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">구체적으로는 좋아요 기록을 요청 시점에 저장하되, 카운트 집계는 이벤트를 모아서 배치로 처리하고, 집계 결과를 단일 SoT(ProductMetrics)에 반영하는 구조로 잡았다. 쓰기 주체를 하나로 단일화한 것이다.</p>
+<p data-ke-size="size16">덕분에 이벤트가 누락되거나 집계가 어긋나더라도, 정기 Reconciliation 배치가 SoT 기준으로 보정하도록 안전망을 두었다.<br /><br />결국 어떤 값이 실시간이어야 하는지는 기술이 아니라, "이 값이 지금 틀리면 비즈니스적으로 문제가 되는가?" 라는 질문에 대한 비즈니스적 대딥이 결정한다.&nbsp;</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">그런 관점에서 가격이나 재고는 틀리면 주문 자체가 잘못되니 실시간이어야 하고, 좋아요 수는 대략적인 인기도 지표이니 늦어도 된다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">하지만 늦어도 된다고 인정하는 것과, 틀려도 된다고 방치하는 것은 다르다. 최종적 일관성은 "언젠가는 맞춘다"는 약속이지 "안 맞아도 된다"는 뜻이 아니다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">그래서 쓰기 주체를 단일화하고, 안전망을 둬서 어긋나더라도 반드시 수렴하게 만드는 것이 중요함을 잊지 말아야 한다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6" />
+<h2 data-ke-size="size26"><b>정리</b></h2>
+<p><figure class="imageblock alignCenter" data-origin-width="1468" data-origin-height="720"><span><img src="https://blog.kakaocdn.net/dna/wvJPK/dJMcagx8zhK/AAAAAAAAAAAAAAAAAAAAAMsQWtrx4ktmURuomitx3tgowt9on7gQBkBDMjEGaLr2/img.png?credential=yqXZFxpELC7KVnFOS48ylbz2pIh7yKj8&expires=1774969199&allow_ip=&allow_referer=&signature=C8Ep9yIwM7WYqMPsl5McXoHDUNs%3D" width="1468" height="720" data-origin-width="1468" data-origin-height="720"/></span></figure>
+</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">이 네 가지 기준으로 다시 보니, 각 설계 결정의 이유가 하나의 흐름으로 설명됐다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">BC 경계를 넘길 때는 무엇을 그대로 노출하면 안 되는지 봐야하고, 실패하면 현재 요청이 무효가 되는 로직은 이벤트로 밀어내지 않아야 한다. 비동기로 넘긴 작업은 반드시 정합성 보장 장치를 함께 가져가야 했고, 모든 값을 실시간으로 맞추려 하기보다 최종적 일관성으로 충분한 값을 구분해야 한다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">이번 글을 통해 이벤트를 많이 썼다고 아키텍처가 자동으로 좋아지는 것은 아니라는걸 알아보았다.</p>
+<p data-ke-size="size16">이벤트는 분명 결합도를 낮추고 후속 작업을 분리하는 데 유용하다. 하지만 그 자체로 경계를 지켜주지도 않고, 정합성을 보장해주지도 않고, 모든 실시간 요구를 해결해주지도 않는다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p data-ke-size="size16">결국 중요한 것은 이벤트 자체보다는 경계, 실패 영향도, 정합성, 시간성 위에서 어떤 선택을 했는가가 더 중요하다.</p>
+<p data-ke-size="size16">&nbsp;</p>
+<p style="text-align: center;" data-ke-size="size16"><b>"이벤트는 silver bullet이 아니다. 어디에만 써야 하는지 기준을 잘 잡는것이 중요하다는 점을 명심하자."</b></p>
+<p data-ke-size="size16">&nbsp;</p>

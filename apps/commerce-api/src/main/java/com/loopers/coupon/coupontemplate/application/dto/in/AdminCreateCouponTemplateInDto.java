@@ -15,6 +15,7 @@ public record AdminCreateCouponTemplateInDto(
 	CouponType type,
 	BigDecimal value,
 	BigDecimal minOrderAmount,
+	Integer maxQuantity,
 	LocalDateTime expiredAt
 ) {
 }

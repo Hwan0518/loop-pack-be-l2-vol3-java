@@ -36,13 +36,9 @@ public class ProductLikeCommandFacade {
 			return ProductLikeOutDto.from(existing.get());
 		}
 
-		// 좋아요 생성 (0.01% 레이스 시 DB 유니크 제약이 안전망 역할 — 500 → 클라이언트 재시도 → 사전 조회에서 멱등 반환)
+		// 좋아요 생성 + Outbox 저장 (Service 내부에서 처리)
 		ProductLike productLike = productLikeCommandService.createLike(userId, targetId);
 
-		// 좋아요 수 증가 (Cross-BC 부수효과)
-		productLikeCommandService.increaseLikeCount(targetId);
-
-		// 반환
 		return ProductLikeOutDto.from(productLike);
 	}
 
@@ -51,11 +47,8 @@ public class ProductLikeCommandFacade {
 	@Transactional
 	public void deleteLike(Long userId, Long targetId) {
 
-		// 좋아요 삭제
+		// 좋아요 삭제 + Outbox 저장 (Service 내부에서 처리)
 		productLikeCommandService.deleteLike(userId, targetId);
-
-		// 좋아요 수 감소 (Cross-BC 부수효과)
-		productLikeCommandService.decreaseLikeCount(targetId);
 	}
 
 

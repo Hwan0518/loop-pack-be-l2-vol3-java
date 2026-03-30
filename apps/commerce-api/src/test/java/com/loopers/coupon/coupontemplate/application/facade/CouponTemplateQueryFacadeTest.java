@@ -52,7 +52,7 @@ class CouponTemplateQueryFacadeTest {
 			// Arrange
 			CouponTemplate template = CouponTemplate.reconstruct(
 				1L, "신규 가입 쿠폰", CouponType.FIXED, new BigDecimal("5000"), null,
-				LocalDateTime.now().plusDays(30), null
+				null, LocalDateTime.now().plusDays(30), null
 			);
 			AdminCouponTemplateOutDto outDto = AdminCouponTemplateOutDto.from(template);
 			AdminCouponTemplatePageOutDto pageOutDto = new AdminCouponTemplatePageOutDto(

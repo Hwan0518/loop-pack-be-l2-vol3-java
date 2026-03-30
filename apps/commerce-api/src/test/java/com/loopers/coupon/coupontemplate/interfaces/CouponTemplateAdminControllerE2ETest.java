@@ -2,14 +2,16 @@ package com.loopers.coupon.coupontemplate.interfaces;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.benmanes.caffeine.cache.Cache;
 import com.loopers.coupon.coupontemplate.domain.model.enums.CouponType;
 import com.loopers.coupon.coupontemplate.interfaces.web.request.AdminCreateCouponTemplateRequest;
 import com.loopers.coupon.coupontemplate.interfaces.web.request.AdminUpdateCouponTemplateRequest;
-import com.loopers.coupon.issuedcoupon.infrastructure.cache.CaffeineCouponIssueDuplicateGuard;
+import com.loopers.coupon.issuedcoupon.domain.model.enums.IssuedCouponStatus;
+import com.loopers.coupon.issuedcoupon.infrastructure.entity.IssuedCouponEntity;
+import com.loopers.coupon.issuedcoupon.infrastructure.jpa.IssuedCouponJpaRepository;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
+import com.loopers.user.user.infrastructure.jpa.UserJpaRepository;
 import com.loopers.user.user.interfaces.web.request.UserSignUpRequest;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -22,7 +24,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -53,7 +54,10 @@ class CouponTemplateAdminControllerE2ETest {
 	private DatabaseCleanUp databaseCleanUp;
 
 	@Autowired
-	private CaffeineCouponIssueDuplicateGuard couponIssueDuplicateGuard;
+	private IssuedCouponJpaRepository issuedCouponJpaRepository;
+
+	@Autowired
+	private UserJpaRepository userJpaRepository;
 
 	private static final String ADMIN_LDAP_HEADER = "X-Loopers-Ldap";
 	private static final String ADMIN_LDAP_VALUE = "loopers.admin";
@@ -65,17 +69,9 @@ class CouponTemplateAdminControllerE2ETest {
 	private static final String TEST_PASSWORD = "Test1234!";
 
 
-	@SuppressWarnings("unchecked")
 	@AfterEach
 	void tearDown() {
 		databaseCleanUp.truncateAllTables();
-
-		// 로컬 캐시 초기화 (TRUNCATE로 auto-increment가 리셋되어 동일 userId:couponTemplateId 키가 재사용되므로)
-		Cache<String, Boolean> cache = (Cache<String, Boolean>) ReflectionTestUtils.getField(
-			couponIssueDuplicateGuard, "cache");
-		if (cache != null) {
-			cache.invalidateAll();
-		}
 	}
 
 
@@ -90,7 +86,7 @@ class CouponTemplateAdminControllerE2ETest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				"신규가입 5000원 할인", CouponType.FIXED, new BigDecimal("5000"),
-				new BigDecimal("10000"), expiredAt
+				new BigDecimal("10000"), null, expiredAt
 			);
 
 			// Act & Assert
@@ -116,7 +112,7 @@ class CouponTemplateAdminControllerE2ETest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				"10% 할인 쿠폰", CouponType.RATE, new BigDecimal("10"),
-				null, expiredAt
+				null, null, expiredAt
 			);
 
 			// Act & Assert
@@ -141,7 +137,7 @@ class CouponTemplateAdminControllerE2ETest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				"테스트 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-				new BigDecimal("10000"), expiredAt
+				new BigDecimal("10000"), null, expiredAt
 			);
 
 			// Act & Assert
@@ -253,7 +249,7 @@ class CouponTemplateAdminControllerE2ETest {
 			String longName = "가".repeat(101);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				longName, CouponType.FIXED, new BigDecimal("5000"),
-				new BigDecimal("10000"), expiredAt
+				new BigDecimal("10000"), null, expiredAt
 			);
 
 			// Act & Assert
@@ -273,7 +269,7 @@ class CouponTemplateAdminControllerE2ETest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				"할인 쿠폰", CouponType.FIXED, new BigDecimal("15000"),
-				new BigDecimal("10000"), expiredAt
+				new BigDecimal("10000"), null, expiredAt
 			);
 
 			// Act & Assert
@@ -293,7 +289,7 @@ class CouponTemplateAdminControllerE2ETest {
 			LocalDateTime expiredAt = LocalDateTime.now().plusDays(30);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				"할인 쿠폰", CouponType.RATE, new BigDecimal("101"),
-				null, expiredAt
+				null, null, expiredAt
 			);
 
 			// Act & Assert
@@ -313,7 +309,7 @@ class CouponTemplateAdminControllerE2ETest {
 			LocalDateTime pastExpiredAt = LocalDateTime.now().minusDays(1);
 			AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
 				"할인 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-				new BigDecimal("10000"), pastExpiredAt
+				new BigDecimal("10000"), null, pastExpiredAt
 			);
 
 			// Act & Assert
@@ -554,7 +550,7 @@ class CouponTemplateAdminControllerE2ETest {
 			Long couponId = createCouponTemplateAndGetId("테스트 쿠폰", CouponType.FIXED,
 				new BigDecimal("5000"), new BigDecimal("10000"), LocalDateTime.now().plusDays(30));
 			signUpUser(TEST_LOGIN_ID, TEST_PASSWORD, "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
-			issueCoupon(TEST_LOGIN_ID, TEST_PASSWORD, couponId);
+			insertIssuedCoupon(TEST_LOGIN_ID, couponId);
 
 			// Act & Assert
 			mockMvc.perform(get("/api-admin/v1/coupons/{couponId}/issues", couponId)
@@ -606,7 +602,7 @@ class CouponTemplateAdminControllerE2ETest {
 	private Long createCouponTemplateAndGetId(String name, CouponType type, BigDecimal value,
 		BigDecimal minOrderAmount, LocalDateTime expiredAt) throws Exception {
 		AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
-			name, type, value, minOrderAmount, expiredAt
+			name, type, value, minOrderAmount, null, expiredAt
 		);
 		MvcResult result = mockMvc.perform(post("/api-admin/v1/coupons")
 				.header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE)
@@ -622,7 +618,7 @@ class CouponTemplateAdminControllerE2ETest {
 	private void createCouponTemplate(String name, CouponType type, BigDecimal value,
 		BigDecimal minOrderAmount, LocalDateTime expiredAt) throws Exception {
 		AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
-			name, type, value, minOrderAmount, expiredAt
+			name, type, value, minOrderAmount, null, expiredAt
 		);
 		mockMvc.perform(post("/api-admin/v1/coupons")
 				.header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE)
@@ -650,14 +646,13 @@ class CouponTemplateAdminControllerE2ETest {
 	}
 
 
-	// 쿠폰 발급 후 발급된 쿠폰 ID 반환
-	private Long issueCoupon(String loginId, String password, Long couponId) throws Exception {
-		MvcResult result = mockMvc.perform(post("/api/v1/coupons/{couponId}/issue", couponId)
-				.header(USER_LOGIN_ID_HEADER, loginId)
-				.header(USER_LOGIN_PW_HEADER, password))
-			.andExpect(status().isCreated())
-			.andReturn();
-		return objectMapper.readTree(result.getResponse().getContentAsString()).get("issuedCouponId").asLong();
+	// 쿠폰 발급 — DB 직접 INSERT (동기 발급 API 제거 후 대체)
+	private Long insertIssuedCoupon(String loginId, Long couponTemplateId) {
+		Long userId = userJpaRepository.findByLoginIdValueAndDeletedAtIsNull(loginId)
+			.orElseThrow(() -> new IllegalStateException("테스트 사용자 없음: " + loginId))
+			.getId();
+		IssuedCouponEntity entity = IssuedCouponEntity.of(couponTemplateId, userId, IssuedCouponStatus.AVAILABLE);
+		return issuedCouponJpaRepository.save(entity).getId();
 	}
 
 }

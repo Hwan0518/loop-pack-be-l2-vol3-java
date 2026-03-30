@@ -2,6 +2,7 @@ package com.loopers.catalog.product.application.service;
 
 
 import com.loopers.catalog.product.application.dto.out.*;
+import com.loopers.support.common.event.catalog.ProductViewedPayload;
 import com.loopers.catalog.product.application.port.out.query.ProductQueryPort;
 import com.loopers.catalog.product.application.port.out.query.criteria.ProductSearchCriteria;
 import com.loopers.catalog.product.domain.model.Product;
@@ -10,11 +11,14 @@ import com.loopers.catalog.product.domain.repository.ProductQueryRepository;
 import com.loopers.catalog.product.domain.repository.ProductReadModelRepository;
 import com.loopers.catalog.product.domain.repository.vo.PageCriteria;
 import com.loopers.catalog.product.domain.repository.vo.PageResult;
-import com.loopers.catalog.product.infrastructure.cache.dto.IdListCacheEntry;
-import com.loopers.catalog.product.infrastructure.cache.dto.ProductCacheDto;
-import com.loopers.catalog.product.infrastructure.cache.ProductCacheManager;
+import com.loopers.catalog.product.application.port.out.cache.ProductCachePort;
+import com.loopers.catalog.product.application.port.out.cache.dto.IdListCacheEntry;
+import com.loopers.catalog.product.application.port.out.cache.dto.ProductCacheDto;
+import com.loopers.support.common.event.EventType;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
+import com.loopers.support.common.outbox.application.port.OutboxEventPort;
+import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +27,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.loopers.catalog.product.infrastructure.cache.ProductCacheConstants.*;
+import static com.loopers.catalog.product.application.port.out.cache.ProductCacheConstants.*;
 
 
 @Service
@@ -35,8 +39,11 @@ public class ProductQueryService {
 	private final ProductReadModelRepository productReadModelRepository;
 	// port
 	private final ProductQueryPort productQueryPort;
+	// outbox
+	private final OutboxEventPort outboxEventPort;
+	private final JsonSerializer jsonSerializer;
 	// cache
-	private final ProductCacheManager productCacheManager;
+	private final ProductCachePort productCacheManager;
 
 
 	/**
@@ -50,6 +57,7 @@ public class ProductQueryService {
 	 * 7. 상품 상세 캐시 조회 (PER + 스탬피드 보호)
 	 * 8. 브랜드 ID로 활성 상품 ID 목록 조회 (브랜드명 write-through용)
 	 * 9. 관리자 상품 상세 조회 (Read Model projection — 삭제된 브랜드에도 안전)
+	 * 10. VIEW Outbox 저장 (D7: 같은 TX에서 조회 + outbox INSERT)
 	 */
 
 	// 1. ID로 활성 상품 조회
@@ -249,6 +257,15 @@ public class ProductQueryService {
 			}
 		}
 		return merged;
+	}
+
+
+	// 10. VIEW Outbox 저장 (D7: 같은 TX에서 조회 + outbox INSERT)
+	@Transactional
+	public void saveViewOutbox(Long userId, Long productId) {
+		outboxEventPort.save(EventType.PRODUCT_VIEWED, String.valueOf(productId),
+			String.valueOf(productId),
+			jsonSerializer.toJson(ProductViewedPayload.of(userId, productId)));
 	}
 
 }

@@ -2,6 +2,7 @@ package com.loopers.payment.payment.application.service;
 
 
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderInfo;
+import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderItemInfo;
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderReader;
 import com.loopers.payment.payment.application.port.out.client.order.PaymentOrderStatusManager;
 import com.loopers.payment.payment.application.port.out.client.pg.PgPaymentGateway;
@@ -12,6 +13,8 @@ import com.loopers.payment.payment.domain.repository.PaymentCommandRepository;
 import com.loopers.payment.payment.domain.repository.PaymentQueryRepository;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
+import com.loopers.support.common.outbox.application.port.OutboxEventPort;
+import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -22,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,7 +49,10 @@ class PaymentCommandServiceTest {
 	private PaymentOrderStatusManager paymentOrderStatusManager;
 	@Mock
 	private PgPaymentGateway pgPaymentGateway;
-
+	@Mock
+	private OutboxEventPort outboxEventPort;
+	@Mock
+	private JsonSerializer jsonSerializer;
 	private PaymentCommandService paymentCommandService;
 
 	@BeforeEach
@@ -53,7 +60,8 @@ class PaymentCommandServiceTest {
 		paymentCommandService = new PaymentCommandService(
 			paymentCommandRepository, paymentQueryRepository,
 			paymentOrderReader, paymentOrderStatusManager,
-			pgPaymentGateway, "http://localhost:8080/callback"
+			pgPaymentGateway, outboxEventPort, jsonSerializer,
+			"http://localhost:8080/callback"
 		);
 	}
 
@@ -200,13 +208,15 @@ class PaymentCommandServiceTest {
 	class UpdatePaymentResultTest {
 
 		@Test
-		@DisplayName("[updatePaymentResult()] PG SUCCESS -> Payment SUCCESS + Order PAID")
+		@DisplayName("[updatePaymentResult()] PG SUCCESS -> Payment SUCCESS + Order PAID + Outbox 저장")
 		void updatePaymentResultSuccess() {
 			// Arrange
 			Payment payment = Payment.reconstruct(10L, 100L, 1L, "PGO-test", CardType.SAMSUNG, "1234-5678-9012-3456",
 				new BigDecimal("200000"), "tx-123", PaymentStatus.REQUESTED, null, LocalDateTime.now());
 			given(paymentQueryRepository.findByTransactionKey("tx-123")).willReturn(Optional.of(payment));
 			given(paymentCommandRepository.save(any(Payment.class))).willAnswer(invocation -> invocation.getArgument(0));
+			given(paymentOrderReader.findOrderItems(1L)).willReturn(
+				List.of(new PaymentOrderItemInfo(1L, 2L)));
 
 			// Act
 			paymentCommandService.updatePaymentResult("tx-123", "SUCCESS", null);
@@ -214,7 +224,9 @@ class PaymentCommandServiceTest {
 			// Assert
 			assertAll(
 				() -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS),
-				() -> verify(paymentOrderStatusManager).markOrderPaid(1L)
+				() -> verify(paymentOrderStatusManager).markOrderPaid(1L),
+				() -> verify(paymentOrderReader).findOrderItems(1L),
+				() -> verify(outboxEventPort).save(any(), any(), any(), any())
 			);
 		}
 

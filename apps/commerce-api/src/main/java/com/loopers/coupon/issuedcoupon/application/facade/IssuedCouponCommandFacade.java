@@ -4,7 +4,6 @@ package com.loopers.coupon.issuedcoupon.application.facade;
 import com.loopers.coupon.coupontemplate.application.service.CouponTemplateQueryService;
 import com.loopers.coupon.coupontemplate.domain.model.CouponTemplate;
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponApplyResult;
-import com.loopers.coupon.issuedcoupon.application.dto.out.CouponIssueOutDto;
 import com.loopers.coupon.issuedcoupon.application.service.IssuedCouponCommandService;
 import com.loopers.coupon.issuedcoupon.domain.model.IssuedCoupon;
 import lombok.RequiredArgsConstructor;
@@ -25,35 +24,11 @@ public class IssuedCouponCommandFacade {
 
 	/**
 	 * 발급 쿠폰 명령 파사드
-	 * 1. 쿠폰 발급 (1차: 로컬 캐시, 2차: DB 존재 확인으로 중복 차단, DB 복합 유니크 제약이 데이터 무결성 보장)
-	 * 2. 쿠폰 적용 (Cross-BC 전용 — ACL에서 호출)
-	 * 3. 쿠폰 복원 (Cross-BC 전용 — ACL에서 호출, 보상 트랜잭션)
+	 * 1. 쿠폰 적용 (Cross-BC 전용 — ACL에서 호출)
+	 * 2. 쿠폰 복원 (Cross-BC 전용 — ACL에서 호출, 보상 트랜잭션)
 	 */
 
-	// 1. 쿠폰 발급 (1차: 로컬 캐시, 2차: DB 존재 확인으로 중복 차단, DB 복합 유니크 제약이 데이터 무결성 보장)
-	@Transactional
-	public CouponIssueOutDto issueCoupon(Long userId, Long couponTemplateId) {
-
-		// 중복 발급 차단 (1차: 로컬 캐시 따닥 차단, 2차: DB 존재 확인으로 캐시 TTL 만료 후 재요청 방어)
-		issuedCouponCommandService.validateNotDuplicateIssue(userId, couponTemplateId);
-
-		try {
-			// 쿠폰 템플릿 존재 + 활성 검증 (만료/삭제 시 예외)
-			couponTemplateQueryService.getById(couponTemplateId);
-
-			// 발급 쿠폰 생성 및 저장 (0.01% 레이스 시 DB 복합 유니크 제약이 안전망 — 500 → 클라이언트 재시도 → 캐시에서 중복 차단)
-			IssuedCoupon issuedCoupon = IssuedCoupon.create(couponTemplateId, userId);
-			IssuedCoupon saved = issuedCouponCommandService.save(issuedCoupon);
-			return CouponIssueOutDto.from(saved);
-		} catch (Exception e) {
-			// 발급 실패 시 캐시 가드 해제 — 실제 발급되지 않은 요청이 10분간 차단되는 것을 방지
-			issuedCouponCommandService.releaseIssueLock(userId, couponTemplateId);
-			throw e;
-		}
-	}
-
-
-	// 2. 쿠폰 적용 (Cross-BC 전용 — ACL에서 호출, 비관적 락으로 동시 사용 방지)
+	// 1. 쿠폰 적용 (Cross-BC 전용 — ACL에서 호출, 비관적 락으로 동시 사용 방지)
 	@Transactional
 	public CouponApplyResult applyToCoupon(Long issuedCouponId, Long userId, BigDecimal totalPrice) {
 
@@ -68,7 +43,7 @@ public class IssuedCouponCommandFacade {
 	}
 
 
-	// 3. 쿠폰 복원 (Cross-BC 전용 — ACL에서 호출, 보상 트랜잭션 — USED → AVAILABLE)
+	// 2. 쿠폰 복원 (Cross-BC 전용 — ACL에서 호출, 보상 트랜잭션 — USED → AVAILABLE)
 	@Transactional
 	public void restoreCoupon(Long issuedCouponId) {
 		issuedCouponCommandService.restoreCoupon(issuedCouponId);

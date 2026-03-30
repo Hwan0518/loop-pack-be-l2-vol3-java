@@ -24,6 +24,7 @@ public class CouponTemplateEntityMapper {
 			template.getType(),
 			template.getValue(),
 			template.getMinOrderAmount(),
+			template.getMaxQuantity(),
 			template.getExpiredAt()
 		);
 
@@ -44,6 +45,7 @@ public class CouponTemplateEntityMapper {
 			entity.getType(),
 			entity.getValue(),
 			entity.getMinOrderAmount(),
+			entity.getMaxQuantity(),
 			entity.getExpiredAt(),
 			entity.getDeletedAt()
 		);

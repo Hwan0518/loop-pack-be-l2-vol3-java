@@ -158,6 +158,12 @@ class ErrorTypeTest {
 			Arguments.of(ErrorType.COUPON_ISSUE_DUPLICATED, HttpStatus.CONFLICT,
 				"COUPON_ISSUE_DUPLICATED", "이미 발급된 쿠폰입니다."),
 
+			// CouponIssueRequest
+			Arguments.of(ErrorType.COUPON_ISSUE_REQUEST_NOT_FOUND, HttpStatus.NOT_FOUND,
+				"COUPON_ISSUE_REQUEST_NOT_FOUND", "쿠폰 발급 요청을 찾을 수 없습니다."),
+			Arguments.of(ErrorType.COUPON_SOLD_OUT, HttpStatus.CONFLICT,
+				"COUPON_SOLD_OUT", "쿠폰이 모두 소진되었습니다."),
+
 			// Order - Payment 연동
 			Arguments.of(ErrorType.ORDER_NOT_PAYABLE, HttpStatus.BAD_REQUEST,
 				"ORDER_NOT_PAYABLE", "주문이 결제 가능한 상태가 아닙니다."),
@@ -189,7 +195,7 @@ class ErrorTypeTest {
 	@DisplayName("[ErrorType] enum 상수 개수가 63개임을 보장")
 	void enumConstantCount() {
 		// Assert
-		assertThat(ErrorType.values()).hasSize(63);
+		assertThat(ErrorType.values()).hasSize(65);
 	}
 
 

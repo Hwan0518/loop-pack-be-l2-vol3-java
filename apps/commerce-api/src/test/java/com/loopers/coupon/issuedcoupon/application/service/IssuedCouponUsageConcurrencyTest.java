@@ -71,7 +71,7 @@ class IssuedCouponUsageConcurrencyTest {
 		// Arrange
 		CouponTemplateEntity template = couponTemplateJpaRepository.save(
 			CouponTemplateEntity.of("10% 할인", CouponType.RATE, new BigDecimal("10"),
-				null, LocalDateTime.now().plusDays(30))
+				null, null, LocalDateTime.now().plusDays(30))
 		);
 		IssuedCouponEntity issuedCoupon = issuedCouponJpaRepository.save(
 			IssuedCouponEntity.of(template.getId(), 100L, IssuedCouponStatus.AVAILABLE)

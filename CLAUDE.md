@@ -503,11 +503,18 @@ Controller → Facade → Service / Domain Service → Repository(interface) →
 
 모든 DTO는 Java `record`로 구현한다.
 
+#### Record 생성 규칙: 정적 팩토리 메서드 우선
+- **생성자 직접 호출(`new XxxRecord(...)`) 지양** — 정적 팩토리 메서드(`of()`, `from()` 등)를 통해 생성한다.
+- 팩토리 메서드 내에서 기본값 설정(예: `LocalDateTime.now()`), 유효성 검증 등을 캡슐화한다.
+- **`from(Domain)`**: 도메인 모델을 받아 변환 (도메인 의존이 허용되는 위치에서만 사용)
+- **`of(원시값...)`**: 도메인 의존 없이 원시값으로 생성 (공유 모듈 등 도메인 비의존 위치에서 사용)
+
 | DTO 유형 | 위치 | 변환 메서드 |
 |----------|------|-----------|
 | Request | `interfaces/web/request/` | 순수 데이터 + validation (변환 없음) |
 | InDto | `application/dto/in/` | 불변 record, 변환 없음 |
 | OutDto | `application/dto/out/` | `from(Domain)` static 팩토리 |
+| Kafka Payload | `application/dto/out/` 또는 `modules/event-schema` | `from(Domain)` 또는 `of(원시값)` — 위치에 따라 선택 |
 | Response | `interfaces/web/response/` | `from(OutDto)` static 팩토리 |
 | Entity | `infrastructure/entity/` | `of(...)` 팩토리 메서드 |
 | EntityMapper | `infrastructure/mapper/` | `toEntity(Domain)` + `toDomain(Entity)` |

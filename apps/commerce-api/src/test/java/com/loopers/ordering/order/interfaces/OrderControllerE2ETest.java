@@ -6,10 +6,14 @@ import com.loopers.catalog.brand.interfaces.web.request.AdminBrandCreateRequest;
 import com.loopers.catalog.product.interfaces.web.request.AdminProductCreateRequest;
 import com.loopers.coupon.coupontemplate.domain.model.enums.CouponType;
 import com.loopers.coupon.coupontemplate.interfaces.web.request.AdminCreateCouponTemplateRequest;
+import com.loopers.coupon.issuedcoupon.domain.model.enums.IssuedCouponStatus;
+import com.loopers.coupon.issuedcoupon.infrastructure.entity.IssuedCouponEntity;
+import com.loopers.coupon.issuedcoupon.infrastructure.jpa.IssuedCouponJpaRepository;
 import com.loopers.ordering.order.interfaces.web.request.OrderCreateRequest;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
+import com.loopers.user.user.infrastructure.jpa.UserJpaRepository;
 import com.loopers.user.user.interfaces.web.request.UserSignUpRequest;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -55,6 +59,12 @@ class OrderControllerE2ETest {
 
 	@Autowired
 	private DatabaseCleanUp databaseCleanUp;
+
+	@Autowired
+	private IssuedCouponJpaRepository issuedCouponJpaRepository;
+
+	@Autowired
+	private UserJpaRepository userJpaRepository;
 
 	private static final String USER_LOGIN_ID_HEADER = "X-Loopers-LoginId";
 	private static final String USER_LOGIN_PW_HEADER = "X-Loopers-LoginPw";
@@ -198,9 +208,9 @@ class OrderControllerE2ETest {
 		@Test
 		@DisplayName("[POST /api/v1/orders] 쿠폰 적용 주문 -> 201 Created. discountAmount > 0, couponSnapshot 포함")
 		void createOrderWithCouponApplied() throws Exception {
-			// Arrange — 쿠폰 템플릿 생성 + 발급
+			// Arrange — 쿠폰 템플릿 생성 + 발급 (DB 직접 INSERT)
 			Long couponTemplateId = createCouponTemplateAndGetId("1000원 할인 쿠폰", CouponType.FIXED, new BigDecimal("1000"), new BigDecimal("5000"));
-			Long issuedCouponId = issueCouponAndGetId("testuser", TEST_PASSWORD, couponTemplateId);
+			Long issuedCouponId = insertIssuedCoupon("testuser", couponTemplateId);
 
 			// 장바구니 항목 추가 (총액: 10000 * 2 + 20000 * 1 = 40000)
 			Long cartItemId1 = addCartItemAndGetId("testuser", TEST_PASSWORD, productId1, 2L);
@@ -713,7 +723,7 @@ class OrderControllerE2ETest {
 	// 8. 쿠폰 템플릿 생성 후 ID 반환
 	private Long createCouponTemplateAndGetId(String name, CouponType type, BigDecimal value, BigDecimal minOrderAmount) throws Exception {
 		AdminCreateCouponTemplateRequest request = new AdminCreateCouponTemplateRequest(
-			name, type, value, minOrderAmount, LocalDateTime.now().plusDays(30)
+			name, type, value, minOrderAmount, null, LocalDateTime.now().plusDays(30)
 		);
 		MvcResult result = mockMvc.perform(post("/api-admin/v1/coupons")
 				.header(ADMIN_LDAP_HEADER, ADMIN_LDAP_VALUE)
@@ -725,14 +735,13 @@ class OrderControllerE2ETest {
 	}
 
 
-	// 9. 쿠폰 발급 후 발급 쿠폰 ID 반환
-	private Long issueCouponAndGetId(String loginId, String password, Long couponTemplateId) throws Exception {
-		MvcResult result = mockMvc.perform(post("/api/v1/coupons/{couponId}/issue", couponTemplateId)
-				.header(USER_LOGIN_ID_HEADER, loginId)
-				.header(USER_LOGIN_PW_HEADER, password))
-			.andExpect(status().isCreated())
-			.andReturn();
-		return objectMapper.readTree(result.getResponse().getContentAsString()).get("issuedCouponId").asLong();
+	// 9. 쿠폰 발급 — DB 직접 INSERT (동기 발급 API 제거 후 대체)
+	private Long insertIssuedCoupon(String loginId, Long couponTemplateId) {
+		Long userId = userJpaRepository.findByLoginIdValueAndDeletedAtIsNull(loginId)
+			.orElseThrow(() -> new IllegalStateException("테스트 사용자 없음: " + loginId))
+			.getId();
+		IssuedCouponEntity entity = IssuedCouponEntity.of(couponTemplateId, userId, IssuedCouponStatus.AVAILABLE);
+		return issuedCouponJpaRepository.save(entity).getId();
 	}
 
 }

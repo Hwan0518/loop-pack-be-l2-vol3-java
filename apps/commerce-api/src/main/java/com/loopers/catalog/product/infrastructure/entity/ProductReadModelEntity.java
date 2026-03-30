@@ -73,6 +73,9 @@ public class ProductReadModelEntity {
 	@Column(name = "like_count", nullable = false)
 	private Long likeCount;
 
+	@Column(name = "metrics_version", nullable = false, columnDefinition = "bigint default 0")
+	private Long metricsVersion;
+
 	@Column(name = "created_at", nullable = false)
 	private ZonedDateTime createdAt;
 
@@ -84,7 +87,7 @@ public class ProductReadModelEntity {
 
 
 	private ProductReadModelEntity(Long id, Long brandId, String brandName, String name,
-		BigDecimal price, Long stock, String description, Long likeCount,
+		BigDecimal price, Long stock, String description, Long likeCount, Long metricsVersion,
 		ZonedDateTime createdAt, ZonedDateTime updatedAt, ZonedDateTime deletedAt) {
 		this.id = id;
 		this.brandId = brandId;
@@ -94,21 +97,29 @@ public class ProductReadModelEntity {
 		this.stock = stock;
 		this.description = description;
 		this.likeCount = likeCount;
+		this.metricsVersion = metricsVersion;
 		this.createdAt = createdAt;
 		this.updatedAt = updatedAt;
 		this.deletedAt = deletedAt;
 	}
 
 
-	// 도메인 모델 + 브랜드명으로 Read Model 엔티티 생성 (신규: createdAt = now, likeCount = 0)
+	// 도메인 모델 + 브랜드명으로 Read Model 엔티티 생성 (신규: createdAt = now, likeCount = 0, metricsVersion = 0)
 	public static ProductReadModelEntity of(Product product, String brandName) {
-		return of(product, brandName, ZonedDateTime.now(), 0L);
+		return of(product, brandName, ZonedDateTime.now(), 0L, 0L);
 	}
 
 
-	// 도메인 모델 + 브랜드명 + 기존 createdAt/likeCount 보존 (업데이트 시 LATEST 정렬 오염 + likeCount 덮어쓰기 방지)
+	// 도메인 모델 + 브랜드명 + 기존 createdAt/likeCount/metricsVersion 보존
 	public static ProductReadModelEntity of(Product product, String brandName,
 		ZonedDateTime createdAt, Long likeCount) {
+		return of(product, brandName, createdAt, likeCount, 0L);
+	}
+
+
+	// 도메인 모델 + 브랜드명 + 기존 createdAt/likeCount/metricsVersion 보존
+	public static ProductReadModelEntity of(Product product, String brandName,
+		ZonedDateTime createdAt, Long likeCount, Long metricsVersion) {
 
 		return new ProductReadModelEntity(
 			product.getId(),
@@ -119,6 +130,7 @@ public class ProductReadModelEntity {
 			product.getStock().value(),
 			product.getDescription() != null ? product.getDescription().value() : null,
 			likeCount,
+			metricsVersion,
 			createdAt,
 			ZonedDateTime.now(),
 			product.getDeletedAt()

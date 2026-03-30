@@ -14,7 +14,7 @@ import com.loopers.catalog.product.domain.model.vo.Stock;
 import com.loopers.catalog.product.domain.repository.ProductCommandRepository;
 import com.loopers.catalog.product.domain.repository.ProductQueryRepository;
 import com.loopers.catalog.product.domain.repository.ProductReadModelRepository;
-import com.loopers.catalog.product.infrastructure.cache.ProductCacheManager;
+import com.loopers.catalog.product.application.port.out.cache.ProductCachePort;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +48,7 @@ class ProductCommandServiceTest {
 	@Mock
 	private ProductReadModelRepository readModelRepository;
 	@Mock
-	private ProductCacheManager productCacheManager;
+	private ProductCachePort productCacheManager;
 	@Mock
 	private ProductQueryPort productQueryPort;
 	@Mock
@@ -155,46 +155,6 @@ class ProductCommandServiceTest {
 				() -> assertThat(product.isDeleted()).isTrue(),
 				() -> verify(productCommandRepository).delete(product),
 				() -> verify(readModelRepository).softDelete(1L)
-			);
-		}
-
-	}
-
-
-	@Nested
-	@DisplayName("increaseLikeCount()")
-	class IncreaseLikeCountTest {
-
-		@Test
-		@DisplayName("[increaseLikeCount()] 유효한 상품 ID -> Read Model 원자적 카운터로 좋아요 수 증가. 상세 캐시 write-through")
-		void increaseLikeCountSuccess() {
-			// Act
-			productCommandService.increaseLikeCount(1L);
-
-			// Assert
-			assertAll(
-				() -> verify(readModelRepository).increaseLikeCount(1L),
-				() -> verify(productCacheManager).refreshProductDetail(eq(1L), any())
-			);
-		}
-
-	}
-
-
-	@Nested
-	@DisplayName("decreaseLikeCount()")
-	class DecreaseLikeCountTest {
-
-		@Test
-		@DisplayName("[decreaseLikeCount()] 유효한 상품 ID -> Read Model 원자적 카운터로 좋아요 수 감소. 상세 캐시 write-through")
-		void decreaseLikeCountSuccess() {
-			// Act
-			productCommandService.decreaseLikeCount(1L);
-
-			// Assert
-			assertAll(
-				() -> verify(readModelRepository).decreaseLikeCount(1L),
-				() -> verify(productCacheManager).refreshProductDetail(eq(1L), any())
 			);
 		}
 

@@ -51,14 +51,14 @@ class CouponTemplateQueryServiceTest {
 	private CouponTemplate activeTemplate(Long id) {
 		return CouponTemplate.reconstruct(
 			id, "테스트 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-			null, futureExpiredAt, null
+			null, null, futureExpiredAt, null
 		);
 	}
 
 	private CouponTemplate deletedTemplate(Long id) {
 		return CouponTemplate.reconstruct(
 			id, "삭제 쿠폰", CouponType.FIXED, new BigDecimal("5000"),
-			null, futureExpiredAt, ZonedDateTime.now()
+			null, null, futureExpiredAt, ZonedDateTime.now()
 		);
 	}
 
