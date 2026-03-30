@@ -226,7 +226,7 @@ class PaymentCommandServiceTest {
 				() -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.SUCCESS),
 				() -> verify(paymentOrderStatusManager).markOrderPaid(1L),
 				() -> verify(paymentOrderReader).findOrderItems(1L),
-				() -> verify(outboxEventPort).save(any(), any(), any(), any(), any(), any())
+				() -> verify(outboxEventPort).save(any(), any(), any(), any())
 			);
 		}
 

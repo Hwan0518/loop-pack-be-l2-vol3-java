@@ -1,4 +1,4 @@
-package com.loopers.coupon.issuedcoupon.application.dto.out;
+package com.loopers.support.common.event.coupon;
 
 
 import java.time.LocalDateTime;

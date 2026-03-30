@@ -4,6 +4,7 @@ plugins {
 }
 
 dependencies {
+    api(project(":modules:event-schema"))
     api("org.springframework.kafka:spring-kafka")
 
     testImplementation("org.springframework.kafka:spring-kafka-test")

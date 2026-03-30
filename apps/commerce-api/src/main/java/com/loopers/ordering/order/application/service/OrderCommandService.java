@@ -16,6 +16,7 @@ import com.loopers.ordering.order.domain.model.OrderItem;
 import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import com.loopers.ordering.order.domain.model.vo.CouponSnapshot;
 import com.loopers.ordering.order.domain.repository.OrderCommandRepository;
+import com.loopers.support.common.event.EventType;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.support.common.outbox.application.port.OutboxEventPort;
@@ -76,8 +77,8 @@ public class OrderCommandService {
 		Order savedOrder = buildAndSaveOrder(userId, inDto.requestId(), cartItems, products, couponApplyResult);
 
 		// Outbox 저장 (같은 TX — At Least Once 보장)
-		outboxEventPort.save("ORDER", String.valueOf(savedOrder.getId()), "ORDER_CREATED",
-			"order-events", String.valueOf(savedOrder.getId()),
+		outboxEventPort.save(EventType.ORDER_CREATED, String.valueOf(savedOrder.getId()),
+			String.valueOf(savedOrder.getId()),
 			jsonSerializer.toJson(OrderCreatedPayload.from(savedOrder)));
 
 		// 주문 생성 이벤트 발행 → [OrderEventListener] 장바구니 정리 + [UserActionEventListener] ORDER 로깅

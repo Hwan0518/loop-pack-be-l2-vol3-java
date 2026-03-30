@@ -1,10 +1,11 @@
 package com.loopers.readmodel.interfaces.consumer;
 
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.readmodel.application.service.ReadModelSyncService;
+import com.loopers.support.common.event.metrics.ProductMetricsSnapshotPayload;
+import com.loopers.support.common.outbox.application.dto.KafkaEventEnvelope;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -40,15 +41,12 @@ public class ReadModelSyncConsumer {
 	public void consume(List<ConsumerRecord<String, byte[]>> records, Acknowledgment ack) {
 		try {
 			for (ConsumerRecord<String, byte[]> record : records) {
-				JsonNode envelope = objectMapper.readTree(record.value());
-				String eventId = envelope.get("eventId").asText();
-				JsonNode data = objectMapper.readTree(envelope.get("data").asText());
+				KafkaEventEnvelope envelope = objectMapper.readValue(record.value(), KafkaEventEnvelope.class);
+				ProductMetricsSnapshotPayload payload = objectMapper.readValue(
+					envelope.data(), ProductMetricsSnapshotPayload.class);
 
-				Long productId = data.get("productId").asLong();
-				Long likeCount = data.get("likeCount").asLong();
-				Long version = data.get("version").asLong();
-
-				readModelSyncService.syncReadModel(eventId, productId, likeCount, version);
+				readModelSyncService.syncReadModel(
+					envelope.eventId(), payload.productId(), payload.likeCount(), payload.version());
 			}
 		} catch (Exception e) {
 			log.error("[ReadModelSync] 배치 처리 실패", e);

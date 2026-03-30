@@ -1,10 +1,11 @@
 package com.loopers.coupon.interfaces.consumer;
 
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.coupon.application.service.CouponIssueProcessorService;
+import com.loopers.support.common.event.coupon.CouponIssueRequestedPayload;
+import com.loopers.support.common.outbox.application.dto.KafkaEventEnvelope;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -40,15 +41,12 @@ public class CouponIssueConsumer {
 	public void consume(List<ConsumerRecord<String, byte[]>> records, Acknowledgment ack) {
 		try {
 			for (ConsumerRecord<String, byte[]> record : records) {
-				JsonNode envelope = objectMapper.readTree(record.value());
-				String eventId = envelope.get("eventId").asText();
-				JsonNode data = objectMapper.readTree(envelope.get("data").asText());
+				KafkaEventEnvelope envelope = objectMapper.readValue(record.value(), KafkaEventEnvelope.class);
+				CouponIssueRequestedPayload payload = objectMapper.readValue(
+					envelope.data(), CouponIssueRequestedPayload.class);
 
-				String requestId = data.get("requestId").asText();
-				Long userId = data.get("userId").asLong();
-				Long couponTemplateId = data.get("couponTemplateId").asLong();
-
-				couponIssueProcessorService.processIssueRequest(eventId, requestId, userId, couponTemplateId);
+				couponIssueProcessorService.processIssueRequest(
+					envelope.eventId(), payload.requestId(), payload.userId(), payload.couponTemplateId());
 			}
 		} catch (Exception e) {
 			log.error("[CouponIssue] 배치 처리 실패", e);

@@ -1,12 +1,13 @@
 package com.loopers.engagement.productlike.application.service;
 
 
-import com.loopers.engagement.productlike.application.dto.out.ProductLikedPayload;
-import com.loopers.engagement.productlike.application.dto.out.ProductUnlikedPayload;
+import com.loopers.support.common.event.catalog.ProductLikedPayload;
+import com.loopers.support.common.event.catalog.ProductUnlikedPayload;
 import com.loopers.engagement.productlike.application.port.out.client.catalog.ProductLikeTargetValidator;
 import com.loopers.engagement.productlike.domain.model.ProductLike;
 import com.loopers.engagement.productlike.domain.repository.ProductLikeCommandRepository;
 import com.loopers.engagement.productlike.domain.repository.ProductLikeQueryRepository;
+import com.loopers.support.common.event.EventType;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.support.common.outbox.application.port.OutboxEventPort;
@@ -63,9 +64,9 @@ public class ProductLikeCommandService {
 		ProductLike saved = productLikeCommandRepository.save(productLike);
 
 		// Outbox 저장 (같은 TX — At Least Once 보장)
-		outboxEventPort.save("PRODUCT", String.valueOf(targetId), "PRODUCT_LIKED",
-			"catalog-events", String.valueOf(targetId),
-			jsonSerializer.toJson(ProductLikedPayload.from(saved)));
+		outboxEventPort.save(EventType.PRODUCT_LIKED, String.valueOf(targetId),
+			String.valueOf(targetId),
+			jsonSerializer.toJson(ProductLikedPayload.of(saved.getId(), saved.getUserId(), saved.getTargetId())));
 
 		return saved;
 	}
@@ -84,8 +85,8 @@ public class ProductLikeCommandService {
 		productLikeCommandRepository.delete(productLike);
 
 		// Outbox 저장 (같은 TX — At Least Once 보장)
-		outboxEventPort.save("PRODUCT", String.valueOf(targetId), "PRODUCT_UNLIKED",
-			"catalog-events", String.valueOf(targetId),
+		outboxEventPort.save(EventType.PRODUCT_UNLIKED, String.valueOf(targetId),
+			String.valueOf(targetId),
 			jsonSerializer.toJson(ProductUnlikedPayload.of(userId, targetId)));
 	}
 

@@ -2,10 +2,11 @@ package com.loopers.coupon.issuedcoupon.application.service;
 
 
 import com.loopers.coupon.issuedcoupon.application.dto.out.CouponIssueRequestOutDto;
-import com.loopers.coupon.issuedcoupon.application.dto.out.CouponIssueRequestedPayload;
+import com.loopers.support.common.event.coupon.CouponIssueRequestedPayload;
 import com.loopers.coupon.issuedcoupon.domain.model.CouponIssueRequest;
 import com.loopers.coupon.issuedcoupon.domain.repository.CouponIssueRequestCommandRepository;
 import com.loopers.coupon.issuedcoupon.domain.repository.CouponIssueRequestQueryRepository;
+import com.loopers.support.common.event.EventType;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.support.common.outbox.application.port.OutboxEventPort;
@@ -58,8 +59,8 @@ public class CouponIssueRequestCommandService {
 		couponIssueRequestCommandRepository.save(request);
 
 		// Outbox 저장 (같은 TX — coupon-issue-requests 토픽)
-		outboxEventPort.save("COUPON", String.valueOf(couponTemplateId), "COUPON_ISSUE_REQUESTED",
-			"coupon-issue-requests", String.valueOf(couponTemplateId),
+		outboxEventPort.save(EventType.COUPON_ISSUE_REQUESTED, String.valueOf(couponTemplateId),
+			String.valueOf(couponTemplateId),
 			jsonSerializer.toJson(CouponIssueRequestedPayload.of(resolvedRequestId, userId, couponTemplateId)));
 
 		return new CouponIssueRequestOutDto(resolvedRequestId, "PENDING");

@@ -2,6 +2,7 @@ package com.loopers.catalog.product.application.service;
 
 
 import com.loopers.catalog.product.application.dto.out.*;
+import com.loopers.support.common.event.catalog.ProductViewedPayload;
 import com.loopers.catalog.product.application.port.out.query.ProductQueryPort;
 import com.loopers.catalog.product.application.port.out.query.criteria.ProductSearchCriteria;
 import com.loopers.catalog.product.domain.model.Product;
@@ -13,6 +14,7 @@ import com.loopers.catalog.product.domain.repository.vo.PageResult;
 import com.loopers.catalog.product.application.port.out.cache.ProductCachePort;
 import com.loopers.catalog.product.application.port.out.cache.dto.IdListCacheEntry;
 import com.loopers.catalog.product.application.port.out.cache.dto.ProductCacheDto;
+import com.loopers.support.common.event.EventType;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.support.common.outbox.application.port.OutboxEventPort;
@@ -261,8 +263,8 @@ public class ProductQueryService {
 	// 10. VIEW Outbox 저장 (D7: 같은 TX에서 조회 + outbox INSERT)
 	@Transactional
 	public void saveViewOutbox(Long userId, Long productId) {
-		outboxEventPort.save("PRODUCT", String.valueOf(productId), "PRODUCT_VIEWED",
-			"catalog-events", String.valueOf(productId),
+		outboxEventPort.save(EventType.PRODUCT_VIEWED, String.valueOf(productId),
+			String.valueOf(productId),
 			jsonSerializer.toJson(ProductViewedPayload.of(userId, productId)));
 	}
 

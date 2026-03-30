@@ -1,4 +1,4 @@
-package com.loopers.engagement.productlike.application.dto.out;
+package com.loopers.support.common.event.catalog;
 
 
 import java.time.LocalDateTime;

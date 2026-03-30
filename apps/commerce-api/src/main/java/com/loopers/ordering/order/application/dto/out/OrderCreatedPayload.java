@@ -2,6 +2,7 @@ package com.loopers.ordering.order.application.dto.out;
 
 
 import com.loopers.ordering.order.domain.model.Order;
+import com.loopers.support.common.event.ordering.OrderItemPayload;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

@@ -1,11 +1,11 @@
 package com.loopers.logging.interfaces.consumer;
 
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.logging.application.dto.EventLogData;
 import com.loopers.logging.application.service.UserActionLogService;
+import com.loopers.support.common.outbox.application.dto.KafkaEventEnvelope;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -42,11 +42,11 @@ public class UserActionLogConsumer {
 		try {
 			// 1. eventId 수집 + 멱등 필터링
 			Set<String> allEventIds = new LinkedHashSet<>();
-			List<JsonNode> envelopes = new ArrayList<>();
+			List<KafkaEventEnvelope> envelopes = new ArrayList<>();
 
 			for (ConsumerRecord<String, byte[]> record : records) {
-				JsonNode envelope = objectMapper.readTree(record.value());
-				allEventIds.add(envelope.get("eventId").asText());
+				KafkaEventEnvelope envelope = objectMapper.readValue(record.value(), KafkaEventEnvelope.class);
+				allEventIds.add(envelope.eventId());
 				envelopes.add(envelope);
 			}
 
@@ -56,19 +56,18 @@ public class UserActionLogConsumer {
 			List<EventLogData> logs = new ArrayList<>();
 			Set<String> newEventIds = new LinkedHashSet<>();
 
-			for (JsonNode envelope : envelopes) {
-				String eventId = envelope.get("eventId").asText();
-				if (alreadyHandled.contains(eventId)) continue;
+			for (KafkaEventEnvelope envelope : envelopes) {
+				if (alreadyHandled.contains(envelope.eventId())) continue;
 
 				logs.add(new EventLogData(
-					eventId,
+					envelope.eventId(),
 					"user-action-logger",
-					envelope.get("eventType").asText(),
-					envelope.get("aggregateType").asText(),
-					envelope.get("aggregateId").asText(),
-					envelope.get("data").asText()
+					envelope.eventType(),
+					envelope.aggregateType(),
+					envelope.aggregateId(),
+					envelope.data()
 				));
-				newEventIds.add(eventId);
+				newEventIds.add(envelope.eventId());
 			}
 
 			// 3. 로그 저장 + event_handled (동일 TX)

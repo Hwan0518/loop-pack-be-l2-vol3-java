@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * 주문 생성 완료 이벤트
  * @subscriber OrderEventListener - 장바구니 정리
- * @kafka ORDER_CREATED → MetricsCollectorConsumer, UserActionLogConsumer
+ * @kafka ORDER_CREATED → UserActionLogConsumer (raw 저장)
  */
 public record OrderCreatedEvent(
 	Long orderId,

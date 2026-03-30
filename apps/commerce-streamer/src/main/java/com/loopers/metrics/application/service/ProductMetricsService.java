@@ -3,6 +3,8 @@ package com.loopers.metrics.application.service;
 
 import com.loopers.metrics.application.port.out.ProductMetricsPort;
 import com.loopers.metrics.application.port.out.ProductMetricsPort.MetricsSnapshot;
+import com.loopers.support.common.event.EventType;
+import com.loopers.support.common.event.metrics.ProductMetricsSnapshotPayload;
 import com.loopers.support.common.outbox.application.port.OutboxEventPort;
 import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import com.loopers.support.idempotency.EventIdempotencyService;
@@ -51,16 +53,12 @@ public class ProductMetricsService {
 			MetricsSnapshot snapshot = productMetricsPort.applyDeltaAndGet(productId, delta[0], delta[1], delta[2]);
 
 			// snapshot outbox 저장 (같은 TX — At Least Once 보장)
-			String snapshotPayload = jsonSerializer.toJson(Map.of(
-				"productId", snapshot.productId(),
-				"likeCount", snapshot.likeCount(),
-				"salesCount", snapshot.salesCount(),
-				"viewCount", snapshot.viewCount(),
-				"version", snapshot.version(),
-				"updatedAt", snapshot.updatedAt()
+			String snapshotPayload = jsonSerializer.toJson(ProductMetricsSnapshotPayload.of(
+				snapshot.productId(), snapshot.likeCount(), snapshot.salesCount(),
+				snapshot.viewCount(), snapshot.version(), snapshot.updatedAt()
 			));
-			outboxEventPort.save("PRODUCT", String.valueOf(productId), "PRODUCT_METRICS_UPDATED",
-				"product-metrics-snapshots", String.valueOf(productId), snapshotPayload);
+			outboxEventPort.save(EventType.PRODUCT_METRICS_UPDATED, String.valueOf(productId),
+				String.valueOf(productId), snapshotPayload);
 		}
 
 		// event_handled 일괄 저장

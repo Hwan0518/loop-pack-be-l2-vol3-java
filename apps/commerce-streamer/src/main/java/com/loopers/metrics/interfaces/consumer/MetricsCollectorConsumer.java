@@ -1,10 +1,13 @@
 package com.loopers.metrics.interfaces.consumer;
 
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.metrics.application.service.ProductMetricsService;
+import com.loopers.support.common.event.EventType;
+import com.loopers.support.common.event.ordering.OrderItemPayload;
+import com.loopers.support.common.event.ordering.OrderPaidPayload;
+import com.loopers.support.common.outbox.application.dto.KafkaEventEnvelope;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -41,12 +44,11 @@ public class MetricsCollectorConsumer {
 		try {
 			// 1. eventId 수집 + 이미 처리된 이벤트 필터링
 			Set<String> allEventIds = new LinkedHashSet<>();
-			List<JsonNode> envelopes = new ArrayList<>();
+			List<KafkaEventEnvelope> envelopes = new ArrayList<>();
 
 			for (ConsumerRecord<String, byte[]> record : records) {
-				JsonNode envelope = objectMapper.readTree(record.value());
-				String eventId = envelope.get("eventId").asText();
-				allEventIds.add(eventId);
+				KafkaEventEnvelope envelope = objectMapper.readValue(record.value(), KafkaEventEnvelope.class);
+				allEventIds.add(envelope.eventId());
 				envelopes.add(envelope);
 			}
 
@@ -56,15 +58,11 @@ public class MetricsCollectorConsumer {
 			Map<Long, long[]> deltas = new HashMap<>(); // productId → [likeDelta, salesDelta, viewDelta]
 			Set<String> newEventIds = new LinkedHashSet<>();
 
-			for (JsonNode envelope : envelopes) {
-				String eventId = envelope.get("eventId").asText();
-				if (alreadyHandled.contains(eventId)) continue;
+			for (KafkaEventEnvelope envelope : envelopes) {
+				if (alreadyHandled.contains(envelope.eventId())) continue;
 
-				String eventType = envelope.get("eventType").asText();
-				JsonNode data = objectMapper.readTree(envelope.get("data").asText());
-
-				aggregateDelta(deltas, eventType, data);
-				newEventIds.add(eventId);
+				aggregateDelta(deltas, envelope.eventType(), envelope.data());
+				newEventIds.add(envelope.eventId());
 			}
 
 			// 3. delta 반영 + event_handled + snapshot outbox (동일 TX)
@@ -82,28 +80,24 @@ public class MetricsCollectorConsumer {
 
 
 	// 이벤트 타입별 delta 합산
-	private void aggregateDelta(Map<Long, long[]> deltas, String eventType, JsonNode data) {
+	private void aggregateDelta(Map<Long, long[]> deltas, String eventType, String data) throws Exception {
 		switch (eventType) {
 			case "PRODUCT_LIKED" -> {
-				Long productId = data.get("productId").asLong();
-				deltas.computeIfAbsent(productId, k -> new long[3])[0] += 1;
+				var payload = objectMapper.readValue(data, com.loopers.support.common.event.catalog.ProductLikedPayload.class);
+				deltas.computeIfAbsent(payload.productId(), k -> new long[3])[0] += 1;
 			}
 			case "PRODUCT_UNLIKED" -> {
-				Long productId = data.get("productId").asLong();
-				deltas.computeIfAbsent(productId, k -> new long[3])[0] -= 1;
+				var payload = objectMapper.readValue(data, com.loopers.support.common.event.catalog.ProductUnlikedPayload.class);
+				deltas.computeIfAbsent(payload.productId(), k -> new long[3])[0] -= 1;
 			}
 			case "PRODUCT_VIEWED" -> {
-				Long productId = data.get("productId").asLong();
-				deltas.computeIfAbsent(productId, k -> new long[3])[2] += 1;
+				var payload = objectMapper.readValue(data, com.loopers.support.common.event.catalog.ProductViewedPayload.class);
+				deltas.computeIfAbsent(payload.productId(), k -> new long[3])[2] += 1;
 			}
 			case "ORDER_PAID" -> {
-				JsonNode items = data.get("items");
-				if (items != null && items.isArray()) {
-					for (JsonNode item : items) {
-						Long productId = item.get("productId").asLong();
-						long quantity = item.get("quantity").asLong();
-						deltas.computeIfAbsent(productId, k -> new long[3])[1] += quantity;
-					}
+				OrderPaidPayload payload = objectMapper.readValue(data, OrderPaidPayload.class);
+				for (OrderItemPayload item : payload.items()) {
+					deltas.computeIfAbsent(item.productId(), k -> new long[3])[1] += item.quantity();
 				}
 			}
 			default -> log.debug("[MetricsCollector] 무시된 이벤트 타입: {}", eventType);

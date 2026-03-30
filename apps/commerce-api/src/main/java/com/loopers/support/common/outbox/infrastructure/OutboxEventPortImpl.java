@@ -1,6 +1,7 @@
 package com.loopers.support.common.outbox.infrastructure;
 
 
+import com.loopers.support.common.event.EventType;
 import com.loopers.support.common.outbox.application.dto.OutboxEventDto;
 import com.loopers.support.common.outbox.application.port.OutboxEventPort;
 import com.loopers.support.common.outbox.infrastructure.entity.OutboxEventApiEntity;
@@ -34,10 +35,10 @@ public class OutboxEventPortImpl implements OutboxEventPort {
 
 	// 1. 저장 (PENDING)
 	@Override
-	public void save(String aggregateType, String aggregateId, String eventType,
-		String topic, String partitionKey, String payload) {
+	public void save(EventType eventType, String aggregateId, String partitionKey, String payload) {
 		OutboxEventApiEntity entity = OutboxEventApiEntity.of(
-			aggregateType, aggregateId, eventType, topic, partitionKey, payload);
+			eventType.getAggregateType(), aggregateId, eventType.getEventType(),
+			eventType.getTopic(), partitionKey, payload);
 		outboxJpaRepository.save(entity);
 	}
 

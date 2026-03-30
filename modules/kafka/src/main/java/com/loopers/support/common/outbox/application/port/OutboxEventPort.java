@@ -1,6 +1,7 @@
 package com.loopers.support.common.outbox.application.port;
 
 
+import com.loopers.support.common.event.EventType;
 import com.loopers.support.common.outbox.application.dto.OutboxEventDto;
 
 import java.util.List;
@@ -17,8 +18,7 @@ import java.util.List;
 public interface OutboxEventPort {
 
 	// 1. 저장 (Service TX 내에서 호출)
-	void save(String aggregateType, String aggregateId, String eventType,
-		String topic, String partitionKey, String payload);
+	void save(EventType eventType, String aggregateId, String partitionKey, String payload);
 
 	// 2. 재시도 가능 이벤트 조회 (PENDING + FAILED where retryCount < maxRetry)
 	List<OutboxEventDto> findRetryableEvents(int limit);
