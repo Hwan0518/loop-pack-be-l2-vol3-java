@@ -7,6 +7,7 @@ import com.loopers.ordering.order.application.service.OrderQueryService;
 import com.loopers.ordering.order.domain.model.Order;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +23,7 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(name = "ordering.expiration.scheduler.enabled", havingValue = "true", matchIfMissing = true)
 public class OrderExpirationScheduler {
 
 	// service

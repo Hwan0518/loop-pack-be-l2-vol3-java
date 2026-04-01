@@ -1,0 +1,29 @@
+# 테스트 프로파일 공통 설정
+# - management 서버 비활성화 (DEFINED_PORT 테스트 간 포트 충돌 방지)
+# - 모든 background scheduler 기본 비활성화 (async 간섭 제거)
+management:
+  server:
+    port: -1
+
+queue:
+  waiting:
+    scheduler:
+      enabled: false
+    consumer:
+      enabled: false
+
+support:
+  outbox:
+    relay:
+      scheduler:
+        enabled: false
+
+payment:
+  polling:
+    scheduler:
+      enabled: false
+
+ordering:
+  expiration:
+    scheduler:
+      enabled: false
