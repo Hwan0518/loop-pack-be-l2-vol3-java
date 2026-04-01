@@ -103,7 +103,7 @@ class OrderCommandFacadeTest {
 				.willReturn(expectedDto);
 
 			// Act
-			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto);
+			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto, "entry-token");
 
 			// Assert
 			assertAll(
@@ -127,7 +127,7 @@ class OrderCommandFacadeTest {
 				.willReturn(Optional.of(existingOrder));
 
 			// Act
-			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto);
+			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto, "entry-token");
 
 			// Assert
 			assertAll(
@@ -153,7 +153,7 @@ class OrderCommandFacadeTest {
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> orderCommandFacade.createOrder(userId, inDto));
+				() -> orderCommandFacade.createOrder(userId, inDto, "entry-token"));
 
 			// Assert
 			assertAll(
@@ -189,7 +189,7 @@ class OrderCommandFacadeTest {
 				.willThrow(new DataIntegrityViolationException("Duplicate entry"));
 
 			// Act
-			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto);
+			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto, "entry-token");
 
 			// Assert
 			assertAll(

@@ -5,6 +5,7 @@ import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItem
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemReader;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductReader;
+import com.loopers.ordering.order.application.port.out.client.queue.OrderEntryTokenValidator;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -21,12 +22,14 @@ public class OrderCheckoutCommandService {
 	// port
 	private final OrderCartItemReader orderCartItemReader;
 	private final OrderProductReader orderProductReader;
+	private final OrderEntryTokenValidator orderEntryTokenValidator;
 
 
 	/**
 	 * 주문 체크아웃 조회 서비스
 	 * 1. 장바구니 항목 ID 목록으로 조회
 	 * 2. 상품 정보 조회
+	 * 3. 입장 토큰 원자적 소비 (검증 + 삭제)
 	 */
 
 	// 1. 장바구니 항목 ID 목록으로 조회
@@ -67,6 +70,12 @@ public class OrderCheckoutCommandService {
 		}
 
 		return products;
+	}
+
+
+	// 3. 입장 토큰 원자적 소비 (검증 + 삭제를 한 번에 — 동시 주문 방지)
+	public void consumeEntryToken(Long userId, String entryToken) {
+		orderEntryTokenValidator.consume(userId, entryToken);
 	}
 
 }
