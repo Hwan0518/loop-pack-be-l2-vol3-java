@@ -105,7 +105,13 @@ public enum ErrorType {
 	PG_BAD_REQUEST(HttpStatus.BAD_REQUEST, "PG_BAD_REQUEST", "PG 요청이 올바르지 않습니다."),
 	PG_REQUEST_FAILED(HttpStatus.BAD_GATEWAY, "PG_REQUEST_FAILED", "PG 결제 요청에 실패했습니다."),
 	PG_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "PG_SERVICE_UNAVAILABLE", "PG 서비스를 일시적으로 사용할 수 없습니다."),
-	PG_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "PG_TIMEOUT", "PG 응답 시간이 초과되었습니다.");
+	PG_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "PG_TIMEOUT", "PG 응답 시간이 초과되었습니다."),
+
+	/** Queue 도메인 에러 */
+	INVALID_QUEUE_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_QUEUE_TOKEN", "유효하지 않은 대기열 토큰입니다."),
+	QUEUE_NOT_ENTERED(HttpStatus.NOT_FOUND, "QUEUE_NOT_ENTERED", "대기열에 진입하지 않았거나 아직 처리 중입니다."),
+	QUEUE_CAPACITY_EXCEEDED(HttpStatus.SERVICE_UNAVAILABLE, "QUEUE_CAPACITY_EXCEEDED", "대기열이 가득 찼습니다. 잠시 후 다시 시도해주세요."),
+	QUEUE_PRODUCE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "QUEUE_PRODUCE_FAILED", "대기열 진입 요청에 실패했습니다.");
 
 	private final HttpStatus status;
 	private final String code;

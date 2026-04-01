@@ -50,6 +50,10 @@ dependencies {
     // cache
     implementation("com.github.ben-manes.caffeine:caffeine")
 
+    // shedlock (대기열 스케줄러 분산 락)
+    implementation("net.javacrumbs.shedlock:shedlock-spring:6.3.1")
+    implementation("net.javacrumbs.shedlock:shedlock-provider-redis-spring:6.3.1")
+
     // querydsl
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")
     annotationProcessor("jakarta.persistence:jakarta.persistence-api")
