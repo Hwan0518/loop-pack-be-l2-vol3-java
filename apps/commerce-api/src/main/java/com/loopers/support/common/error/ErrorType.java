@@ -111,7 +111,8 @@ public enum ErrorType {
 	INVALID_QUEUE_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_QUEUE_TOKEN", "유효하지 않은 대기열 토큰입니다."),
 	QUEUE_NOT_ENTERED(HttpStatus.NOT_FOUND, "QUEUE_NOT_ENTERED", "대기열에 진입하지 않았거나 아직 처리 중입니다."),
 	QUEUE_CAPACITY_EXCEEDED(HttpStatus.SERVICE_UNAVAILABLE, "QUEUE_CAPACITY_EXCEEDED", "대기열이 가득 찼습니다. 잠시 후 다시 시도해주세요."),
-	QUEUE_PRODUCE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "QUEUE_PRODUCE_FAILED", "대기열 진입 요청에 실패했습니다.");
+	QUEUE_PRODUCE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "QUEUE_PRODUCE_FAILED", "대기열 진입 요청에 실패했습니다."),
+	ORDER_ALREADY_IN_PROGRESS(HttpStatus.CONFLICT, "ORDER_ALREADY_IN_PROGRESS", "이미 주문이 처리 중입니다. 잠시 후 다시 시도해주세요.");
 
 	private final HttpStatus status;
 	private final String code;

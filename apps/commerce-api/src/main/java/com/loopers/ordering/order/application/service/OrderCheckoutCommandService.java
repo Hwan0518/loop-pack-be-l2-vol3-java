@@ -5,6 +5,7 @@ import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItem
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemReader;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductReader;
+import com.loopers.ordering.order.application.port.out.client.queue.OrderEntryTokenValidator;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -21,12 +22,16 @@ public class OrderCheckoutCommandService {
 	// port
 	private final OrderCartItemReader orderCartItemReader;
 	private final OrderProductReader orderProductReader;
+	private final OrderEntryTokenValidator orderEntryTokenValidator;
 
 
 	/**
 	 * 주문 체크아웃 조회 서비스
 	 * 1. 장바구니 항목 ID 목록으로 조회
 	 * 2. 상품 정보 조회
+	 * 3. 입장 토큰 검증 + 주문 처리 락 획득 (동시 주문 방지)
+	 * 4. 주문 완료 후 정리 (토큰 삭제 + 락 해제)
+	 * 5. 주문 실패 후 정리 (락만 해제)
 	 */
 
 	// 1. 장바구니 항목 ID 목록으로 조회
@@ -67,6 +72,24 @@ public class OrderCheckoutCommandService {
 		}
 
 		return products;
+	}
+
+
+	// 3. 입장 토큰 검증 + 주문 처리 락 획득 (동시 주문 방지)
+	public void validateAndLockEntryToken(Long userId, String entryToken) {
+		orderEntryTokenValidator.validateAndLock(userId, entryToken);
+	}
+
+
+	// 4. 주문 완료 후 정리 (토큰 삭제 + 락 해제)
+	public void completeEntryToken(Long userId) {
+		orderEntryTokenValidator.completeOrder(userId);
+	}
+
+
+	// 5. 주문 실패 후 정리 (락만 해제 — 토큰 보존)
+	public void releaseOrderLock(Long userId) {
+		orderEntryTokenValidator.releaseOrderLock(userId);
 	}
 
 }

@@ -5,6 +5,7 @@ import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItem
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemReader;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductReader;
+import com.loopers.ordering.order.application.port.out.client.queue.OrderEntryTokenValidator;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,12 +35,15 @@ class OrderCheckoutCommandServiceTest {
 	@Mock
 	private OrderProductReader orderProductReader;
 
+	@Mock
+	private OrderEntryTokenValidator orderEntryTokenValidator;
+
 	private OrderCheckoutCommandService orderCheckoutCommandService;
 
 	@BeforeEach
 	void setUp() {
 		orderCheckoutCommandService = new OrderCheckoutCommandService(
-			orderCartItemReader, orderProductReader
+			orderCartItemReader, orderProductReader, orderEntryTokenValidator
 		);
 	}
 

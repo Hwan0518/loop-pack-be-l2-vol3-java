@@ -30,11 +30,12 @@ public class OrderCommandController {
 	 * 1. 주문 생성
 	 */
 
-	// 1. 주문 생성
+	// 1. 주문 생성 (입장 토큰 검증 포함)
 	@PostMapping
 	public ResponseEntity<OrderDetailResponse> createOrder(
 		@RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
 		@RequestHeader(value = "X-Loopers-LoginPw", required = false) String password,
+		@RequestHeader(value = "X-Entry-Token") String entryToken,
 		@Valid @RequestBody OrderCreateRequest request
 	) {
 
@@ -44,8 +45,8 @@ public class OrderCommandController {
 		// InDto 생성
 		OrderCreateInDto inDto = new OrderCreateInDto(request.cartItemIds(), request.requestId(), request.couponId());
 
-		// 주문 생성
-		OrderDetailOutDto outDto = orderCommandFacade.createOrder(userId, inDto);
+		// 주문 생성 (입장 토큰 검증 + 주문 완료 후 토큰 삭제 포함)
+		OrderDetailOutDto outDto = orderCommandFacade.createOrder(userId, inDto, entryToken);
 
 		// 응답 변환
 		OrderDetailResponse response = OrderDetailResponse.from(outDto);

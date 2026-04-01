@@ -21,10 +21,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import com.loopers.user.user.infrastructure.jpa.UserJpaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -69,6 +72,13 @@ class PaymentControllerE2ETest {
 	@Autowired
 	private CircuitBreakerRegistry circuitBreakerRegistry;
 
+	@Qualifier("redisTemplateMaster")
+	@Autowired
+	private RedisTemplate<String, String> redisTemplate;
+
+	@Autowired
+	private UserJpaRepository userJpaRepository;
+
 	private static final String USER_LOGIN_ID_HEADER = "X-Loopers-LoginId";
 	private static final String USER_LOGIN_PW_HEADER = "X-Loopers-LoginPw";
 	private static final String ADMIN_LDAP_HEADER = "X-Loopers-Ldap";
@@ -100,6 +110,11 @@ class PaymentControllerE2ETest {
 		TestPgSimulatorController.reset();
 		resetPgCircuitBreakers();
 		databaseCleanUp.truncateAllTables();
+		// Redis entry-token / order-lock 정리
+		java.util.Set<String> tokenKeys = redisTemplate.keys("entry-token:*");
+		if (tokenKeys != null && !tokenKeys.isEmpty()) redisTemplate.delete(tokenKeys);
+		java.util.Set<String> lockKeys = redisTemplate.keys("order-lock:*");
+		if (lockKeys != null && !lockKeys.isEmpty()) redisTemplate.delete(lockKeys);
 	}
 
 
@@ -587,14 +602,24 @@ class PaymentControllerE2ETest {
 	}
 
 	private Long createOrderAndGetId(String loginId, String password, List<Long> cartItemIds, String requestId) throws Exception {
+		// 주문 생성에 필요한 entry token 셋업
+		String entryToken = setupEntryToken(loginId, password);
 		OrderCreateRequest request = new OrderCreateRequest(cartItemIds, requestId, null);
 		MvcResult result = mockMvc.perform(post("/api/v1/orders")
 				.header(USER_LOGIN_ID_HEADER, loginId)
 				.header(USER_LOGIN_PW_HEADER, password)
+				.header("X-Entry-Token", entryToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request)))
 			.andExpect(status().isCreated()).andReturn();
 		return objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
+	}
+
+	private String setupEntryToken(String loginId, String password) {
+		Long userId = userJpaRepository.findByLoginIdValueAndDeletedAtIsNull(loginId).orElseThrow().getId();
+		String token = "entry-" + java.util.UUID.randomUUID();
+		redisTemplate.opsForValue().set("entry-token:" + userId, token);
+		return token;
 	}
 
 	private void waitUntilPgTransactionRegistered(String pgOrderId) throws InterruptedException {

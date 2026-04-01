@@ -103,14 +103,16 @@ class OrderCommandFacadeTest {
 				.willReturn(expectedDto);
 
 			// Act
-			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto);
+			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto, "entry-token");
 
 			// Assert
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(10L),
 				() -> assertThat(result.userId()).isEqualTo(1L),
 				() -> verify(orderQueryService).findByUserIdAndRequestId(userId, "req-123"),
-				() -> verify(orderCommandService).createOrder(eq(userId), eq(inDto), eq(cartItems), eq(products), eq(resolvedCartItemIds))
+				() -> verify(orderCheckoutCommandService).validateAndLockEntryToken(userId, "entry-token"),
+				() -> verify(orderCommandService).createOrder(eq(userId), eq(inDto), eq(cartItems), eq(products), eq(resolvedCartItemIds)),
+				() -> verify(orderCheckoutCommandService).completeEntryToken(userId)
 			);
 		}
 
@@ -127,7 +129,7 @@ class OrderCommandFacadeTest {
 				.willReturn(Optional.of(existingOrder));
 
 			// Act
-			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto);
+			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto, "entry-token");
 
 			// Assert
 			assertAll(
@@ -138,7 +140,7 @@ class OrderCommandFacadeTest {
 
 
 		@Test
-		@DisplayName("[createOrder()] 장바구니가 비어있음 -> EMPTY_CART 예외. createOrder 미호출")
+		@DisplayName("[createOrder()] 장바구니가 비어있음 -> EMPTY_CART 예외. 락 해제 + createOrder 미호출")
 		void createOrderEmptyCart() {
 			// Arrange
 			Long userId = 1L;
@@ -153,11 +155,12 @@ class OrderCommandFacadeTest {
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
-				() -> orderCommandFacade.createOrder(userId, inDto));
+				() -> orderCommandFacade.createOrder(userId, inDto, "entry-token"));
 
 			// Assert
 			assertAll(
 				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.EMPTY_CART),
+				() -> verify(orderCheckoutCommandService).releaseOrderLock(userId),
 				() -> verifyNoInteractions(orderCommandService)
 			);
 		}
@@ -189,12 +192,13 @@ class OrderCommandFacadeTest {
 				.willThrow(new DataIntegrityViolationException("Duplicate entry"));
 
 			// Act
-			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto);
+			OrderDetailOutDto result = orderCommandFacade.createOrder(userId, inDto, "entry-token");
 
 			// Assert
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(10L),
-				() -> verify(orderCommandService).createOrder(eq(userId), eq(inDto), any(), eq(products), any())
+				() -> verify(orderCommandService).createOrder(eq(userId), eq(inDto), any(), eq(products), any()),
+				() -> verify(orderCheckoutCommandService).completeEntryToken(userId)
 			);
 		}
 
