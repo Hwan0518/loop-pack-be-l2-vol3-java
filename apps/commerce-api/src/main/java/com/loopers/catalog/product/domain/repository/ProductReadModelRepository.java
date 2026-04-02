@@ -13,11 +13,9 @@ import java.util.List;
  *
  * 1. Read Model 저장 (생성/수정)
  * 2. Read Model soft delete (deletedAt 설정)
- * 3. 좋아요 수 증가
- * 4. 좋아요 수 감소
- * 5. 재고 업데이트
- * 6. 브랜드명 일괄 업데이트
- * 7. 브랜드 ID로 활성 상품 ID 목록 조회
+ * 3. 재고 업데이트
+ * 4. 브랜드명 일괄 업데이트
+ * 5. 브랜드 ID로 활성 상품 ID 목록 조회
  */
 public interface ProductReadModelRepository {
 
@@ -27,19 +25,13 @@ public interface ProductReadModelRepository {
 	// 2. Read Model soft delete (deletedAt 설정)
 	void softDelete(Long productId);
 
-	// 3. 좋아요 수 증가
-	void increaseLikeCount(Long productId);
-
-	// 4. 좋아요 수 감소
-	void decreaseLikeCount(Long productId);
-
-	// 5. 재고 업데이트
+	// 3. 재고 업데이트
 	void updateStock(Long productId, Long newStock);
 
-	// 6. 브랜드명 일괄 업데이트
+	// 4. 브랜드명 일괄 업데이트
 	void updateBrandName(Long brandId, String newBrandName);
 
-	// 7. 브랜드 ID로 활성 상품 ID 목록 조회 (브랜드명 write-through용)
+	// 5. 브랜드 ID로 활성 상품 ID 목록 조회 (브랜드명 write-through용)
 	List<Long> findActiveIdsByBrandId(Long brandId);
 
 }

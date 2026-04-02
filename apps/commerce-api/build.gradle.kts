@@ -1,4 +1,5 @@
 import org.gradle.api.tasks.testing.Test
+import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
 
 val benchmarkSourceSet = sourceSets.create("benchmark") {
     java.srcDir("src/benchmark/java")
@@ -23,6 +24,12 @@ tasks.register<Test>("benchmarkTest") {
     systemProperty("spring.profiles.active", "test")
     jvmArgs("-Xshare:off")
     shouldRunAfter(tasks.test)
+}
+
+tasks.test {
+    // SpringBoot/Testcontainers 통합 테스트가 같은 worker JVM에서 상태를 오염시키지 않도록
+    // test class마다 새로운 JVM에서 실행한다.
+    forkEvery = 1
 }
 
 dependencies {
@@ -66,4 +73,30 @@ dependencies {
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
     testImplementation(testFixtures(project(":modules:kafka")))
+}
+
+tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+    dependsOn(tasks.test)
+    executionData(fileTree(layout.buildDirectory.asFile).include("jacoco/*.exec"))
+    classDirectories.setFrom(
+        files(
+            sourceSets["main"].output.asFileTree.matching {
+                exclude("**/Q*.class")
+                exclude("**/*Application.class")
+            }
+        )
+    )
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = "0.90".toBigDecimal()
+            }
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.named("jacocoTestCoverageVerification"))
 }
