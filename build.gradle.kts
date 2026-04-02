@@ -84,6 +84,10 @@ subprojects {
         systemProperty("user.timezone", "Asia/Seoul")
         systemProperty("spring.profiles.active", "test")
         jvmArgs("-Xshare:off")
+        reports.junitXml.apply {
+            includeSystemOutLog.set(false)
+            includeSystemErrLog.set(false)
+        }
     }
 
     tasks.withType<JacocoReport> {

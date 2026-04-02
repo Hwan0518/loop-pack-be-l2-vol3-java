@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 
 /**
  * 상품 좋아요 생성 이벤트
+ * @subscriber MetricsCollectorConsumer - 좋아요 수 집계 반영
+ * @subscriber UserActionLogConsumer - 사용자 액션 로그 저장
  * @kafka PRODUCT_LIKED → MetricsCollectorConsumer (like_count), UserActionLogConsumer
  */
 public record ProductLikedEvent(
