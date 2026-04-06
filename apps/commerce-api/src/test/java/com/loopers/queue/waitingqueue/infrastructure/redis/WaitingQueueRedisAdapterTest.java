@@ -476,45 +476,45 @@ class WaitingQueueRedisAdapterTest {
     class OrderLockLifecycleTest {
 
         @Test
-        @DisplayName("[acquireOrderLock()] 최초 락 획득 -> true 반환. SET NX EX로 락 생성 성공")
-        void acquireOrderLock_firstTime_returnsTrue() {
+        @DisplayName("[acquireOrderLock()] 최초 락 획득 -> UUID 반환. SET NX EX로 락 생성 성공")
+        void acquireOrderLock_firstTime_returnsUuid() {
             // Arrange
             Long userId = 700L;
 
             // Act
-            boolean acquired = adapter.acquireOrderLock(userId, 300);
+            String lockValue = adapter.acquireOrderLock(userId, 300);
 
             // Assert
-            assertThat(acquired).isTrue();
+            assertThat(lockValue).isNotNull();
         }
 
         @Test
-        @DisplayName("[acquireOrderLock()] 동일 사용자 중복 락 획득 시도 -> false 반환. 이미 락이 존재하므로 SET NX 실패")
-        void acquireOrderLock_duplicate_returnsFalse() {
+        @DisplayName("[acquireOrderLock()] 동일 사용자 중복 락 획득 시도 -> null 반환. 이미 락이 존재하므로 SET NX 실패")
+        void acquireOrderLock_duplicate_returnsNull() {
             // Arrange
             Long userId = 701L;
             adapter.acquireOrderLock(userId, 300);
 
             // Act
-            boolean acquiredAgain = adapter.acquireOrderLock(userId, 300);
+            String acquiredAgain = adapter.acquireOrderLock(userId, 300);
 
             // Assert
-            assertThat(acquiredAgain).isFalse();
+            assertThat(acquiredAgain).isNull();
         }
 
         @Test
-        @DisplayName("[releaseOrderLock()] 락 해제 후 재획득 -> true 반환. DEL로 락 제거 후 SET NX 성공")
-        void releaseOrderLock_thenAcquireAgain_returnsTrue() {
+        @DisplayName("[releaseOrderLock()] 올바른 lockValue로 락 해제 후 재획득 -> UUID 반환. Lua compare-and-delete로 자신의 락만 해제")
+        void releaseOrderLock_withCorrectValue_thenAcquireAgain_returnsUuid() {
             // Arrange
             Long userId = 702L;
-            adapter.acquireOrderLock(userId, 300);
+            String lockValue = adapter.acquireOrderLock(userId, 300);
 
             // Act
-            adapter.releaseOrderLock(userId);
-            boolean acquiredAgain = adapter.acquireOrderLock(userId, 300);
+            adapter.releaseOrderLock(userId, lockValue);
+            String acquiredAgain = adapter.acquireOrderLock(userId, 300);
 
             // Assert
-            assertThat(acquiredAgain).isTrue();
+            assertThat(acquiredAgain).isNotNull();
         }
     }
 

@@ -28,6 +28,7 @@ public class WaitingQueueRedisAdapter implements WaitingQueueRedisPort {
 	private static final String SEQ_KEY = "waiting-queue-seq";
 	private static final String ENTRY_TOKEN_PREFIX = "entry-token:";
 	private static final String REJECTED_PREFIX = "queue-rejected:";
+	private static final String ORDER_LOCK_PREFIX = "order-lock:";
 
 	private final RedisTemplate<String, String> redisTemplate;
 
@@ -129,24 +130,7 @@ public class WaitingQueueRedisAdapter implements WaitingQueueRedisPort {
 	}
 
 
-	// 8. 주문 처리 락 획득 (SET NX EX — 동시 주문 방지)
-	@Override
-	public boolean acquireOrderLock(Long userId, long ttlSeconds) {
-		Boolean result = redisTemplate.opsForValue().setIfAbsent(
-			"order-lock:" + userId, "1", java.time.Duration.ofSeconds(ttlSeconds)
-		);
-		return Boolean.TRUE.equals(result);
-	}
-
-
-	// 11. 주문 처리 락 해제
-	@Override
-	public void releaseOrderLock(Long userId) {
-		redisTemplate.delete("order-lock:" + userId);
-	}
-
-
-	// 9. cap 초과 거부 상태 저장 (60초 TTL)
+	// 8. cap 초과 거부 상태 저장 (60초 TTL)
 	@Override
 	public void markRejected(Long userId) {
 		redisTemplate.opsForValue().set(
@@ -158,6 +142,33 @@ public class WaitingQueueRedisAdapter implements WaitingQueueRedisPort {
 	// 9. cap 초과 거부 상태 확인
 	@Override
 	public boolean isRejected(Long userId) {
-		return redisTemplate.hasKey(REJECTED_PREFIX + userId);
+		return Boolean.TRUE.equals(redisTemplate.hasKey(REJECTED_PREFIX + userId));
+	}
+
+
+	// 10. 주문 처리 락 획득 (SET NX EX — UUID 기반, 동시 주문 방지)
+	@Override
+	public String acquireOrderLock(Long userId, long ttlSeconds) {
+		String lockValue = UUID.randomUUID().toString();
+		Boolean result = redisTemplate.opsForValue().setIfAbsent(
+			ORDER_LOCK_PREFIX + userId, lockValue, java.time.Duration.ofSeconds(ttlSeconds)
+		);
+		return Boolean.TRUE.equals(result) ? lockValue : null;
+	}
+
+
+	// 11. 주문 처리 락 해제 (Lua compare-and-delete — 자신의 락만 해제)
+	@Override
+	public void releaseOrderLock(Long userId, String lockValue) {
+		String luaScript =
+			"if redis.call('GET', KEYS[1]) == ARGV[1] then " +
+			"  return redis.call('DEL', KEYS[1]) " +
+			"else " +
+			"  return 0 " +
+			"end";
+		DefaultRedisScript<Long> script = new DefaultRedisScript<>(luaScript, Long.class);
+		redisTemplate.execute(
+			script, Collections.singletonList(ORDER_LOCK_PREFIX + userId), lockValue
+		);
 	}
 }
