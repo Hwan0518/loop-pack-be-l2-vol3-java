@@ -29,10 +29,14 @@ public class HmacQueueAuthProvider implements QueueAuthPort {
 	private static final int TOKEN_PARTS_COUNT = 3;
 
 	private final QueueTokenProperties properties;
+	private final SecretKeySpec keySpec;
 
 
 	public HmacQueueAuthProvider(QueueTokenProperties properties) {
 		this.properties = properties;
+		this.keySpec = new SecretKeySpec(
+			properties.secretKey().getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM
+		);
 	}
 
 
@@ -142,18 +146,15 @@ public class HmacQueueAuthProvider implements QueueAuthPort {
 	}
 
 
-	// HMAC-SHA256 계산
+	// HMAC-SHA256 계산 (SecretKeySpec은 생성자에서 1회 초기화)
 	private String computeHmac(String data) {
 		try {
 			Mac mac = Mac.getInstance(HMAC_ALGORITHM);
-			SecretKeySpec keySpec = new SecretKeySpec(
-				properties.secretKey().getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM
-			);
 			mac.init(keySpec);
 			byte[] hmacBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
 			return HexFormat.of().formatHex(hmacBytes);
 		} catch (NoSuchAlgorithmException | InvalidKeyException e) {
-			throw new CoreException(ErrorType.INTERNAL_ERROR, "HMAC 계산 실패");
+			throw new CoreException(ErrorType.INTERNAL_ERROR, "HMAC 계산 실패", e);
 		}
 	}
 }
