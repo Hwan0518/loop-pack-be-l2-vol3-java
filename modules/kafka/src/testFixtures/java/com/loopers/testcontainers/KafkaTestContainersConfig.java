@@ -14,7 +14,7 @@ public class KafkaTestContainersConfig {
 	private static final KafkaContainer kafkaContainer;
 
 	static {
-		kafkaContainer = new KafkaContainer("apache/kafka-native:latest");
+		kafkaContainer = new KafkaContainer("apache/kafka-native:3.8.1");
 		kafkaContainer.start();
 
 		System.setProperty("spring.kafka.bootstrap-servers", kafkaContainer.getBootstrapServers());
