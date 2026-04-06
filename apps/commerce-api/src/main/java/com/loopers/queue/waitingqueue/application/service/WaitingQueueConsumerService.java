@@ -6,7 +6,6 @@ import com.loopers.queue.waitingqueue.support.config.WaitingQueueProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 
 @Service
@@ -35,7 +34,6 @@ public class WaitingQueueConsumerService {
 
 
 	// 1. 대기열 적재 (INCR → ZADD + cap 검사)
-	@Transactional
 	public void processEntry(Long userId) {
 		// Redis INCR → ZADD
 		waitingQueueRedisPort.addToQueue(userId);

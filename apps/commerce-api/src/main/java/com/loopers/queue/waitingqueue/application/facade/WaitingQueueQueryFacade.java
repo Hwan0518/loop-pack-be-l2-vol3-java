@@ -4,7 +4,6 @@ package com.loopers.queue.waitingqueue.application.facade;
 import com.loopers.queue.waitingqueue.application.dto.out.QueuePositionOutDto;
 import com.loopers.queue.waitingqueue.application.service.WaitingQueueQueryService;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 
 @Service
@@ -24,7 +23,6 @@ public class WaitingQueueQueryFacade {
 
 
 	// 1. 순번 조회
-	@Transactional(readOnly = true)
 	public QueuePositionOutDto getPosition(String queueToken, String enterReceipt) {
 		return waitingQueueQueryService.getPosition(queueToken, enterReceipt);
 	}

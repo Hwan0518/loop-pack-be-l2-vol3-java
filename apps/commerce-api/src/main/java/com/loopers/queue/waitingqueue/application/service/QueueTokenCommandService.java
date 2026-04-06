@@ -4,7 +4,6 @@ package com.loopers.queue.waitingqueue.application.service;
 import com.loopers.queue.waitingqueue.application.dto.out.QueueTokenOutDto;
 import com.loopers.queue.waitingqueue.application.port.out.QueueAuthPort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 
 @Service
@@ -24,7 +23,6 @@ public class QueueTokenCommandService {
 
 
 	// 1. 서명 토큰 발급
-	@Transactional
 	public QueueTokenOutDto issueToken(Long userId) {
 		String token = queueAuthPort.generateToken(userId);
 		return QueueTokenOutDto.of(token);

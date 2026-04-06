@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 
 @Service
@@ -43,7 +42,6 @@ public class EntryTokenSchedulerService {
 	// 1. 입장 토큰 발급 (100ms 주기, ShedLock 단일 리더)
 	@Scheduled(fixedRate = 100)
 	@SchedulerLock(name = "queue-token-issuer", lockAtLeastFor = "PT0.05S", lockAtMostFor = "PT5S")
-	@Transactional
 	public void issueEntryTokens() {
 		List<String> issuedUserIds = waitingQueueRedisPort.issueEntryTokens(
 			BATCH_SIZE, queueTokenProperties.tokenTtlSeconds()

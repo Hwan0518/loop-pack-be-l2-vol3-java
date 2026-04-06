@@ -8,12 +8,12 @@ import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
 import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 
 @Service
 public class WaitingQueueQueryService {
 
+	// 초당 입장 처리량 추정 (배치 18명 / 100ms ≈ 180 TPS → 보수적 175)
 	private static final double TPS = 175.0;
 
 	// port
@@ -35,7 +35,6 @@ public class WaitingQueueQueryService {
 
 
 	// 1. 순번 조회
-	@Transactional(readOnly = true)
 	public QueuePositionOutDto getPosition(String queueToken, String enterReceipt) {
 		// 서명 토큰 검증 + userId 추출 + 갱신 (단일 호출)
 		QueueAuthPort.ResolvedQueueToken resolved = queueAuthPort.resolveAndRefresh(queueToken);
