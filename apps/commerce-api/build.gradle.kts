@@ -27,9 +27,8 @@ tasks.register<Test>("benchmarkTest") {
 }
 
 tasks.test {
-    // SpringBoot/Testcontainers 통합 테스트가 같은 worker JVM에서 상태를 오염시키지 않도록
-    // test class마다 새로운 JVM에서 실행한다.
-    forkEvery = 1
+    maxParallelForks = 1   // 병렬 금지 (DEFINED_PORT + static PG simulator + 공유 DB/Redis)
+    forkEvery = 0          // JVM 재사용 (Spring Context 캐싱 + TestContainers 싱글톤)
 }
 
 dependencies {

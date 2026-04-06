@@ -7,7 +7,6 @@ import com.loopers.support.common.error.ErrorType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 
 @Service
@@ -33,7 +32,6 @@ public class EntryTokenCommandService {
 
 
 	// 1. 입장 토큰 검증 (읽기 전용)
-	@Transactional(readOnly = true)
 	public void validateEntryToken(Long userId, String entryToken) {
 		String storedToken = waitingQueueRedisPort.getEntryToken(userId);
 
@@ -44,20 +42,19 @@ public class EntryTokenCommandService {
 
 
 	// 2. 입장 토큰 검증 + 주문 처리 락 획득 (동시 주문 방지)
-	@Transactional
-	public void validateAndLock(Long userId, String entryToken) {
+	public String validateAndLock(Long userId, String entryToken) {
 		validateEntryToken(userId, entryToken);
 
-		boolean acquired = waitingQueueRedisPort.acquireOrderLock(userId, ORDER_LOCK_TTL_SECONDS);
-		if (!acquired) {
+		String lockValue = waitingQueueRedisPort.acquireOrderLock(userId, ORDER_LOCK_TTL_SECONDS);
+		if (lockValue == null) {
 			throw new CoreException(ErrorType.ORDER_ALREADY_IN_PROGRESS);
 		}
+		return lockValue;
 	}
 
 
 	// 3. 주문 완료 후 정리 (토큰 삭제 성공 시에만 락 해제 — best-effort)
-	@Transactional
-	public void completeOrder(Long userId) {
+	public void completeOrder(Long userId, String lockValue) {
 		try {
 			waitingQueueRedisPort.deleteEntryToken(userId);
 		} catch (Exception e) {
@@ -67,7 +64,7 @@ public class EntryTokenCommandService {
 		}
 
 		try {
-			waitingQueueRedisPort.releaseOrderLock(userId);
+			waitingQueueRedisPort.releaseOrderLock(userId, lockValue);
 		} catch (Exception e) {
 			log.warn("Failed to release order lock after entry token deletion. userId={}", userId, e);
 		}
@@ -75,9 +72,8 @@ public class EntryTokenCommandService {
 
 
 	// 4. 주문 실패 후 정리 (락만 해제 — 토큰 보존하여 재시도 가능)
-	@Transactional
-	public void releaseOrderLock(Long userId) {
-		waitingQueueRedisPort.releaseOrderLock(userId);
+	public void releaseOrderLock(Long userId, String lockValue) {
+		waitingQueueRedisPort.releaseOrderLock(userId, lockValue);
 	}
 
 }

@@ -5,6 +5,9 @@ import com.loopers.queue.waitingqueue.application.port.out.WaitingQueueProducerP
 import com.loopers.queue.waitingqueue.support.config.WaitingQueueProperties;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -39,13 +42,16 @@ public class WaitingQueueProducer implements WaitingQueueProducerPort {
 	public void sendEnterMessage(Long userId) {
 		try {
 			kafkaTemplate.send(properties.topic(), userId.toString(), userId.toString())
-				.get();
+				.get(5, TimeUnit.SECONDS);
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			log.error("대기열 Kafka produce 인터럽트: userId={}", userId, e);
 			throw new CoreException(ErrorType.QUEUE_PRODUCE_FAILED);
-		} catch (Exception e) {
-			log.error("대기열 Kafka produce 실패: userId={}", userId, e);
+		} catch (ExecutionException e) {
+			log.error("대기열 Kafka produce 실패: userId={}", userId, e.getCause());
+			throw new CoreException(ErrorType.QUEUE_PRODUCE_FAILED);
+		} catch (TimeoutException e) {
+			log.error("대기열 Kafka produce 타임아웃(5s): userId={}", userId, e);
 			throw new CoreException(ErrorType.QUEUE_PRODUCE_FAILED);
 		}
 	}

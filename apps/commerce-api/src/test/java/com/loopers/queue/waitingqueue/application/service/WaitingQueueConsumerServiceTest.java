@@ -67,4 +67,23 @@ class WaitingQueueConsumerServiceTest {
 		verify(waitingQueueRedisPort).removeFromQueue(userId);
 		verify(waitingQueueRedisPort).markRejected(userId);
 	}
+
+
+	@Test
+	@DisplayName("[processEntry()] cap 경계값(queueSize == MAX_CAPACITY) -> 제거/거부 미호출. > 조건이므로 정확히 cap일 때는 통과")
+	void processEntry_exactlyAtCapacity_noRemovalOrRejection() {
+		// Arrange
+		Long userId = 1L;
+		given(waitingQueueRedisPort.addToQueue(userId)).willReturn(MAX_CAPACITY);
+		given(waitingQueueRedisPort.getQueueSize()).willReturn(MAX_CAPACITY);
+
+		// Act
+		service.processEntry(userId);
+
+		// Assert
+		verify(waitingQueueRedisPort).addToQueue(userId);
+		verify(waitingQueueRedisPort).getQueueSize();
+		verify(waitingQueueRedisPort, never()).removeFromQueue(userId);
+		verify(waitingQueueRedisPort, never()).markRejected(userId);
+	}
 }

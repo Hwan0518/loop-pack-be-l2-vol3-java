@@ -24,21 +24,21 @@ public class OrderEntryTokenValidatorImpl implements OrderEntryTokenValidator {
 
 	// 1. 입장 토큰 검증 + 주문 처리 락 획득
 	@Override
-	public void validateAndLock(Long userId, String entryToken) {
-		entryTokenCommandFacade.validateAndLock(userId, entryToken);
+	public String validateAndLock(Long userId, String entryToken) {
+		return entryTokenCommandFacade.validateAndLock(userId, entryToken);
 	}
 
 
 	// 2. 주문 완료 후 정리
 	@Override
-	public void completeOrder(Long userId) {
-		entryTokenCommandFacade.completeOrder(userId);
+	public void completeOrder(Long userId, String lockValue) {
+		entryTokenCommandFacade.completeOrder(userId, lockValue);
 	}
 
 
 	// 3. 주문 실패 후 정리
 	@Override
-	public void releaseOrderLock(Long userId) {
-		entryTokenCommandFacade.releaseOrderLock(userId);
+	public void releaseOrderLock(Long userId, String lockValue) {
+		entryTokenCommandFacade.releaseOrderLock(userId, lockValue);
 	}
 }

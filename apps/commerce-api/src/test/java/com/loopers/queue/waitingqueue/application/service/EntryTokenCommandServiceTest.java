@@ -104,11 +104,16 @@ class EntryTokenCommandServiceTest {
 			Long userId = 1L;
 			String entryToken = "entry-test-token-1";
 			given(waitingQueueRedisPort.getEntryToken(userId)).willReturn("entry-test-token-1");
-			given(waitingQueueRedisPort.acquireOrderLock(userId, 300L)).willReturn(true);
+			given(waitingQueueRedisPort.acquireOrderLock(userId, 300L)).willReturn("test-lock-value");
 
-			// Act & Assert
-			assertDoesNotThrow(() -> service.validateAndLock(userId, entryToken));
-			verify(waitingQueueRedisPort).acquireOrderLock(userId, 300L);
+			// Act
+			String lockValue = service.validateAndLock(userId, entryToken);
+
+			// Assert
+			assertAll(
+				() -> assertThat(lockValue).isEqualTo("test-lock-value"),
+				() -> verify(waitingQueueRedisPort).acquireOrderLock(userId, 300L)
+			);
 		}
 
 
@@ -119,7 +124,7 @@ class EntryTokenCommandServiceTest {
 			Long userId = 1L;
 			String entryToken = "entry-test-token-1";
 			given(waitingQueueRedisPort.getEntryToken(userId)).willReturn("entry-test-token-1");
-			given(waitingQueueRedisPort.acquireOrderLock(userId, 300L)).willReturn(false);
+			given(waitingQueueRedisPort.acquireOrderLock(userId, 300L)).willReturn(null);
 
 			// Act
 			CoreException exception = assertThrows(CoreException.class,
@@ -163,14 +168,15 @@ class EntryTokenCommandServiceTest {
 		void completeOrder_callsDeleteEntryTokenAndReleaseOrderLock() {
 			// Arrange
 			Long userId = 1L;
+			String lockValue = "test-lock-value";
 
 			// Act
-			service.completeOrder(userId);
+			service.completeOrder(userId, lockValue);
 
 			// Assert
 			assertAll(
 				() -> verify(waitingQueueRedisPort).deleteEntryToken(userId),
-				() -> verify(waitingQueueRedisPort).releaseOrderLock(userId)
+				() -> verify(waitingQueueRedisPort).releaseOrderLock(userId, lockValue)
 			);
 		}
 
@@ -180,13 +186,14 @@ class EntryTokenCommandServiceTest {
 		void completeOrder_deleteFails_keepsLockAndSwallowsException() {
 			// Arrange
 			Long userId = 2L;
+			String lockValue = "test-lock-value";
 			willThrow(new RuntimeException("redis delete failed"))
 				.given(waitingQueueRedisPort).deleteEntryToken(userId);
 
 			// Act & Assert
-			assertDoesNotThrow(() -> service.completeOrder(userId));
+			assertDoesNotThrow(() -> service.completeOrder(userId, lockValue));
 			verify(waitingQueueRedisPort).deleteEntryToken(userId);
-			verify(waitingQueueRedisPort, never()).releaseOrderLock(userId);
+			verify(waitingQueueRedisPort, never()).releaseOrderLock(userId, lockValue);
 		}
 
 
@@ -195,14 +202,15 @@ class EntryTokenCommandServiceTest {
 		void completeOrder_releaseFails_swallowsException() {
 			// Arrange
 			Long userId = 3L;
+			String lockValue = "test-lock-value";
 			willThrow(new RuntimeException("redis release failed"))
-				.given(waitingQueueRedisPort).releaseOrderLock(userId);
+				.given(waitingQueueRedisPort).releaseOrderLock(userId, lockValue);
 
 			// Act & Assert
-			assertDoesNotThrow(() -> service.completeOrder(userId));
+			assertDoesNotThrow(() -> service.completeOrder(userId, lockValue));
 			assertAll(
 				() -> verify(waitingQueueRedisPort).deleteEntryToken(userId),
-				() -> verify(waitingQueueRedisPort).releaseOrderLock(userId)
+				() -> verify(waitingQueueRedisPort).releaseOrderLock(userId, lockValue)
 			);
 		}
 
@@ -212,13 +220,14 @@ class EntryTokenCommandServiceTest {
 		void releaseOrderLock_callsOnlyReleaseOrderLock() {
 			// Arrange
 			Long userId = 1L;
+			String lockValue = "test-lock-value";
 
 			// Act
-			service.releaseOrderLock(userId);
+			service.releaseOrderLock(userId, lockValue);
 
 			// Assert
 			assertAll(
-				() -> verify(waitingQueueRedisPort).releaseOrderLock(userId),
+				() -> verify(waitingQueueRedisPort).releaseOrderLock(userId, lockValue),
 				() -> verify(waitingQueueRedisPort, never()).deleteEntryToken(userId)
 			);
 		}

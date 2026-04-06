@@ -14,4 +14,9 @@ public record QueueTokenProperties(
 	String secretKey,
 	long tokenTtlSeconds
 ) {
+
+	@Override
+	public String toString() {
+		return "QueueTokenProperties[secretKey=***MASKED***, tokenTtlSeconds=" + tokenTtlSeconds + "]";
+	}
 }

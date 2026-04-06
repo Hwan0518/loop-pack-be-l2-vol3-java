@@ -108,10 +108,12 @@ class OrderControllerE2ETest {
 		// JPA 1차 캐시 초기화 (다른 테스트에서 남은 stale entity 방지)
 		entityManager.clear();
 		databaseCleanUp.truncateAllTables();
-		// Redis entry-token 정리
-		var keys = redisTemplate.keys("entry-token:*");
-		if (keys != null && !keys.isEmpty()) {
-			redisTemplate.delete(keys);
+		// Redis entry-token + order-lock 정리
+		for (String pattern : java.util.List.of("entry-token:*", "order-lock:*")) {
+			var keys = redisTemplate.keys(pattern);
+			if (keys != null && !keys.isEmpty()) {
+				redisTemplate.delete(keys);
+			}
 		}
 	}
 
@@ -363,6 +365,9 @@ class OrderControllerE2ETest {
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isCreated());
+
+			// 비동기 이벤트 처리 완료 대기 (주문 생성 후 장바구니 정리)
+			Thread.sleep(500);
 
 			// Assert — 장바구니가 비어있는지 확인
 			mockMvc.perform(get("/api/v1/cart")

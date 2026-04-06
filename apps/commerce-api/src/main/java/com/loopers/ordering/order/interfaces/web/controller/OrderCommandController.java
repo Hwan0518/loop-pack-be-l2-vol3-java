@@ -7,6 +7,8 @@ import com.loopers.ordering.order.application.facade.OrderCommandFacade;
 import com.loopers.ordering.order.interfaces.web.request.OrderCreateRequest;
 import com.loopers.ordering.order.interfaces.web.response.OrderDetailResponse;
 import com.loopers.support.common.auth.AuthenticationResolver;
+import com.loopers.support.common.error.CoreException;
+import com.loopers.support.common.error.ErrorType;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -35,9 +37,14 @@ public class OrderCommandController {
 	public ResponseEntity<OrderDetailResponse> createOrder(
 		@RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
 		@RequestHeader(value = "X-Loopers-LoginPw", required = false) String password,
-		@RequestHeader(value = "X-Entry-Token") String entryToken,
+		@RequestHeader(value = "X-Entry-Token", required = false) String entryToken,
 		@Valid @RequestBody OrderCreateRequest request
 	) {
+
+		// 입장 토큰 헤더 검증 (required=false → 일관된 에러 응답을 위해 수동 검증)
+		if (entryToken == null || entryToken.isBlank()) {
+			throw new CoreException(ErrorType.INVALID_QUEUE_TOKEN);
+		}
 
 		// 사용자 인증
 		Long userId = authenticationResolver.resolve(loginId, password);

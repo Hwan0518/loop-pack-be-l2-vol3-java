@@ -13,7 +13,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
@@ -36,18 +38,21 @@ class OrderEntryTokenValidatorImplTest {
 
 
     @Test
-    @DisplayName("[validateAndLock()] 유효한 userId와 entryToken -> facade.validateAndLock() 위임 호출")
+    @DisplayName("[validateAndLock()] 유효한 userId와 entryToken -> facade.validateAndLock() 위임 호출. lockValue 반환")
     void validateAndLockDelegatesToFacade() {
         // Arrange
         Long userId = 1L;
         String entryToken = "valid-token-abc";
-        willDoNothing().given(entryTokenCommandFacade).validateAndLock(userId, entryToken);
+        given(entryTokenCommandFacade.validateAndLock(userId, entryToken)).willReturn("test-lock-value");
 
         // Act
-        orderEntryTokenValidatorImpl.validateAndLock(userId, entryToken);
+        String lockValue = orderEntryTokenValidatorImpl.validateAndLock(userId, entryToken);
 
         // Assert
-        verify(entryTokenCommandFacade).validateAndLock(userId, entryToken);
+        assertAll(
+            () -> assertThat(lockValue).isEqualTo("test-lock-value"),
+            () -> verify(entryTokenCommandFacade).validateAndLock(userId, entryToken)
+        );
     }
 
 
@@ -73,31 +78,33 @@ class OrderEntryTokenValidatorImplTest {
 
 
     @Test
-    @DisplayName("[completeOrder()] 유효한 userId -> facade.completeOrder() 위임 호출")
+    @DisplayName("[completeOrder()] 유효한 userId와 lockValue -> facade.completeOrder() 위임 호출")
     void completeOrderDelegatesToFacade() {
         // Arrange
         Long userId = 1L;
-        willDoNothing().given(entryTokenCommandFacade).completeOrder(userId);
+        String lockValue = "test-lock-value";
+        willDoNothing().given(entryTokenCommandFacade).completeOrder(userId, lockValue);
 
         // Act
-        orderEntryTokenValidatorImpl.completeOrder(userId);
+        orderEntryTokenValidatorImpl.completeOrder(userId, lockValue);
 
         // Assert
-        verify(entryTokenCommandFacade).completeOrder(userId);
+        verify(entryTokenCommandFacade).completeOrder(userId, lockValue);
     }
 
 
     @Test
-    @DisplayName("[releaseOrderLock()] 유효한 userId -> facade.releaseOrderLock() 위임 호출")
+    @DisplayName("[releaseOrderLock()] 유효한 userId와 lockValue -> facade.releaseOrderLock() 위임 호출")
     void releaseOrderLockDelegatesToFacade() {
         // Arrange
         Long userId = 1L;
-        willDoNothing().given(entryTokenCommandFacade).releaseOrderLock(userId);
+        String lockValue = "test-lock-value";
+        willDoNothing().given(entryTokenCommandFacade).releaseOrderLock(userId, lockValue);
 
         // Act
-        orderEntryTokenValidatorImpl.releaseOrderLock(userId);
+        orderEntryTokenValidatorImpl.releaseOrderLock(userId, lockValue);
 
         // Assert
-        verify(entryTokenCommandFacade).releaseOrderLock(userId);
+        verify(entryTokenCommandFacade).releaseOrderLock(userId, lockValue);
     }
 }

@@ -5,13 +5,10 @@ import com.loopers.ordering.order.application.dto.in.OrderCreateInDto;
 import com.loopers.ordering.order.application.dto.out.OrderDetailOutDto;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
-import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
-import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponRestorer;
 import com.loopers.ordering.order.application.service.OrderCheckoutCommandService;
 import com.loopers.ordering.order.application.service.OrderQueryService;
 import com.loopers.ordering.order.application.service.OrderCommandService;
 import com.loopers.ordering.order.domain.model.Order;
-import com.loopers.ordering.order.domain.model.OrderItem;
 import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
@@ -33,8 +30,6 @@ public class OrderCommandFacade {
 	private final OrderQueryService orderQueryService;
 	private final OrderCommandService orderCommandService;
 
-
-
 	/**
 	 * 주문 명령 파사드
 	 * 1. 주문 생성 (읽기: NO TX — 쓰기: OrderCommandService 짧은 TX)
@@ -54,8 +49,8 @@ public class OrderCommandFacade {
 			return OrderDetailOutDto.from(existingOrder.get());
 		}
 
-		// 입장 토큰 검증 + 주문 처리 락 획득 (동시 주문 1건만 허용)
-		orderCheckoutCommandService.validateAndLockEntryToken(userId, entryToken);
+		// 입장 토큰 검증 + 주문 처리 락 획득 (동시 주문 1건만 허용, UUID 기반)
+		String lockValue = orderCheckoutCommandService.validateAndLockEntryToken(userId, entryToken);
 
 		try {
 			// 장바구니 항목 조회
@@ -79,7 +74,7 @@ public class OrderCommandFacade {
 				// 유니크 제약 위반(user_id + request_id) race인 경우에만 멱등 처리
 				if (isDuplicateKeyViolation(e)) {
 					// race도 실질적 성공 → 토큰 삭제 + 락 해제
-					orderCheckoutCommandService.completeEntryToken(userId);
+					orderCheckoutCommandService.completeEntryToken(userId, lockValue);
 					Order racedOrder = orderQueryService.findByUserIdAndRequestId(userId, inDto.requestId())
 						.orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
 					return OrderDetailOutDto.from(racedOrder);
@@ -89,12 +84,12 @@ public class OrderCommandFacade {
 			}
 
 			// 주문 완료 후 정리 (토큰 삭제 + 락 해제)
-			orderCheckoutCommandService.completeEntryToken(userId);
+			orderCheckoutCommandService.completeEntryToken(userId, lockValue);
 
 			return result;
 		} catch (Exception e) {
 			// 주문 실패 시 락만 해제 (토큰 보존 → 재시도 가능)
-			orderCheckoutCommandService.releaseOrderLock(userId);
+			orderCheckoutCommandService.releaseOrderLock(userId, lockValue);
 			throw e;
 		}
 	}

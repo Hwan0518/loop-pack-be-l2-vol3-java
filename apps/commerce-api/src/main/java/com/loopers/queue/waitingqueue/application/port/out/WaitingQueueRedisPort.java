@@ -35,9 +35,9 @@ public interface WaitingQueueRedisPort {
 	// 9. cap 초과 거부 상태 확인
 	boolean isRejected(Long userId);
 
-	// 10. 주문 처리 락 획득 (SET NX EX — 동시 주문 방지)
-	boolean acquireOrderLock(Long userId, long ttlSeconds);
+	// 10. 주문 처리 락 획득 (SET NX EX — 동시 주문 방지, UUID 기반)
+	String acquireOrderLock(Long userId, long ttlSeconds);
 
-	// 11. 주문 처리 락 해제 (DEL — 주문 완료/실패 후)
-	void releaseOrderLock(Long userId);
+	// 11. 주문 처리 락 해제 (Lua compare-and-delete — 자신의 락만 해제)
+	void releaseOrderLock(Long userId, String lockValue);
 }

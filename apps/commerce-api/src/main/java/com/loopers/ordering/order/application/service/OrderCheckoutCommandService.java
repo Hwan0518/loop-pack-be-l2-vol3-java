@@ -75,21 +75,21 @@ public class OrderCheckoutCommandService {
 	}
 
 
-	// 3. 입장 토큰 검증 + 주문 처리 락 획득 (동시 주문 방지)
-	public void validateAndLockEntryToken(Long userId, String entryToken) {
-		orderEntryTokenValidator.validateAndLock(userId, entryToken);
+	// 3. 입장 토큰 검증 + 주문 처리 락 획득 (동시 주문 방지, UUID 기반 락 값 반환)
+	public String validateAndLockEntryToken(Long userId, String entryToken) {
+		return orderEntryTokenValidator.validateAndLock(userId, entryToken);
 	}
 
 
 	// 4. 주문 완료 후 정리 (토큰 삭제 + 락 해제)
-	public void completeEntryToken(Long userId) {
-		orderEntryTokenValidator.completeOrder(userId);
+	public void completeEntryToken(Long userId, String lockValue) {
+		orderEntryTokenValidator.completeOrder(userId, lockValue);
 	}
 
 
 	// 5. 주문 실패 후 정리 (락만 해제 — 토큰 보존)
-	public void releaseOrderLock(Long userId) {
-		orderEntryTokenValidator.releaseOrderLock(userId);
+	public void releaseOrderLock(Long userId, String lockValue) {
+		orderEntryTokenValidator.releaseOrderLock(userId, lockValue);
 	}
 
 }

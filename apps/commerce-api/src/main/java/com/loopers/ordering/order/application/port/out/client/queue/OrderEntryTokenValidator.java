@@ -9,12 +9,12 @@ package com.loopers.ordering.order.application.port.out.client.queue;
  */
 public interface OrderEntryTokenValidator {
 
-	// 1. 입장 토큰 검증 + 주문 처리 락 획득 (동시 주문 방지)
-	void validateAndLock(Long userId, String entryToken);
+	// 1. 입장 토큰 검증 + 주문 처리 락 획득 (동시 주문 방지, UUID 기반 락 값 반환)
+	String validateAndLock(Long userId, String entryToken);
 
 	// 2. 주문 완료 후 정리 (토큰 삭제 + 락 해제, best-effort)
-	void completeOrder(Long userId);
+	void completeOrder(Long userId, String lockValue);
 
 	// 3. 주문 실패 후 정리 (락만 해제 — 토큰 보존)
-	void releaseOrderLock(Long userId);
+	void releaseOrderLock(Long userId, String lockValue);
 }

@@ -204,7 +204,7 @@ class ErrorTypeTest {
 
 
 	@Test
-	@DisplayName("[ErrorType] enum 상수 개수가 63개임을 보장")
+	@DisplayName("[ErrorType] enum 상수 개수가 70개임을 보장")
 	void enumConstantCount() {
 		// Assert
 		assertThat(ErrorType.values()).hasSize(70);

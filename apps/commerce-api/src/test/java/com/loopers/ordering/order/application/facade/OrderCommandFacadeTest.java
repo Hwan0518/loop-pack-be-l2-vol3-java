@@ -81,11 +81,15 @@ class OrderCommandFacadeTest {
 		void createOrderSuccess() {
 			// Arrange
 			Long userId = 1L;
+			String lockValue = "test-lock-value";
 			List<Long> cartItemIds = List.of(100L);
 			OrderCreateInDto inDto = new OrderCreateInDto(cartItemIds, "req-123", null);
 
 			given(orderQueryService.findByUserIdAndRequestId(userId, "req-123"))
 				.willReturn(Optional.empty());
+
+			given(orderCheckoutCommandService.validateAndLockEntryToken(userId, "entry-token"))
+				.willReturn(lockValue);
 
 			List<OrderCartItemInfo> cartItems = List.of(
 				new OrderCartItemInfo(100L, 1L, 2L)
@@ -112,7 +116,7 @@ class OrderCommandFacadeTest {
 				() -> verify(orderQueryService).findByUserIdAndRequestId(userId, "req-123"),
 				() -> verify(orderCheckoutCommandService).validateAndLockEntryToken(userId, "entry-token"),
 				() -> verify(orderCommandService).createOrder(eq(userId), eq(inDto), eq(cartItems), eq(products), eq(resolvedCartItemIds)),
-				() -> verify(orderCheckoutCommandService).completeEntryToken(userId)
+				() -> verify(orderCheckoutCommandService).completeEntryToken(userId, lockValue)
 			);
 		}
 
@@ -144,11 +148,15 @@ class OrderCommandFacadeTest {
 		void createOrderEmptyCart() {
 			// Arrange
 			Long userId = 1L;
+			String lockValue = "test-lock-value";
 			List<Long> cartItemIds = List.of(100L);
 			OrderCreateInDto inDto = new OrderCreateInDto(cartItemIds, "req-123", null);
 
 			given(orderQueryService.findByUserIdAndRequestId(userId, "req-123"))
 				.willReturn(Optional.empty());
+
+			given(orderCheckoutCommandService.validateAndLockEntryToken(userId, "entry-token"))
+				.willReturn(lockValue);
 
 			willThrow(new CoreException(ErrorType.EMPTY_CART))
 				.given(orderCheckoutCommandService).readCartItemsByIds(userId, cartItemIds);
@@ -160,7 +168,7 @@ class OrderCommandFacadeTest {
 			// Assert
 			assertAll(
 				() -> assertThat(exception.getErrorType()).isEqualTo(ErrorType.EMPTY_CART),
-				() -> verify(orderCheckoutCommandService).releaseOrderLock(userId),
+				() -> verify(orderCheckoutCommandService).releaseOrderLock(userId, lockValue),
 				() -> verifyNoInteractions(orderCommandService)
 			);
 		}
@@ -171,12 +179,16 @@ class OrderCommandFacadeTest {
 		void createOrderRaceCondition() {
 			// Arrange
 			Long userId = 1L;
+			String lockValue = "test-lock-value";
 			List<Long> cartItemIds = List.of(100L);
 			OrderCreateInDto inDto = new OrderCreateInDto(cartItemIds, "req-123", null);
 
 			given(orderQueryService.findByUserIdAndRequestId(userId, "req-123"))
 				.willReturn(Optional.empty())  // 첫 번째 호출: 멱등성 검사 시 없음
 				.willReturn(Optional.of(createTestOrder(10L, userId))); // 두 번째 호출: race 후 조회
+
+			given(orderCheckoutCommandService.validateAndLockEntryToken(userId, "entry-token"))
+				.willReturn(lockValue);
 
 			List<OrderCartItemInfo> cartItems = List.of(
 				new OrderCartItemInfo(100L, 1L, 2L)
@@ -198,7 +210,7 @@ class OrderCommandFacadeTest {
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(10L),
 				() -> verify(orderCommandService).createOrder(eq(userId), eq(inDto), any(), eq(products), any()),
-				() -> verify(orderCheckoutCommandService).completeEntryToken(userId)
+				() -> verify(orderCheckoutCommandService).completeEntryToken(userId, lockValue)
 			);
 		}
 
