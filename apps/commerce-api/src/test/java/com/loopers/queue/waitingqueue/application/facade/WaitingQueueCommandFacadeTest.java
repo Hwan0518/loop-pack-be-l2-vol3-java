@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import com.loopers.queue.waitingqueue.application.dto.out.QueueEnterOutDto;
+import com.loopers.queue.waitingqueue.application.dto.out.QueueStatus;
 import com.loopers.queue.waitingqueue.application.service.WaitingQueueCommandService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,7 +37,7 @@ class WaitingQueueCommandFacadeTest {
 	void enter_validRequest_delegatesToService() {
 		// Arrange
 		String queueToken = "valid-token";
-		QueueEnterOutDto expectedDto = QueueEnterOutDto.of("ACCEPTED", 1500, "refreshed", "receipt");
+		QueueEnterOutDto expectedDto = QueueEnterOutDto.of(QueueStatus.ACCEPTED, 1500, "refreshed", "receipt");
 		given(waitingQueueCommandService.enter(queueToken)).willReturn(expectedDto);
 
 		// Act

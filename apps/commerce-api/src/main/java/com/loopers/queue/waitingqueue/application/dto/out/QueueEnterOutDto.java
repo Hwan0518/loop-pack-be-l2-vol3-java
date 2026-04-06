@@ -6,14 +6,14 @@ package com.loopers.queue.waitingqueue.application.dto.out;
  * - enterReceipt: 진입 증명 (stateless 서명, position 조회 시 "처리 중" 구분용)
  */
 public record QueueEnterOutDto(
-	String status,
+	QueueStatus status,
 	int retryAfterMs,
 	String refreshedToken,
 	String enterReceipt
 ) {
 
 	// factory
-	public static QueueEnterOutDto of(String status, int retryAfterMs, String refreshedToken, String enterReceipt) {
+	public static QueueEnterOutDto of(QueueStatus status, int retryAfterMs, String refreshedToken, String enterReceipt) {
 		return new QueueEnterOutDto(status, retryAfterMs, refreshedToken, enterReceipt);
 	}
 }

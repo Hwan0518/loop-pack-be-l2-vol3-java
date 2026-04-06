@@ -21,7 +21,7 @@ public record QueuePositionResponse(
 	// factory
 	public static QueuePositionResponse from(QueuePositionOutDto outDto) {
 		return new QueuePositionResponse(
-			outDto.status(),
+			outDto.status().name(),
 			outDto.position(),
 			outDto.totalWaiting(),
 			outDto.estimatedWaitSeconds(),

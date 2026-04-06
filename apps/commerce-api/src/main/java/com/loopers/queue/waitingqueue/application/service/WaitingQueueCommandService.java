@@ -2,11 +2,11 @@ package com.loopers.queue.waitingqueue.application.service;
 
 
 import com.loopers.queue.waitingqueue.application.dto.out.QueueEnterOutDto;
+import com.loopers.queue.waitingqueue.application.dto.out.QueueStatus;
 import com.loopers.queue.waitingqueue.application.port.out.QueueAuthPort;
 import com.loopers.queue.waitingqueue.application.port.out.WaitingQueueProducerPort;
 import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 
 @Service
@@ -33,7 +33,6 @@ public class WaitingQueueCommandService {
 
 
 	// 1. 대기열 진입 (토큰 검증 + Kafka produce + 초기 Jitter 응답 + 진입 증명)
-	@Transactional
 	public QueueEnterOutDto enter(String queueToken) {
 		// 서명 토큰 검증 + userId 추출 + 갱신 (단일 호출)
 		QueueAuthPort.ResolvedQueueToken resolved = queueAuthPort.resolveAndRefresh(queueToken);
@@ -47,6 +46,6 @@ public class WaitingQueueCommandService {
 		// 초기 Jitter (0 ~ 2000ms)
 		int retryAfterMs = ThreadLocalRandom.current().nextInt(0, INITIAL_JITTER_BOUND);
 
-		return QueueEnterOutDto.of("ACCEPTED", retryAfterMs, resolved.refreshedToken(), enterReceipt);
+		return QueueEnterOutDto.of(QueueStatus.ACCEPTED, retryAfterMs, resolved.refreshedToken(), enterReceipt);
 	}
 }

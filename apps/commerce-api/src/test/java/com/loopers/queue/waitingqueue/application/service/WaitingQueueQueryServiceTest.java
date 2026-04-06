@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.BDDMockito.given;
 
 import com.loopers.queue.waitingqueue.application.dto.out.QueuePositionOutDto;
+import com.loopers.queue.waitingqueue.application.dto.out.QueueStatus;
 import com.loopers.queue.waitingqueue.application.port.out.QueueAuthPort;
 import com.loopers.queue.waitingqueue.application.port.out.WaitingQueueRedisPort;
 import com.loopers.support.common.error.CoreException;
@@ -61,7 +62,7 @@ class WaitingQueueQueryServiceTest {
 
 			// Assert
 			assertAll(
-				() -> assertThat(result.status()).isEqualTo("WAITING"),
+				() -> assertThat(result.status()).isEqualTo(QueueStatus.WAITING),
 				() -> assertThat(result.position()).isEqualTo(1),
 				() -> assertThat(result.estimatedWaitSeconds()).isGreaterThan(0),
 				() -> assertThat(result.retryAfterMs()).isGreaterThan(0),
@@ -86,7 +87,7 @@ class WaitingQueueQueryServiceTest {
 
 			// Assert
 			assertAll(
-				() -> assertThat(result.status()).isEqualTo("TOKEN_ISSUED"),
+				() -> assertThat(result.status()).isEqualTo(QueueStatus.TOKEN_ISSUED),
 				() -> assertThat(result.position()).isEqualTo(0),
 				() -> assertThat(result.entryToken()).isEqualTo("entry-test-token-value"),
 				() -> assertThat(result.refreshedToken()).isEqualTo(REFRESHED_TOKEN)
@@ -111,7 +112,7 @@ class WaitingQueueQueryServiceTest {
 
 			// Assert
 			assertAll(
-				() -> assertThat(result.status()).isEqualTo("PROCESSING"),
+				() -> assertThat(result.status()).isEqualTo(QueueStatus.PROCESSING),
 				() -> assertThat(result.position()).isEqualTo(0),
 				() -> assertThat(result.retryAfterMs()).isEqualTo(2000),
 				() -> assertThat(result.refreshedToken()).isEqualTo(REFRESHED_TOKEN),

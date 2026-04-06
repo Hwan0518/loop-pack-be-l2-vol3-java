@@ -17,6 +17,6 @@ public record QueueEnterResponse(
 
 	// factory
 	public static QueueEnterResponse from(QueueEnterOutDto outDto) {
-		return new QueueEnterResponse(outDto.status(), outDto.retryAfterMs(), outDto.refreshedToken(), outDto.enterReceipt());
+		return new QueueEnterResponse(outDto.status().name(), outDto.retryAfterMs(), outDto.refreshedToken(), outDto.enterReceipt());
 	}
 }

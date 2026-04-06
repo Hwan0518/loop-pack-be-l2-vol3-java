@@ -12,7 +12,7 @@ package com.loopers.queue.waitingqueue.application.dto.out;
  * - entryToken: 입장 토큰 (status=TOKEN_ISSUED일 때만)
  */
 public record QueuePositionOutDto(
-	String status,
+	QueueStatus status,
 	long position,
 	long totalWaiting,
 	double estimatedWaitSeconds,
@@ -24,16 +24,16 @@ public record QueuePositionOutDto(
 	// factory — 대기 중
 	public static QueuePositionOutDto waiting(long position, long totalWaiting,
 		double estimatedWaitSeconds, int retryAfterMs, String refreshedToken) {
-		return new QueuePositionOutDto("WAITING", position, totalWaiting, estimatedWaitSeconds, retryAfterMs, refreshedToken, null);
+		return new QueuePositionOutDto(QueueStatus.WAITING, position, totalWaiting, estimatedWaitSeconds, retryAfterMs, refreshedToken, null);
 	}
 
 	// factory — 입장 토큰 발급 완료
 	public static QueuePositionOutDto tokenIssued(String entryToken, String refreshedToken) {
-		return new QueuePositionOutDto("TOKEN_ISSUED", 0, 0, 0, 0, refreshedToken, entryToken);
+		return new QueuePositionOutDto(QueueStatus.TOKEN_ISSUED, 0, 0, 0, 0, refreshedToken, entryToken);
 	}
 
 	// factory — Consumer 처리 대기 중 (진입 증명 확인됨)
 	public static QueuePositionOutDto processing(String refreshedToken) {
-		return new QueuePositionOutDto("PROCESSING", 0, 0, 0, 2000, refreshedToken, null);
+		return new QueuePositionOutDto(QueueStatus.PROCESSING, 0, 0, 0, 2000, refreshedToken, null);
 	}
 }
