@@ -3,6 +3,14 @@ payment:
     base-url: http://localhost:8082
     callback-url: http://localhost:8080/api/v1/payments/callback
 
+queue:
+  token:
+    secret-key: ${QUEUE_TOKEN_SECRET}
+    token-ttl-seconds: 300
+  waiting:
+    topic: waiting-queue-topic
+    max-capacity: 1000000
+
 server:
   shutdown: graceful
   tomcat:
@@ -99,6 +107,10 @@ spring:
   config:
     activate:
       on-profile: local, test
+
+queue:
+  token:
+    secret-key: local-test-only-secret-key-at-least-32bytes!!
 
 ---
 spring:

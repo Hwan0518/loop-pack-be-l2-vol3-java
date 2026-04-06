@@ -80,7 +80,6 @@ class ProductReadModelRepositoryImplTest {
 			productReadModelJpaRepository.save(
 				ProductReadModelEntity.of(product, "기존 브랜드", originalCreatedAt, 7L));
 
-			productReadModelJpaRepository.increaseLikeCount(productEntity.getId());
 			Product updatedProduct = Product.reconstruct(
 				productEntity.getId(),
 				brand.getId(),
@@ -102,7 +101,7 @@ class ProductReadModelRepositoryImplTest {
 				() -> assertThat(result.getStock()).isEqualTo(55L),
 				() -> assertThat(result.getDescription()).isEqualTo("수정 설명"),
 				() -> assertThat(result.getCreatedAt()).isEqualTo(originalCreatedAt),
-				() -> assertThat(result.getLikeCount()).isEqualTo(8L)
+				() -> assertThat(result.getLikeCount()).isEqualTo(7L)
 			);
 		}
 

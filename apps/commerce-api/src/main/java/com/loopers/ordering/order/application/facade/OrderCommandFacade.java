@@ -5,13 +5,10 @@ import com.loopers.ordering.order.application.dto.in.OrderCreateInDto;
 import com.loopers.ordering.order.application.dto.out.OrderDetailOutDto;
 import com.loopers.ordering.order.application.port.out.client.cart.OrderCartItemInfo;
 import com.loopers.ordering.order.application.port.out.client.catalog.OrderProductInfo;
-import com.loopers.ordering.order.application.port.out.client.catalog.OrderStockManager;
-import com.loopers.ordering.order.application.port.out.client.coupon.OrderCouponRestorer;
 import com.loopers.ordering.order.application.service.OrderCheckoutCommandService;
 import com.loopers.ordering.order.application.service.OrderQueryService;
 import com.loopers.ordering.order.application.service.OrderCommandService;
 import com.loopers.ordering.order.domain.model.Order;
-import com.loopers.ordering.order.domain.model.OrderItem;
 import com.loopers.ordering.order.domain.model.enums.OrderStatus;
 import com.loopers.support.common.error.CoreException;
 import com.loopers.support.common.error.ErrorType;
@@ -33,7 +30,6 @@ public class OrderCommandFacade {
 	private final OrderQueryService orderQueryService;
 	private final OrderCommandService orderCommandService;
 
-
 	/**
 	 * 주문 명령 파사드
 	 * 1. 주문 생성 (읽기: NO TX — 쓰기: OrderCommandService 짧은 TX)
@@ -42,41 +38,58 @@ public class OrderCommandFacade {
 	 * 4. 주문 상태 변경 — orderId로 조회 후 변경 (Cross-BC 전용 — ACL에서 호출)
 	 */
 
-	// 1. 주문 생성
-	public OrderDetailOutDto createOrder(Long userId, OrderCreateInDto inDto) {
+	// 1. 주문 생성 (입장 토큰 검증 포함)
+	public OrderDetailOutDto createOrder(Long userId, OrderCreateInDto inDto, String entryToken) {
 
 		// Phase 1: 읽기 (NO TX — 각 Service가 자체 readOnly TX 보유)
 
-		// 멱등성 검사: 동일 userId + requestId로 이미 주문이 존재하면 기존 주문 반환
+		// 멱등성 검사 (토큰 검증보다 우선 — 주문 성공 후 토큰 삭제되므로 재시도 시 멱등 반환 필요)
 		Optional<Order> existingOrder = orderQueryService.findByUserIdAndRequestId(userId, inDto.requestId());
 		if (existingOrder.isPresent()) {
 			return OrderDetailOutDto.from(existingOrder.get());
 		}
 
-		// 장바구니 항목 조회
-		List<OrderCartItemInfo> cartItems = orderCheckoutCommandService.readCartItemsByIds(userId, inDto.cartItemIds());
+		// 입장 토큰 검증 + 주문 처리 락 획득 (동시 주문 1건만 허용, UUID 기반)
+		String lockValue = orderCheckoutCommandService.validateAndLockEntryToken(userId, entryToken);
 
-		// 상품 정보 조회
-		List<Long> productIds = cartItems.stream()
-			.map(OrderCartItemInfo::productId)
-			.toList();
-		List<OrderProductInfo> products = orderCheckoutCommandService.readProducts(productIds);
-
-		List<Long> resolvedCartItemIds = cartItems.stream()
-			.map(OrderCartItemInfo::cartItemId)
-			.toList();
-
-		// Phase 2: 쓰기 (OrderCommandService — 짧은 @Transactional)
 		try {
-			return orderCommandService.createOrder(userId, inDto, cartItems, products, resolvedCartItemIds);
-		} catch (DataIntegrityViolationException e) {
-			// 유니크 제약 위반(user_id + request_id) race인 경우에만 멱등 처리
-			if (isDuplicateKeyViolation(e)) {
-				Order racedOrder = orderQueryService.findByUserIdAndRequestId(userId, inDto.requestId())
-					.orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
-				return OrderDetailOutDto.from(racedOrder);
+			// 장바구니 항목 조회
+			List<OrderCartItemInfo> cartItems = orderCheckoutCommandService.readCartItemsByIds(userId, inDto.cartItemIds());
+
+			// 상품 정보 조회
+			List<Long> productIds = cartItems.stream()
+				.map(OrderCartItemInfo::productId)
+				.toList();
+			List<OrderProductInfo> products = orderCheckoutCommandService.readProducts(productIds);
+
+			List<Long> resolvedCartItemIds = cartItems.stream()
+				.map(OrderCartItemInfo::cartItemId)
+				.toList();
+
+			// Phase 2: 쓰기 (OrderCommandService — 짧은 @Transactional)
+			OrderDetailOutDto result;
+			try {
+				result = orderCommandService.createOrder(userId, inDto, cartItems, products, resolvedCartItemIds);
+			} catch (DataIntegrityViolationException e) {
+				// 유니크 제약 위반(user_id + request_id) race인 경우에만 멱등 처리
+				if (isDuplicateKeyViolation(e)) {
+					// race도 실질적 성공 → 토큰 삭제 + 락 해제
+					orderCheckoutCommandService.completeEntryToken(userId, lockValue);
+					Order racedOrder = orderQueryService.findByUserIdAndRequestId(userId, inDto.requestId())
+						.orElseThrow(() -> new CoreException(ErrorType.ORDER_NOT_FOUND));
+					return OrderDetailOutDto.from(racedOrder);
+				}
+				// 그 외 무결성 오류(FK, NOT NULL 등)는 그대로 전파
+				throw e;
 			}
-			// 그 외 무결성 오류(FK, NOT NULL 등)는 그대로 전파
+
+			// 주문 완료 후 정리 (토큰 삭제 + 락 해제)
+			orderCheckoutCommandService.completeEntryToken(userId, lockValue);
+
+			return result;
+		} catch (Exception e) {
+			// 주문 실패 시 락만 해제 (토큰 보존 → 재시도 가능)
+			orderCheckoutCommandService.releaseOrderLock(userId, lockValue);
 			throw e;
 		}
 	}

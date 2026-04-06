@@ -9,6 +9,7 @@ import com.loopers.coupon.coupontemplate.interfaces.web.request.AdminCreateCoupo
 import com.loopers.coupon.issuedcoupon.domain.model.enums.IssuedCouponStatus;
 import com.loopers.coupon.issuedcoupon.infrastructure.entity.IssuedCouponEntity;
 import com.loopers.coupon.issuedcoupon.infrastructure.jpa.IssuedCouponJpaRepository;
+import com.loopers.config.redis.RedisConfig;
 import com.loopers.ordering.order.interfaces.web.request.OrderCreateRequest;
 import com.loopers.support.common.error.ErrorType;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
@@ -22,9 +23,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -61,10 +64,17 @@ class OrderControllerE2ETest {
 	private DatabaseCleanUp databaseCleanUp;
 
 	@Autowired
+	private jakarta.persistence.EntityManager entityManager;
+
+	@Autowired
 	private IssuedCouponJpaRepository issuedCouponJpaRepository;
 
 	@Autowired
 	private UserJpaRepository userJpaRepository;
+
+	@Autowired
+	@Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
+	private RedisTemplate<String, String> redisTemplate;
 
 	private static final String USER_LOGIN_ID_HEADER = "X-Loopers-LoginId";
 	private static final String USER_LOGIN_PW_HEADER = "X-Loopers-LoginPw";
@@ -95,7 +105,25 @@ class OrderControllerE2ETest {
 
 	@AfterEach
 	void tearDown() {
+		// JPA 1차 캐시 초기화 (다른 테스트에서 남은 stale entity 방지)
+		entityManager.clear();
 		databaseCleanUp.truncateAllTables();
+		// Redis entry-token + order-lock 정리
+		for (String pattern : java.util.List.of("entry-token:*", "order-lock:*")) {
+			var keys = redisTemplate.keys(pattern);
+			if (keys != null && !keys.isEmpty()) {
+				redisTemplate.delete(keys);
+			}
+		}
+	}
+
+
+	// 입장 토큰 설정 + 반환 (테스트 전용)
+	private String setupEntryTokenForUser(String loginId) {
+		Long userId = userJpaRepository.findByLoginIdValueAndDeletedAtIsNull(loginId).orElseThrow().getId();
+		String token = "entry-" + java.util.UUID.randomUUID();
+		redisTemplate.opsForValue().set("entry-token:" + userId, token);
+		return token;
 	}
 
 
@@ -110,11 +138,13 @@ class OrderControllerE2ETest {
 			Long cartItemId1 = addCartItemAndGetId("testuser", TEST_PASSWORD, productId1, 2L);
 			Long cartItemId2 = addCartItemAndGetId("testuser", TEST_PASSWORD, productId2, 1L);
 			OrderCreateRequest request = new OrderCreateRequest(List.of(cartItemId1, cartItemId2), "req-001", null);
+			String entryToken = setupEntryTokenForUser("testuser");
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
 					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+					.header("X-Entry-Token", entryToken)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isCreated())
@@ -135,11 +165,13 @@ class OrderControllerE2ETest {
 			Long cartItemId1 = addCartItemAndGetId("testuser", TEST_PASSWORD, productId1, 2L);
 			Long cartItemId2 = addCartItemAndGetId("testuser", TEST_PASSWORD, productId2, 1L);
 			OrderCreateRequest request = new OrderCreateRequest(List.of(cartItemId1, cartItemId2), "req-idempotent", null);
+			String entryToken = setupEntryTokenForUser("testuser");
 
 			// 1차 주문 생성
 			MvcResult firstResult = mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
 					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+					.header("X-Entry-Token", entryToken)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isCreated())
@@ -147,10 +179,11 @@ class OrderControllerE2ETest {
 
 			Long firstOrderId = objectMapper.readTree(firstResult.getResponse().getContentAsString()).get("id").asLong();
 
-			// 2차 동일 요청 (장바구니 항목은 이미 삭제되었지만 멱등성으로 기존 주문 반환)
+			// 2차 동일 요청 (멱등성 체크가 토큰 검증보다 먼저 실행되므로 소비된 토큰으로도 기존 주문 반환)
 			mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
 					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+					.header("X-Entry-Token", "already-consumed-token")
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isCreated())
@@ -166,6 +199,7 @@ class OrderControllerE2ETest {
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/orders")
+					.header("X-Entry-Token", "dummy-token")
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isUnauthorized())
@@ -178,11 +212,13 @@ class OrderControllerE2ETest {
 		void createOrderWithoutRequestId() throws Exception {
 			// Arrange
 			String requestJson = "{\"cartItemIds\": [1, 2]}";
+			String entryToken = setupEntryTokenForUser("testuser");
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
 					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+					.header("X-Entry-Token", entryToken)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(requestJson))
 				.andExpect(status().isBadRequest());
@@ -194,11 +230,13 @@ class OrderControllerE2ETest {
 		void createOrderWithEmptyCartItemIds() throws Exception {
 			// Arrange
 			String requestJson = "{\"cartItemIds\": [], \"requestId\": \"req-001\"}";
+			String entryToken = setupEntryTokenForUser("testuser");
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
 					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+					.header("X-Entry-Token", entryToken)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(requestJson))
 				.andExpect(status().isBadRequest());
@@ -216,11 +254,13 @@ class OrderControllerE2ETest {
 			Long cartItemId1 = addCartItemAndGetId("testuser", TEST_PASSWORD, productId1, 2L);
 			Long cartItemId2 = addCartItemAndGetId("testuser", TEST_PASSWORD, productId2, 1L);
 			OrderCreateRequest request = new OrderCreateRequest(List.of(cartItemId1, cartItemId2), "req-coupon", issuedCouponId);
+			String entryToken = setupEntryTokenForUser("testuser");
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
 					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+					.header("X-Entry-Token", entryToken)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isCreated())
@@ -245,11 +285,13 @@ class OrderControllerE2ETest {
 
 			// 존재하지 않는 ID 999 포함
 			OrderCreateRequest request = new OrderCreateRequest(List.of(cartItemId1, cartItemId2, 999L), "req-partial", null);
+			String entryToken = setupEntryTokenForUser("testuser");
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
 					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+					.header("X-Entry-Token", entryToken)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isNotFound())
@@ -269,11 +311,13 @@ class OrderControllerE2ETest {
 
 			// 삭제된 장바구니 항목 ID로 주문 시도
 			OrderCreateRequest request = new OrderCreateRequest(List.of(cartItemId), "req-deleted", null);
+			String entryToken = setupEntryTokenForUser("testuser");
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
 					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+					.header("X-Entry-Token", entryToken)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isBadRequest())
@@ -290,11 +334,13 @@ class OrderControllerE2ETest {
 			// 수량 2개로 장바구니 추가
 			Long cartItemId = addCartItemAndGetId("testuser", TEST_PASSWORD, lowStockProductId, 2L);
 			OrderCreateRequest request = new OrderCreateRequest(List.of(cartItemId), "req-outofstock", null);
+			String entryToken = setupEntryTokenForUser("testuser");
 
 			// Act & Assert
 			mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
 					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+					.header("X-Entry-Token", entryToken)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isConflict())
@@ -309,14 +355,19 @@ class OrderControllerE2ETest {
 			Long cartItemId1 = addCartItemAndGetId("testuser", TEST_PASSWORD, productId1, 1L);
 			Long cartItemId2 = addCartItemAndGetId("testuser", TEST_PASSWORD, productId2, 1L);
 			OrderCreateRequest request = new OrderCreateRequest(List.of(cartItemId1, cartItemId2), "req-cleanup", null);
+			String entryToken = setupEntryTokenForUser("testuser");
 
 			// Act — 주문 생성
 			mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser")
 					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+					.header("X-Entry-Token", entryToken)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isCreated());
+
+			// 비동기 이벤트 처리 완료 대기 (주문 생성 후 장바구니 정리)
+			Thread.sleep(500);
 
 			// Assert — 장바구니가 비어있는지 확인
 			mockMvc.perform(get("/api/v1/cart")
@@ -493,17 +544,22 @@ class OrderControllerE2ETest {
 			// Arrange — 별도 상품 생성 후 주문
 			Long tempProductId = createProductAndGetId(brandId, "한정판", new BigDecimal("30000"), 10L, "한정판 상품");
 			Long cartItemId = addCartItemAndGetId("testuser1", TEST_PASSWORD, tempProductId, 1L);
+			String entryToken = setupEntryTokenForUser("testuser1");
 			OrderCreateRequest request = new OrderCreateRequest(List.of(cartItemId), "req-snapshot", null);
 
 			MvcResult result = mockMvc.perform(post("/api/v1/orders")
 					.header(USER_LOGIN_ID_HEADER, "testuser1")
 					.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+					.header("X-Entry-Token", entryToken)
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(request)))
 				.andExpect(status().isCreated())
 				.andReturn();
 
 			Long orderId = objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong();
+
+			// 비동기 이벤트 처리 완료 대기 (주문 생성 후 장바구니 정리 등)
+			Thread.sleep(500);
 
 			// 상품 삭제
 			deleteProduct(tempProductId);
@@ -682,28 +738,41 @@ class OrderControllerE2ETest {
 	}
 
 
-	// 5. 주문 생성 (장바구니 추가 → 주문)
+	// 5. 입장 토큰 설정 (테스트용 — Redis에 직접 entry-token 설정)
+	private String setupEntryToken(String loginId) {
+		Long userId = userJpaRepository.findByLoginIdValueAndDeletedAtIsNull(loginId).orElseThrow().getId();
+		String token = "entry-" + java.util.UUID.randomUUID();
+		redisTemplate.opsForValue().set("entry-token:" + userId, token);
+		return token;
+	}
+
+
+	// 6. 주문 생성 (장바구니 추가 → 주문)
 	private void createOrder(String requestId, String loginId) throws Exception {
 		Long cartItemId1 = addCartItemAndGetId(loginId, TEST_PASSWORD, productId1, 2L);
 		Long cartItemId2 = addCartItemAndGetId(loginId, TEST_PASSWORD, productId2, 1L);
+		String entryToken = setupEntryToken(loginId);
 		OrderCreateRequest request = new OrderCreateRequest(List.of(cartItemId1, cartItemId2), requestId, null);
 		mockMvc.perform(post("/api/v1/orders")
 				.header(USER_LOGIN_ID_HEADER, loginId)
 				.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+				.header("X-Entry-Token", entryToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request)))
 			.andExpect(status().isCreated());
 	}
 
 
-	// 6. 주문 생성 후 ID 반환 (장바구니 추가 → 주문)
+	// 7. 주문 생성 후 ID 반환 (장바구니 추가 → 주문)
 	private Long createOrderAndGetId(String requestId, String loginId) throws Exception {
 		Long cartItemId1 = addCartItemAndGetId(loginId, TEST_PASSWORD, productId1, 2L);
 		Long cartItemId2 = addCartItemAndGetId(loginId, TEST_PASSWORD, productId2, 1L);
+		String entryToken = setupEntryToken(loginId);
 		OrderCreateRequest request = new OrderCreateRequest(List.of(cartItemId1, cartItemId2), requestId, null);
 		MvcResult result = mockMvc.perform(post("/api/v1/orders")
 				.header(USER_LOGIN_ID_HEADER, loginId)
 				.header(USER_LOGIN_PW_HEADER, TEST_PASSWORD)
+				.header("X-Entry-Token", entryToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request)))
 			.andExpect(status().isCreated())

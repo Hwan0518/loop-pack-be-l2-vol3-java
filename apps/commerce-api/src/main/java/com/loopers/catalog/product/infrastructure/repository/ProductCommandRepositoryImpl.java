@@ -45,14 +45,15 @@ public class ProductCommandRepositoryImpl implements ProductCommandRepository {
 	@Override
 	public void delete(Product product) {
 
-		// 엔티티로 변환
-		ProductEntity entity = productMapper.toEntity(product);
+		// managed entity 조회 (detached entity merge 시 stale state 충돌 방지)
+		ProductEntity entity = productJpaRepository.findById(product.getId())
+			.orElseThrow();
 
 		// soft delete 처리
 		entity.delete();
 
-		// 저장
-		productJpaRepository.save(entity);
+		// saveAndFlush로 즉시 DB 반영 (같은 TX 내 후속 조회에서 정합성 보장)
+		productJpaRepository.saveAndFlush(entity);
 	}
 
 }

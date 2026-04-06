@@ -5,6 +5,8 @@ import com.loopers.catalog.product.domain.model.Product;
 import com.loopers.catalog.product.domain.repository.ProductCommandRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
+import com.loopers.utils.DatabaseCleanUp;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,15 @@ class ProductCommandRepositoryTest {
 
 	@Autowired
 	private ProductCommandRepository productCommandRepository;
+
+	@Autowired
+	private DatabaseCleanUp databaseCleanUp;
+
+
+	@AfterEach
+	void tearDown() {
+		databaseCleanUp.truncateAllTables();
+	}
 
 
 	@Nested

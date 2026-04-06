@@ -1,4 +1,5 @@
 import org.gradle.api.tasks.testing.Test
+import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
 
 val benchmarkSourceSet = sourceSets.create("benchmark") {
     java.srcDir("src/benchmark/java")
@@ -23,6 +24,11 @@ tasks.register<Test>("benchmarkTest") {
     systemProperty("spring.profiles.active", "test")
     jvmArgs("-Xshare:off")
     shouldRunAfter(tasks.test)
+}
+
+tasks.test {
+    maxParallelForks = 1   // 병렬 금지 (DEFINED_PORT + static PG simulator + 공유 DB/Redis)
+    forkEvery = 0          // JVM 재사용 (Spring Context 캐싱 + TestContainers 싱글톤)
 }
 
 dependencies {
@@ -50,6 +56,10 @@ dependencies {
     // cache
     implementation("com.github.ben-manes.caffeine:caffeine")
 
+    // shedlock (대기열 스케줄러 분산 락)
+    implementation("net.javacrumbs.shedlock:shedlock-spring:6.3.1")
+    implementation("net.javacrumbs.shedlock:shedlock-provider-redis-spring:6.3.1")
+
     // querydsl
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")
     annotationProcessor("jakarta.persistence:jakarta.persistence-api")
@@ -62,4 +72,30 @@ dependencies {
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
     testImplementation(testFixtures(project(":modules:kafka")))
+}
+
+tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+    dependsOn(tasks.test)
+    executionData(fileTree(layout.buildDirectory.asFile).include("jacoco/*.exec"))
+    classDirectories.setFrom(
+        files(
+            sourceSets["main"].output.asFileTree.matching {
+                exclude("**/Q*.class")
+                exclude("**/*Application.class")
+            }
+        )
+    )
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = "0.90".toBigDecimal()
+            }
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.named("jacocoTestCoverageVerification"))
 }

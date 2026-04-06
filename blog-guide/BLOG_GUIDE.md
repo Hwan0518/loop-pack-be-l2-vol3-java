@@ -366,6 +366,27 @@ data-origin-width="1172" data-origin-height="838"/></span>
 | 메인 헤딩 앞 | `<hr>` 또는 `&nbsp;` |
 | 서브 헤딩 앞 | `&nbsp;` 1~2개 |
 | 이미지 앞뒤 | 이미지 뒤 `&nbsp;` 1개 |
+| **글머리기호(`<ul>`/`<ol>`) 앞뒤** | **`&nbsp;` 삽입 금지** — 글머리기호는 앞뒤 문단과 빈 줄 없이 바로 붙인다 |
+
+### 9.13 HTML 소스 가독성
+
+- HTML 파일 자체를 편집할 때, **섹션 경계에 HTML 주석 + 빈 줄**을 넣어 구조를 시각적으로 구분한다
+- 렌더링에는 영향 없으며, 소스 코드 탐색 시 섹션을 빠르게 찾을 수 있다
+
+```html
+<!-- ==================== 상황 ==================== -->
+
+<hr contenteditable="false" data-ke-type="horizontalRule" data-ke-style="style6"/>
+<h2 data-ke-size="size26"><b>상황</b></h2>
+
+<p data-ke-size="size16">본문...</p>
+
+<!-- ---- 서브섹션 1 ---- -->
+
+<h3><b>서브 제목</b></h3>
+
+<p data-ke-size="size16">본문...</p>
+```
 
 ---
 

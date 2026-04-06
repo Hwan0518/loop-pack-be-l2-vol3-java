@@ -6,6 +6,8 @@ import java.time.LocalDateTime;
 
 /**
  * 상품 상세 조회 이벤트 (userId nullable - 비로그인 조회 포함)
+ * @subscriber MetricsCollectorConsumer - 조회 수 집계 반영
+ * @subscriber UserActionLogConsumer - 사용자 액션 로그 저장
  * @kafka PRODUCT_VIEWED → MetricsCollectorConsumer (view_count), UserActionLogConsumer
  */
 public record ProductViewedEvent(
