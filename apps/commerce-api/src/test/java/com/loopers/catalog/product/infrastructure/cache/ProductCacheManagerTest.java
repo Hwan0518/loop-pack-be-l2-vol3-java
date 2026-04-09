@@ -65,7 +65,7 @@ class ProductCacheManagerTest {
 			String key = "product:1";
 			ProductDetailOutDto dto = new ProductDetailOutDto(
 				1L, 1L, "TestBrand", "TestProduct",
-				new BigDecimal("59900.00"), 100L, "description", 50L
+				new BigDecimal("59900.00"), 100L, "description", 50L, null
 			);
 
 			// Act
@@ -126,7 +126,7 @@ class ProductCacheManagerTest {
 			String key = "product:2";
 			ProductDetailOutDto dto = new ProductDetailOutDto(
 				2L, 1L, "Brand", "Product",
-				new BigDecimal("99999.99"), 10L, "desc", 0L
+				new BigDecimal("99999.99"), 10L, "desc", 0L, null
 			);
 
 			// Act
@@ -147,7 +147,7 @@ class ProductCacheManagerTest {
 			String key = "product:3";
 			ProductDetailOutDto dto = new ProductDetailOutDto(
 				3L, 1L, "Brand", "Product",
-				new BigDecimal("10000"), 10L, null, 0L
+				new BigDecimal("10000"), 10L, null, 0L, null
 			);
 
 			// Act
@@ -177,7 +177,7 @@ class ProductCacheManagerTest {
 			String key = "product:10";
 			ProductDetailOutDto dto = new ProductDetailOutDto(
 				10L, 1L, "Brand", "Product",
-				new BigDecimal("10000"), 10L, "desc", 0L
+				new BigDecimal("10000"), 10L, "desc", 0L, null
 			);
 			productCacheManager.put(key, dto, Duration.ofMinutes(10));
 
@@ -252,7 +252,7 @@ class ProductCacheManagerTest {
 			AtomicInteger loaderCallCount = new AtomicInteger(0);
 			ProductDetailOutDto expected = new ProductDetailOutDto(
 				1L, 1L, "Brand", "Product",
-				new BigDecimal("10000"), 10L, "desc", 0L
+				new BigDecimal("10000"), 10L, "desc", 0L, null
 			);
 
 			// Act
@@ -281,7 +281,7 @@ class ProductCacheManagerTest {
 			String key = "product:load:2";
 			ProductDetailOutDto cached = new ProductDetailOutDto(
 				2L, 1L, "Brand", "CachedProduct",
-				new BigDecimal("20000"), 20L, "cached", 5L
+				new BigDecimal("20000"), 20L, "cached", 5L, null
 			);
 			productCacheManager.put(key, cached, Duration.ofMinutes(10));
 			AtomicInteger loaderCallCount = new AtomicInteger(0);
@@ -293,7 +293,7 @@ class ProductCacheManagerTest {
 					loaderCallCount.incrementAndGet();
 					return new ProductDetailOutDto(
 						99L, 99L, "New", "New",
-						new BigDecimal("99999"), 99L, "new", 99L
+						new BigDecimal("99999"), 99L, "new", 99L, null
 					);
 				}
 			);

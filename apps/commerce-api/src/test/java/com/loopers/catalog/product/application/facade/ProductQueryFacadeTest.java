@@ -59,8 +59,9 @@ class ProductQueryFacadeTest {
 		void getProductSuccess() {
 			// Arrange
 			ProductDetailOutDto detailOutDto = new ProductDetailOutDto(
-				1L, 1L, "나이키", "테스트 상품", new BigDecimal("10000"), 100L, null, 0L);
+				1L, 1L, "나이키", "테스트 상품", new BigDecimal("10000"), 100L, null, 0L, null);
 			given(productQueryService.getOrLoadProductDetail(1L)).willReturn(detailOutDto);
+			given(productQueryService.getProductRank(1L)).willReturn(null);
 
 			// Act
 			ProductDetailOutDto result = productQueryFacade.getProduct(1L, 10L);
@@ -74,6 +75,7 @@ class ProductQueryFacadeTest {
 				() -> assertThat(result.price()).isEqualByComparingTo(new BigDecimal("10000")),
 				() -> assertThat(result.stock()).isEqualTo(100L),
 				() -> assertThat(result.likeCount()).isEqualTo(0L),
+				() -> assertThat(result.rank()).isNull(),
 				() -> verify(productQueryService).getOrLoadProductDetail(1L),
 				() -> verify(productQueryService).saveViewOutbox(10L, 1L)
 			);
@@ -85,8 +87,9 @@ class ProductQueryFacadeTest {
 		void getProductAnonymous() {
 			// Arrange
 			ProductDetailOutDto detailOutDto = new ProductDetailOutDto(
-				1L, 1L, "나이키", "테스트 상품", new BigDecimal("10000"), 100L, null, 0L);
+				1L, 1L, "나이키", "테스트 상품", new BigDecimal("10000"), 100L, null, 0L, null);
 			given(productQueryService.getOrLoadProductDetail(1L)).willReturn(detailOutDto);
+			given(productQueryService.getProductRank(1L)).willReturn(null);
 
 			// Act
 			ProductDetailOutDto result = productQueryFacade.getProduct(1L, null);
@@ -95,6 +98,28 @@ class ProductQueryFacadeTest {
 			assertAll(
 				() -> assertThat(result.id()).isEqualTo(1L),
 				() -> verify(productQueryService).saveViewOutbox(null, 1L)
+			);
+		}
+
+
+		@Test
+		@DisplayName("[getProduct()] 랭킹 등록된 상품 조회 -> rank=3 보강. ProductDetailOutDto에 rank 포함")
+		void getProductWithRank() {
+			// Arrange
+			ProductDetailOutDto detailOutDto = new ProductDetailOutDto(
+				1L, 1L, "나이키", "테스트 상품", new BigDecimal("10000"), 100L, null, 0L, null);
+			given(productQueryService.getOrLoadProductDetail(1L)).willReturn(detailOutDto);
+			given(productQueryService.getProductRank(1L)).willReturn(3L);
+
+			// Act
+			ProductDetailOutDto result = productQueryFacade.getProduct(1L, 10L);
+
+			// Assert
+			assertAll(
+				() -> assertThat(result.id()).isEqualTo(1L),
+				() -> assertThat(result.rank()).isEqualTo(3L),
+				() -> verify(productQueryService).getProductRank(1L),
+				() -> verify(productQueryService).saveViewOutbox(10L, 1L)
 			);
 		}
 
