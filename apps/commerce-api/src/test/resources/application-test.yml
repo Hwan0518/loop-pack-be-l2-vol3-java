@@ -27,3 +27,8 @@ ordering:
   expiration:
     scheduler:
       enabled: false
+
+ranking:
+  carryover:
+    scheduler:
+      enabled: false
