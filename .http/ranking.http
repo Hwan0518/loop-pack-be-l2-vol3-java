@@ -1,0 +1,58 @@
+### ===== Ranking API (인증 불필요) =====
+
+### 랭킹 목록 조회 (기본 — 오늘, page=0, size=20)
+GET http://localhost:8080/api/v1/rankings
+
+### 랭킹 목록 조회 (날짜 지정)
+GET http://localhost:8080/api/v1/rankings?date=20260409
+
+### 랭킹 목록 조회 (페이지네이션)
+GET http://localhost:8080/api/v1/rankings?page=0&size=10
+
+### 랭킹 목록 조회 (2페이지)
+GET http://localhost:8080/api/v1/rankings?page=1&size=10
+
+### 상품 상세 조회 (랭킹 순위 포함 — 비로그인)
+GET http://localhost:8080/api/v1/products/1
+
+### 상품 상세 조회 (랭킹 순위 포함 — 로그인)
+GET http://localhost:8080/api/v1/products/1
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Test1234!@
+
+
+### ===== Ranking Admin API (LDAP 인증 필요) =====
+
+### 랭킹 재계산 요청 (기본값 — scorerType/carryOverWeight 생략)
+POST http://localhost:8080/api-admin/v1/rankings/rebuild
+X-Loopers-Ldap: loopers.admin
+Content-Type: application/json
+
+{
+  "from": "20260401",
+  "to": "20260410"
+}
+
+### 랭킹 재계산 요청 (전체 파라미터 지정)
+POST http://localhost:8080/api-admin/v1/rankings/rebuild
+X-Loopers-Ldap: loopers.admin
+Content-Type: application/json
+
+{
+  "from": "20260401",
+  "to": "20260410",
+  "scorerType": "SATURATION",
+  "carryOverWeight": 0.1
+}
+
+### 랭킹 재계산 요청 (단일 날짜)
+POST http://localhost:8080/api-admin/v1/rankings/rebuild
+X-Loopers-Ldap: loopers.admin
+Content-Type: application/json
+
+{
+  "from": "20260410",
+  "to": "20260410",
+  "scorerType": "SATURATION",
+  "carryOverWeight": 0.1
+}
