@@ -2,6 +2,7 @@ package com.loopers.catalog.product.application.service;
 
 
 import com.loopers.catalog.product.application.dto.out.*;
+import com.loopers.catalog.product.application.port.out.client.ranking.ProductRankingReader;
 import com.loopers.catalog.product.application.port.out.query.ProductQueryPort;
 import com.loopers.catalog.product.application.port.out.query.criteria.ProductSearchCriteria;
 import com.loopers.catalog.product.domain.model.Product;
@@ -57,6 +58,8 @@ class ProductQueryServiceTest {
 	@Mock
 	private ProductQueryPort productQueryPort;
 	@Mock
+	private ProductRankingReader productRankingReader;
+	@Mock
 	private OutboxEventPort outboxEventPort;
 	@Mock
 	private JsonSerializer jsonSerializer;
@@ -70,7 +73,7 @@ class ProductQueryServiceTest {
 	void setUp() {
 		productQueryService = new ProductQueryService(
 			productQueryRepository, productReadModelRepository, productQueryPort,
-			outboxEventPort, jsonSerializer, productCacheManager
+			productRankingReader, outboxEventPort, jsonSerializer, productCacheManager
 		);
 	}
 
@@ -537,6 +540,26 @@ class ProductQueryServiceTest {
 				() -> assertThat(result).containsExactly(10L, 20L, 30L),
 				() -> verify(productReadModelRepository).findActiveIdsByBrandId(1L)
 			);
+		}
+
+	}
+
+
+	@Nested
+	@DisplayName("getProductRank()")
+	class GetProductRankTest {
+
+		@Test
+		@DisplayName("[getProductRank()] ranking 조회 실패 -> null 반환. 장애 전파 방지 (rank는 보조 정보)")
+		void getProductRankFallbackOnException() {
+			// Arrange
+			given(productRankingReader.getProductRank(1L)).willThrow(new RuntimeException("Redis 연결 실패"));
+
+			// Act
+			Long rank = productQueryService.getProductRank(1L);
+
+			// Assert
+			assertThat(rank).isNull();
 		}
 
 	}

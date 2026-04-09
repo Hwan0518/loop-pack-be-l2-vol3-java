@@ -15,8 +15,9 @@ import java.math.BigDecimal;
  * - stock: 재고
  * - description: 상품 설명
  * - likeCount: 좋아요 수
+ * - rank: 오늘의 랭킹 순위 (1-based, 미등록이면 null)
  */
 public record ProductDetailOutDto(Long id, Long brandId, String brandName, String name,
-	BigDecimal price, Long stock, String description, Long likeCount) {
+	BigDecimal price, Long stock, String description, Long likeCount, Long rank) {
 
 }

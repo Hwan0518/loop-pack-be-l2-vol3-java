@@ -62,7 +62,7 @@ class CacheStampedeTest {
 			Duration ttl = Duration.ofMinutes(10);
 			ProductDetailOutDto expected = new ProductDetailOutDto(
 				1L, 1L, "Brand", "Product",
-				new BigDecimal("10000"), 10L, "desc", 0L
+				new BigDecimal("10000"), 10L, "desc", 0L, null
 			);
 
 			// Act
@@ -113,7 +113,7 @@ class CacheStampedeTest {
 			Duration ttl = Duration.ofMinutes(10);
 			ProductDetailOutDto cached = new ProductDetailOutDto(
 				2L, 1L, "Brand", "CachedProduct",
-				new BigDecimal("20000"), 20L, "cached", 5L
+				new BigDecimal("20000"), 20L, "cached", 5L, null
 			);
 			productCacheManager.put(key, cached, ttl);
 
@@ -136,7 +136,7 @@ class CacheStampedeTest {
 								loaderCallCount.incrementAndGet();
 								return new ProductDetailOutDto(
 									99L, 99L, "New", "New",
-									new BigDecimal("99999"), 99L, "new", 99L
+									new BigDecimal("99999"), 99L, "new", 99L, null
 								);
 							}
 						);

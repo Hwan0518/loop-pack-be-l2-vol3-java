@@ -32,9 +32,9 @@ public record ProductCacheDto(
 	}
 
 
-	// 2. PDP 응답용 변환 (전체 필드)
+	// 2. PDP 응답용 변환 (전체 필드, rank=null — Facade에서 보강)
 	public ProductDetailOutDto toProductDetailOutDto() {
-		return new ProductDetailOutDto(id, brandId, brandName, name, price, stock, description, likeCount);
+		return new ProductDetailOutDto(id, brandId, brandName, name, price, stock, description, likeCount, null);
 	}
 
 }
