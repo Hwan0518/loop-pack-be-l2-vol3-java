@@ -247,6 +247,35 @@ class RankingCollectorConsumerTest {
 		}
 
 		@Test
+		@DisplayName("[consume()] 같은 eventId가 같은 배치에 중복 전달 -> delta와 handled id는 1회만 반영")
+		void duplicateEventIdInSameBatchCountedOnce() throws Exception {
+			// Arrange
+			String data = objectMapper.writeValueAsString(Map.of("productId", 100L, "occurredAt", "2026-04-08T10:00:00"));
+			List<ConsumerRecord<String, byte[]>> records = List.of(
+				toRecord(new KafkaEventEnvelope("evt-dup", "PRODUCT_VIEWED", "PRODUCT", "100", data, FIXED_OCCURRED_AT)),
+				toRecord(new KafkaEventEnvelope("evt-dup", "PRODUCT_VIEWED", "PRODUCT", "100", data, FIXED_OCCURRED_AT))
+			);
+
+			given(rankingScoreService.findAlreadyHandledIds(anySet())).willReturn(Set.of());
+
+			// Act
+			consumer.consume(records, ack);
+
+			// Assert
+			@SuppressWarnings("unchecked")
+			ArgumentCaptor<Map<RankingDailyKey, long[]>> deltasCaptor = ArgumentCaptor.forClass(Map.class);
+			@SuppressWarnings("unchecked")
+			ArgumentCaptor<Set<String>> eventIdsCaptor = ArgumentCaptor.forClass(Set.class);
+			verify(rankingScoreService).persistDeltas(deltasCaptor.capture(), eventIdsCaptor.capture());
+
+			Map<RankingDailyKey, long[]> deltas = deltasCaptor.getValue();
+			assertThat(deltas).hasSize(1);
+			assertThat(deltas.get(new RankingDailyKey(EXPECTED_STAT_DATE, 100L))).isEqualTo(new long[]{1, 0, 0});
+			assertThat(eventIdsCaptor.getValue()).containsExactly("evt-dup");
+			verify(ack).acknowledge();
+		}
+
+		@Test
 		@DisplayName("[consume()] 모든 이벤트가 이미 처리됨 -> persistDeltas 미호출, ack만 수행")
 		void allAlreadyHandled() throws Exception {
 			// Arrange

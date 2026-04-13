@@ -367,6 +367,8 @@ RankingReconcileJob (cron, 예: 매 5분)
 
 - Redis key versioning (`ranking:all:{v}:{date}` + pointer swap)
 - `ranking_event_fact` (raw event 영속화 — 감사/장기 replay)
+- scorer 입력 feature가 더 늘어나면 `ranking_daily_counter` 는 JSON blob 또는 wide schema 로 재설계하거나, raw event 장기 보관 + backfill 경로를 붙이는 쪽으로 가야 함. 이건 단순 컬럼 추가가 아니라 별도 설계 과제다.
+- Redis HASH counter → score delta 경로는 app layer 에서 counter 갱신 직후 `ZINCRBY` 직전까지 gap 이 있다. 필요하면 Lua snapshot update, DB absolute-score projection, 더 짧은 reconcile cadence 중 하나로 보강한다.
 - Hourly window
 - Multi-scorer 동시 운영 (A/B)
 - daily_counter 90일 archive 정책

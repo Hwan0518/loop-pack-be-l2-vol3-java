@@ -73,6 +73,7 @@ ranking:counter:order:{yyyyMMdd}  // HASH, productId → 일간 주문수량
 ```
 - TTL: 2일 (ZSET과 동일)
 - 실시간 업데이트: `HINCRBY`로 카운터 갱신 후 delta = sat(new) - sat(old) 계산 → `ZINCRBY`
+- 이 경로는 counter 갱신과 `ZINCRBY` 사이가 앱 레이어에 걸쳐 있어 완전한 원자성은 아니다. 운영 보강이 필요하면 Lua snapshot update, DB 절대값 기반 projection, 짧은 reconcile 주기로 보완한다.
 
 ---
 
@@ -91,6 +92,7 @@ ranking:counter:order:{yyyyMMdd}  // HASH, productId → 일간 주문수량
 7. event_handled 일괄 기록 (bulk insert, 1 TX)
 8. ack
 ```
+- scorer 입력이 더 늘어나는 순간에는 counter 스키마를 넓히거나(raw/JSON 포함), 별도 raw event 장기 보관 + backfill 로 전환하는 수준의 설계 변경이 필요하다. 단순 컬럼 추가 문제로 보지 않는다.
 
 ### 배치 처리의 이점
 | 항목 | 단건 처리 | 배치 처리 |
