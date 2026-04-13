@@ -2,6 +2,7 @@ package com.loopers.catalog.product.application.service;
 
 
 import com.loopers.catalog.product.application.dto.out.*;
+import com.loopers.catalog.product.application.port.out.client.ranking.ProductRankingReader;
 import com.loopers.support.common.event.catalog.ProductViewedPayload;
 import com.loopers.catalog.product.application.port.out.query.ProductQueryPort;
 import com.loopers.catalog.product.application.port.out.query.criteria.ProductSearchCriteria;
@@ -20,6 +21,7 @@ import com.loopers.support.common.error.ErrorType;
 import com.loopers.support.common.outbox.application.port.OutboxEventPort;
 import com.loopers.support.common.outbox.application.util.JsonSerializer;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +34,7 @@ import static com.loopers.catalog.product.application.port.out.cache.ProductCach
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProductQueryService {
 
 	// repository
@@ -39,6 +42,7 @@ public class ProductQueryService {
 	private final ProductReadModelRepository productReadModelRepository;
 	// port
 	private final ProductQueryPort productQueryPort;
+	private final ProductRankingReader productRankingReader;
 	// outbox
 	private final OutboxEventPort outboxEventPort;
 	private final JsonSerializer jsonSerializer;
@@ -55,9 +59,11 @@ public class ProductQueryService {
 	 * 5. 관리자 상품 목록 검색 (캐시 미적용)
 	 * 6. ID 목록으로 활성 상품 일괄 조회 (Cross-BC 전용)
 	 * 7. 상품 상세 캐시 조회 (PER + 스탬피드 보호)
-	 * 8. 브랜드 ID로 활성 상품 ID 목록 조회 (브랜드명 write-through용)
-	 * 9. 관리자 상품 상세 조회 (Read Model projection — 삭제된 브랜드에도 안전)
-	 * 10. VIEW Outbox 저장 (D7: 같은 TX에서 조회 + outbox INSERT)
+	 * 8. 활성 상품 캐시 정보 일괄 조회 (Cross-BC 전용 — ranking ACL에서 호출)
+	 * 9. 상품 랭킹 순위 조회 (Cross-BC → ranking, 장애 전파 방지)
+	 * 10. 브랜드 ID로 활성 상품 ID 목록 조회 (브랜드명 write-through용)
+	 * 11. 관리자 상품 상세 조회 (Read Model projection — 삭제된 브랜드에도 안전)
+	 * 12. VIEW Outbox 저장 (D7: 같은 TX에서 조회 + outbox INSERT)
 	 */
 
 	// 1. ID로 활성 상품 조회
@@ -169,14 +175,34 @@ public class ProductQueryService {
 	}
 
 
-	// 8. 브랜드 ID로 활성 상품 ID 목록 조회 (브랜드명 write-through용)
+	// 8. 활성 상품 캐시 정보 일괄 조회 (Cross-BC 전용 — ranking ACL에서 호출)
+	@Transactional(readOnly = true)
+	public List<ProductCacheDto> findCacheDtosByIds(List<Long> ids) {
+		return productQueryPort.findProductCacheDtosByIds(ids);
+	}
+
+
+	// 9. 상품 랭킹 순위 조회 (Cross-BC → ranking, 장애 전파 방지 — rank는 보조 정보)
+	@Transactional(readOnly = true)
+	public Long getProductRank(Long productId) {
+		try {
+			return productRankingReader.getProductRank(productId);
+		} catch (Exception e) {
+			log.warn("[ProductQueryService] 랭킹 조회 실패, rank=null 반환. productId={}", productId, e);
+			return null;
+		}
+	}
+
+
+	// 10. 브랜드 ID로 활성 상품 ID 목록 조회 (브랜드명 write-through용)
+
 	@Transactional(readOnly = true)
 	public List<Long> findActiveIdsByBrandId(Long brandId) {
 		return productReadModelRepository.findActiveIdsByBrandId(brandId);
 	}
 
 
-	// 9. 관리자 상품 상세 조회 (Read Model projection — 삭제된 브랜드에도 비정규화된 brandName 사용)
+	// 11. 관리자 상품 상세 조회 (Read Model projection — 삭제된 브랜드에도 비정규화된 brandName 사용)
 	@Transactional(readOnly = true)
 	public AdminProductDetailOutDto getAdminProductDetail(Long productId) {
 		AdminProductDetailOutDto result = productQueryPort.findAdminProductDetailById(productId);
@@ -260,7 +286,7 @@ public class ProductQueryService {
 	}
 
 
-	// 10. VIEW Outbox 저장 (D7: 같은 TX에서 조회 + outbox INSERT)
+	// 12. VIEW Outbox 저장 (D7: 같은 TX에서 조회 + outbox INSERT)
 	@Transactional
 	public void saveViewOutbox(Long userId, Long productId) {
 		outboxEventPort.save(EventType.PRODUCT_VIEWED, String.valueOf(productId),
